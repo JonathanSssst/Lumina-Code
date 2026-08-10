@@ -104,6 +104,16 @@ def _default_workspace(state: dict[str, Any], frozen: bool) -> Path:
     return Path.home()
 
 
+def _icon_path() -> Path | None:
+    """Resolve the bundled app icon (.ico) in source or frozen builds."""
+    if getattr(sys, "frozen", False):
+        base = Path(getattr(sys, "_MEIPASS", "."))
+    else:
+        base = _PROJECT_ROOT
+    cand = base / "assets" / "icon.ico"
+    return cand if cand.is_file() else None
+
+
 def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False) -> None:
     import uvicorn
 
@@ -155,6 +165,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
             webview = None
         if webview is not None:
             try:
+                icon = _icon_path()
                 webview.create_window(
                     "LuminaCoder",
                     url,
@@ -162,6 +173,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
                     height=820,
                     min_size=(900, 620),
                     js_api=bridge,
+                    icon=str(icon) if icon else None,
                 )
                 webview.start()
                 server.should_exit = True

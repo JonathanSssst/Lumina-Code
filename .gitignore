@@ -5,6 +5,8 @@ __pycache__/
 .eggs/
 dist/
 build/
+LuminaCoder.spec
+*.spec
 
 # Virtual envs
 .venv/
