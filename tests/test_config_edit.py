@@ -217,7 +217,7 @@ def test_servers_endpoints(tmp_path):
 
         r = c.post(
             "/api/servers",
-            json={"action": "add", "url": "http://localhost:1200", "name": "Localhost", "user": "lumina-coder"},
+            json={"action": "add", "url": "http://localhost:1200", "name": "Localhost", "user": "lumina-code"},
         )
         assert r.json()["ok"]
         servers = r.json()["servers"]

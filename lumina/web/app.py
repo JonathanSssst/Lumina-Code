@@ -42,7 +42,7 @@ _INDEX_HTML = """<!doctype html>
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>LuminaCoder</title>
+<title>LuminaCode</title>
 <script>
 try { document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark"); } catch (e) {}
 </script>
@@ -236,25 +236,22 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   #main { flex: 1; overflow-y: auto; scroll-behavior: smooth; min-width: 0; }
   #log { max-width: 820px; margin: 0 auto; padding: 28px 22px 44px; }
 
-  /* ---------- right conversation navigation ---------- */
-  #toc { width: 210px; flex: none; border-left: 1px solid var(--border); overflow: hidden;
-    background: var(--panel); display: flex; flex-direction: column; transition: width .2s ease; }
-  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 4px;
-    padding: 8px 8px 4px 14px; flex: none; }
-  .toc-label { font-size: 11px; font-weight: 650; letter-spacing: .8px; text-transform: uppercase;
-    color: var(--muted); white-space: nowrap; }
-  #tocToggle .i-left { display: none; }
-  #toc.collapsed #tocToggle .i-right { display: none; }
-  #toc.collapsed #tocToggle .i-left { display: block; }
-  #toc.collapsed { width: 38px; }
-  #toc.collapsed .toc-label, #toc.collapsed #tocList { display: none; }
-  #toc.collapsed .toc-head { justify-content: center; padding: 8px 0 0; }
-  #tocList { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 10px; }
-  .toc-item { padding: 7px 14px; font-size: 12px; color: var(--muted); cursor: pointer;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    border-left: 2px solid transparent; transition: background .15s ease, color .15s ease; }
-  .toc-item:hover { background: var(--panel2); color: var(--text); }
-  .toc-item.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); }
+  /* ---------- right floating conversation navigation (dot rail) ---------- */
+  #toc { position: fixed; right: 16px; top: 50%; transform: translateY(-50%);
+    height: 40vh; width: 26px; z-index: 40; pointer-events: none; }
+  #tocDots { position: relative; width: 100%; height: 100%; overflow: hidden; pointer-events: auto; }
+  .toc-dot { position: absolute; left: 50%; transform: translate(-50%, -50%); border-radius: 50%;
+    background: var(--muted); cursor: pointer;
+    transition: top .25s ease, width .2s ease, height .2s ease, opacity .2s ease, background .15s ease,
+      box-shadow .15s ease; }
+  .toc-dot:hover { background: var(--accent); }
+  .toc-dot.active { background: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+  .toc-tip { position: fixed; z-index: 60; max-width: 280px; padding: 8px 10px; font-size: 12px;
+    line-height: 1.5; color: var(--text); background: var(--panel2);
+    border: 1px solid var(--border-strong); border-radius: 8px; box-shadow: var(--shadow);
+    opacity: 0; transition: opacity .12s ease; pointer-events: none; }
+  .toc-tip-title { font-size: 11px; font-weight: 650; color: var(--accent); margin-bottom: 4px; }
+  .toc-tip-body { white-space: pre-wrap; word-break: break-word; }
 
   .msg { margin-bottom: 16px; line-height: 1.65; font-size: 14px; word-break: break-word;
     animation: rise .32s ease both; }
@@ -358,6 +355,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   /* message hover actions */
   .msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity .15s ease; }
   .msg:hover .msg-actions { opacity: 1; }
+  .log.busy .msg-actions { opacity: 0; pointer-events: none; }
   .msg-actions button { padding: 2px 9px; font-size: 11px; border-radius: 7px; color: var(--muted);
     background: var(--panel2); border: 1px solid var(--border); }
   .msg-actions button:hover { color: var(--text); border-color: var(--accent-line); }
@@ -411,10 +409,12 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .modal .actions .save { background: var(--accent); border: none; color: var(--on-accent); }
   .modal .save-note { color: var(--ok); font-size: 12px; margin-top: 10px; min-height: 14px; }
 
-  /* settings */
-  .settings-shell { display: flex; gap: 0; min-height: 420px; max-height: 72vh; margin: 0 -24px;
+  /* settings modal: wide, flat (horizontal) layout */
+  .modal.settings-modal { max-width: 1040px; width: min(1040px, 96vw); max-height: 74vh; overflow: hidden; }
+  .modal.settings-modal .hint { margin-bottom: 14px; }
+  .settings-shell { display: flex; gap: 0; min-height: 320px; max-height: 50vh; margin: 0 -24px;
     border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
-  .settings-nav { flex: none; width: 132px; border-right: 1px solid var(--border);
+  .settings-nav { flex: none; width: 150px; border-right: 1px solid var(--border);
     padding: 10px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
   .settings-nav .snav { text-align: left; background: transparent; border: none; color: var(--muted);
     padding: 7px 12px; border-radius: 8px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
@@ -436,6 +436,13 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .set-ctl select { max-width: 220px; }
   .set-ctl input[type=text] { width: 220px; }
   .set-ctl .toggle { font-size: 13px; }
+  .update-link { color: var(--accent); cursor: pointer; font-weight: 600; text-decoration: underline;
+    text-underline-offset: 3px; }
+  .icon-btn-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+  .icon-btn-wrap .upd-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px;
+    border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2px var(--panel);
+    display: none; }
+  .icon-btn-wrap.has-update .upd-dot { display: block; animation: fade .2s ease; }
   .kbd { font-family: var(--font-code); font-size: 11.5px; background: var(--panel2);
     border: 1px solid var(--border-strong); border-radius: 6px; padding: 2px 7px; color: var(--text); white-space: nowrap; }
   .set-list { display: flex; flex-direction: column; }
@@ -464,7 +471,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
   pre, code, .markdown pre code, .tool-card .tool-body pre,
   details.thinking .think-body pre, details.thinking .think-body code { font-family: var(--font-code); }
-  .stat, .si-meta, .toc-item, .ops-head, .tname { font-family: var(--font-code); }
+  .stat, .si-meta, .ops-head, .tname { font-family: var(--font-code); }
 </style>
 <meta name="color-scheme" content="dark light"/>
 </head>
@@ -477,7 +484,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
       <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
     </button>
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
-    <span class="side-brand-txt">LuminaCoder</span>
+    <span class="side-brand-txt">LuminaCode</span>
   </div>
   <div class="side-section">
     <div class="side-label">工作区</div>
@@ -506,7 +513,9 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
           <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
           <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
-        <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
+        <span class="icon-btn-wrap" id="settingsBtnWrap">
+          <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg><span class="upd-dot"></span></button>
+        </span>
       </span>
     </div>
   </div>
@@ -515,15 +524,9 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="work">
   <div id="main"><div id="log"></div></div>
   <aside id="toc">
-    <div class="toc-head">
-      <span class="toc-label">对话导航</span>
-      <button class="icon-btn" id="tocToggle" onclick="toggleToc()" title="折叠 / 展开对话导航">
-        <svg class="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-        <svg class="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      </button>
-    </div>
-    <div id="tocList"></div>
+    <div id="tocDots"></div>
   </aside>
+  <div id="tocTip" class="toc-tip"></div>
 </div>
 <div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
 <div id="inputbar"><div id="inputwrap">
@@ -533,7 +536,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 </div>
 </div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
-  <div class="modal">
+  <div class="modal settings-modal">
     <h3>设置</h3>
     <p class="hint">偏好设置自动保存到本地，重启后仍会保留。带 * 的选项仅保存，暂不生效。</p>
     <div class="settings-shell">
@@ -547,7 +550,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
           <div class="sec">
             <h4>通用</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">语言</div><div class="set-desc">更改 LuminaCoder 的显示语言 *</div></div>
+              <div class="set-info"><div class="set-label">语言</div><div class="set-desc">更改 LuminaCode 的显示语言 *</div></div>
               <div class="set-ctl"><select id="set_language">
                 <option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="en">English</option>
               </select></div>
@@ -585,7 +588,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCoder 的主题 *</div></div>
+              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCode 的主题 *</div></div>
               <div class="set-ctl"><select id="set_theme">
                 <option value="system">system</option><option value="tokyonight">tokyonight</option>
                 <option value="everforest">everforest</option><option value="ayu">ayu</option>
@@ -644,7 +647,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
               <div class="set-ctl"><label class="toggle"><input id="set_release_notes" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">检查更新</div><div class="set-desc">手动检查更新并在有更新时安装 *</div></div>
+              <div class="set-info"><div class="set-label">检查更新</div><div class="set-desc">检查 GitHub 上的最新版本，发现新版本时可一键跳转下载</div></div>
               <div class="set-ctl"><button id="checkUpdateBtn" onclick="checkUpdate()">检查更新</button><span id="updateNote" class="set-desc"></span></div>
             </div>
           </div>
@@ -684,7 +687,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
         <div class="pane" id="pane-servers">
           <div class="sec">
             <h4>服务器列表</h4>
-            <p class="hint" style="margin-bottom:12px">连接远程 LuminaCoder 服务器。*：当前仅保存配置，尚未实现远程连接。</p>
+            <p class="hint" style="margin-bottom:12px">连接远程 LuminaCode 服务器。*：当前仅保存配置，尚未实现远程连接。</p>
             <div class="set-ctl" style="justify-content:flex-end; margin-bottom:12px">
               <button onclick="openServerDialog(-1)">添加服务器</button>
             </div>
@@ -713,7 +716,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     <div class="field"><label>服务器 URL</label><input id="srv_url" type="text" placeholder="http://localhost:1200"/></div>
     <div class="field"><label>服务器名称（可选）</label><input id="srv_name" type="text" placeholder="Localhost"/></div>
     <div class="row">
-      <div class="field"><label>用户名（可选）</label><input id="srv_user" type="text" value="lumina-coder"/></div>
+      <div class="field"><label>用户名（可选）</label><input id="srv_user" type="text" value="lumina-code"/></div>
       <div class="field"><label>密码（可选）</label><input id="srv_password" type="password" placeholder="密码"/></div>
     </div>
     <div class="actions">
@@ -809,6 +812,7 @@ function connectWS(path){
 
 function setBusy(b){
   busy = b;
+  log.classList.toggle("busy", b);
   if (b) {
     sendBtn.dataset.mode = "stop";
     sendBtn.classList.add("stopping");
@@ -982,36 +986,105 @@ function truncateAndSend(ui, text){
   appendMd("user", text);
   ws.send(JSON.stringify({ type: "message", content: text }));
 }
-/* ---------- right conversation navigation ---------- */
+/* ---------- right conversation navigation (floating dots) ---------- */
+let tocDots = [];
 function rebuildToc(){
-  const list = document.getElementById("tocList");
-  if (!list) return;
-  list.innerHTML = "";
+  const wrap = document.getElementById("tocDots");
+  if (!wrap) return;
+  wrap.innerHTML = "";
+  tocDots = [];
   document.querySelectorAll(".msg.user[data-uindex]").forEach(el => {
     const n = parseInt(el.dataset.uindex, 10);
-    const text = (el.dataset.text || "").replace(/\\s+/g, " ").slice(0, 26);
-    const item = document.createElement("div");
-    item.className = "toc-item";
-    item.dataset.uindex = n;
-    item.textContent = (n + 1) + ". " + (text || "消息 " + n);
-    item.title = el.dataset.text || "";
-    item.onclick = () => el.scrollIntoView({ behavior: "smooth", block: "start" });
-    list.appendChild(item);
+    const dot = document.createElement("div");
+    dot.className = "toc-dot";
+    dot.dataset.uindex = n;
+    dot.onclick = () => el.scrollIntoView({ behavior: "smooth", block: "center" });
+    dot.onmouseenter = () => showTocTip(dot, el);
+    dot.onmouseleave = hideTocTip;
+    wrap.appendChild(dot);
+    tocDots.push({ dot, msg: el, idx: n });
+  });
+  tocFocus = 0;
+  clearTimeout(tocWheelTimer);
+  tocWheelTimer = null;
+  updateTocActive();
+}
+let tocFocus = 0;
+let tocWheelTimer = null;
+function layoutToc(activePos){
+  const wrap = document.getElementById("tocDots");
+  if (!wrap || !tocDots.length) return;
+  const H = wrap.clientHeight;
+  const centerY = H / 2;
+  tocDots.forEach((it, i) => {
+    const d = i - tocFocus;
+    const dist = Math.abs(d);
+    const size = Math.max(5, 13 - dist * 1.6);
+    const opacity = Math.max(0.15, 1 - dist * 0.17);
+    it.dot.style.top = (centerY + d * 24) + "px";
+    it.dot.style.width = size + "px";
+    it.dot.style.height = size + "px";
+    it.dot.style.opacity = opacity.toFixed(2);
+    it.dot.classList.toggle("active", i === activePos);
   });
 }
 function updateTocActive(){
-  const list = document.getElementById("tocList");
-  if (!list) return;
+  if (!tocDots.length) return;
   const mTop = main.getBoundingClientRect().top;
   let cur = null;
   document.querySelectorAll(".msg.user[data-uindex]").forEach(el => {
     if (el.getBoundingClientRect().top - mTop - 120 <= 0) cur = el;
   });
-  list.querySelectorAll(".toc-item").forEach(it => {
-    it.classList.toggle("active", cur && it.dataset.uindex === cur.dataset.uindex);
-  });
+  let activePos = 0;
+  if (cur) {
+    const curIdx = parseInt(cur.dataset.uindex, 10);
+    for (let i = 0; i < tocDots.length; i++) {
+      if (tocDots[i].idx === curIdx) { activePos = i; break; }
+    }
+  }
+  if (!tocWheelTimer) tocFocus = activePos;
+  layoutToc(activePos);
+}
+function showTocTip(dot, el){
+  const tip = document.getElementById("tocTip");
+  if (!tip) return;
+  tip.innerHTML = "";
+  const t = document.createElement("div");
+  t.className = "toc-tip-title";
+  t.textContent = "对话 " + (parseInt(el.dataset.uindex, 10) + 1);
+  const b = document.createElement("div");
+  b.className = "toc-tip-body";
+  b.textContent = el.dataset.text || "";
+  tip.appendChild(t); tip.appendChild(b);
+  tip.style.opacity = "1";
+  const r = dot.getBoundingClientRect();
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  let x = r.left - tw - 12;
+  let y = r.top + r.height / 2 - th / 2;
+  if (x < 8) x = r.right + 12;
+  y = Math.max(8, Math.min(y, window.innerHeight - th - 8));
+  tip.style.left = x + "px";
+  tip.style.top = y + "px";
+}
+function hideTocTip(){
+  const tip = document.getElementById("tocTip");
+  if (tip) tip.style.opacity = "0";
 }
 main.addEventListener("scroll", updateTocActive);
+window.addEventListener("resize", updateTocActive);
+(function initTocWheel(){
+  const wrap = document.getElementById("tocDots");
+  if (!wrap) return;
+  wrap.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    main.scrollTop += e.deltaY;
+    clearTimeout(tocWheelTimer);
+    tocWheelTimer = setTimeout(() => { tocWheelTimer = null; updateTocActive(); }, 1600);
+    const dir = e.deltaY > 0 ? 1 : -1;
+    tocFocus = Math.max(0, Math.min(tocDots.length - 1, tocFocus + dir));
+    updateTocActive();
+  }, { passive: false });
+})();
 function appendStat(text){
   const div = document.createElement("div");
   div.className = "msg stat";
@@ -1299,7 +1372,8 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 
 /* ---------- theme ---------- */
 let settings = {};
-const APP_VERSION = "1.0.0";
+let settingsReady = false;
+const APP_VERSION = "1.0.1";
 const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
 (function initThemeFast(){
   document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");
@@ -1338,15 +1412,6 @@ function toggleSidebar(){
     sb.classList.add("collapsed");
     document.body.classList.add("sidebar-hidden");
   }
-})();
-function toggleToc(){
-  const toc = document.getElementById("toc");
-  const collapsed = toc.classList.toggle("collapsed");
-  try { localStorage.setItem("lumina-toc", collapsed ? "1" : "0"); } catch (e) {}
-}
-(function initToc(){
-  const toc = document.getElementById("toc");
-  if (toc && localStorage.getItem("lumina-toc") === "1") toc.classList.add("collapsed");
 })();
 
 /* ---------- settings panel ---------- */
@@ -1421,6 +1486,7 @@ function persistSettings(){
   }).catch(() => {});
 }
 function settingsChanged(){
+  if (!settingsReady) return;
   readSettingsFromDom();
   applySettings();
   persistSettings();
@@ -1440,7 +1506,8 @@ function loadSettings(){
     writeSettingsToDom();
     applySettings();
     renderModels();
-  }).catch(() => {});
+    settingsReady = true;
+  }).catch(() => { settingsReady = true; });
 }
 function openSettings(){
   document.getElementById("saveNote").textContent = "";
@@ -1518,7 +1585,7 @@ function openServerDialog(idx){
   const s = idx >= 0 ? servers[idx] : {};
   document.getElementById("srv_url").value = s.url || "";
   document.getElementById("srv_name").value = s.name || "";
-  document.getElementById("srv_user").value = s.user || "lumina-coder";
+  document.getElementById("srv_user").value = s.user || "lumina-code";
   document.getElementById("srv_password").value = s.password || "";
   document.getElementById("srvNote").textContent = "";
   document.getElementById("serverOverlay").classList.add("open");
@@ -1598,20 +1665,65 @@ function saveModelConfig(){
     if (res.ok) renderModels(fields);
   });
 }
-function checkUpdate(){
+function cmpVer(a, b){
+  const pa = String(a).replace(/^v/i, "").split(".").map(n => parseInt(n, 10) || 0);
+  const pb = String(b).replace(/^v/i, "").split(".").map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const x = pa[i] || 0, y = pb[i] || 0;
+    if (x > y) return 1;
+    if (x < y) return -1;
+  }
+  return 0;
+}
+function openExternalUrl(url){
+  try {
+    if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.open_url === "function") {
+      window.pywebview.api.open_url(url);
+      return;
+    }
+  } catch (e) {}
+  window.open(url, "_blank");
+}
+function setUpdateBadge(has){
+  const wrap = document.getElementById("settingsBtnWrap");
+  if (wrap) wrap.classList.toggle("has-update", !!has);
+}
+function checkUpdate(opts){
+  const silent = opts && opts.silent;
   const btn = document.getElementById("checkUpdateBtn");
   const note = document.getElementById("updateNote");
-  btn.disabled = true;
-  note.textContent = "正在检查…";
-  fetch("https://api.github.com/repos/JonathanSssst/Lumina-Coder/releases/latest")
+  if (btn) btn.disabled = true;
+  if (note && !silent) note.textContent = "正在检查…";
+  fetch("https://api.github.com/repos/JonathanSssst/Lumina-Code/releases/latest")
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
       const latest = (data.tag_name || "").replace(/^v/i, "");
       const cur = APP_VERSION.replace(/^v/i, "");
-      note.textContent = (!latest || latest === cur) ? ("已是最新版本 (v" + APP_VERSION + ")") : ("发现新版本 " + data.tag_name);
+      if (!latest) {
+        if (note && !silent) note.textContent = "无法获取最新版本号。";
+        return;
+      }
+      if (cmpVer(latest, cur) <= 0) {
+        setUpdateBadge(false);
+        if (note && !silent) note.textContent = "已是最新版本 (v" + APP_VERSION + ")";
+        return;
+      }
+      setUpdateBadge(true);
+      if (note) {
+        note.textContent = "";
+        const span = document.createElement("span");
+        span.textContent = "当前 v" + APP_VERSION + "，发现新版本 " + data.tag_name + "：";
+        const link = document.createElement("a");
+        link.textContent = "前往 GitHub 下载";
+        link.className = "update-link";
+        link.href = "#";
+        link.onclick = (e) => { e.preventDefault(); openExternalUrl(data.html_url || "https://github.com/JonathanSssst/Lumina-Code/releases/latest"); };
+        note.appendChild(span);
+        note.appendChild(link);
+      }
     })
-    .catch(e => { note.textContent = "检查失败: " + e.message; })
-    .finally(() => { btn.disabled = false; });
+    .catch(e => { if (note && !silent) note.textContent = "检查失败: " + e.message; })
+    .finally(() => { if (btn) btn.disabled = false; });
 }
 
 /* ---------- workspaces + export ---------- */
@@ -1735,7 +1847,8 @@ function removeWs(path){
     else setWsNote("删除失败: " + (res.message || ""), false);
   });
 }
-loadSettings().then(() => refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || "")));</script>
+loadSettings().then(() => refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || "")));
+setTimeout(() => checkUpdate({ silent: true }), 4000);</script>
 </body>
 </html>"""
 
@@ -1800,7 +1913,7 @@ def create_app(
     config_env: Path | None = None,
     state_file: Path | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="LuminaCoder")
+    app = FastAPI(title="LuminaCode")
     workspace = Path(workspace).resolve()
     configured = [str(Path(p).resolve()) for p in (workspaces or [])]
     if str(workspace) not in configured:

@@ -1,3 +1,3 @@
-"""LuminaCoder - a local MCP-driven coding agent powered by DeepSeek V4 Flash."""
+"""LuminaCode - a local MCP-driven coding agent powered by DeepSeek V4 Flash."""
 
-__version__ = "0.1.0"
+__version__ = "1.0.1"

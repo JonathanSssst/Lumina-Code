@@ -1,4 +1,4 @@
-"""LuminaCoder desktop entry point.
+"""LuminaCode desktop entry point.
 
 Launch the web UI inside a native desktop window (pywebview) and keep the
 HTTP server running in the background. This file is the packaging entry:
@@ -36,11 +36,11 @@ def app_data_dir() -> Path:
     """Directory for .env / state / logs.
 
     Source checkout: the project root (so the existing .env keeps working).
-    Packaged exe: %APPDATA%\\LuminaCoder (or $LUMINA_HOME if set).
+    Packaged exe: %APPDATA%\\LuminaCode (or $LUMINA_HOME if set).
     """
     if getattr(sys, "frozen", False):
         base = os.environ.get("LUMINA_HOME")
-        return Path(base) if base else Path(os.environ.get("APPDATA", str(Path.home()))) / "LuminaCoder"
+        return Path(base) if base else Path(os.environ.get("APPDATA", str(Path.home()))) / "LuminaCode"
     return _PROJECT_ROOT
 
 
@@ -101,6 +101,15 @@ class DesktopBridge:
         try:
             os.startfile(str(path))  # type: ignore[attr-defined]
         except (AttributeError, OSError):
+            pass
+
+    def open_url(self, url: str) -> None:
+        """Open a URL in the default browser (best effort)."""
+        import webbrowser
+
+        try:
+            webbrowser.open(url)
+        except OSError:  # pragma: no cover
             pass
 
 
@@ -198,7 +207,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
         if webview is not None:
             try:
                 _window = webview.create_window(
-                    "LuminaCoder",
+                    "LuminaCode",
                     url,
                     width=1200,
                     height=820,
@@ -216,7 +225,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
     import webbrowser
 
     webbrowser.open(url)
-    print(f"LuminaCoder running at {url} — close this window to quit.")
+    print(f"LuminaCode running at {url} — close this window to quit.")
     try:
         thread.join()
     finally:
@@ -225,7 +234,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="lumina-app", description="LuminaCoder desktop app")
+    parser = argparse.ArgumentParser(prog="lumina-app", description="LuminaCode desktop app")
     parser.add_argument("--port", type=int, default=1200, help="starting HTTP port (default: 1200)")
     parser.add_argument("--port-span", type=int, default=200, help="ports scanned above --port when busy")
     parser.add_argument(

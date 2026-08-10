@@ -23,7 +23,7 @@ class WebTools:
         if self._client is None:
             self._client = httpx.AsyncClient(
                 timeout=httpx.Timeout(20.0, connect=8.0),
-                headers={"User-Agent": "Mozilla/5.0 (compatible; LuminaCoder/1.0)"},
+                headers={"User-Agent": "Mozilla/5.0 (compatible; LuminaCode/1.0)"},
                 follow_redirects=True,
             )
         return self._client

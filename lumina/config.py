@@ -60,7 +60,7 @@ class Settings(BaseSettings):
         alias="LUMINA_DANGER_COMMANDS",
     )
     safe_commands: str = Field(
-        default="pytest,ruff,python,git status,git diff,git log,ls,dir,pip install",
+        default="pytest,ruff,python,git status,git diff,git log,ls,dir,cd,pip install",
         alias="LUMINA_SAFE_COMMANDS",
     )
 

@@ -3,20 +3,20 @@ using System.IO;
 using System.Reflection;
 using System.Windows.Forms;
 
-class LuminaCoderSetup
+class LuminaCodeSetup
 {
     [STAThread]
     static void Main()
     {
         string dest = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Programs", "LuminaCoder");
+            "Programs", "LuminaCode");
         try
         {
             Directory.CreateDirectory(dest);
-            string exe = Path.Combine(dest, "LuminaCoder.exe");
+            string exe = Path.Combine(dest, "LuminaCode.exe");
 
-            using (Stream res = Assembly.GetExecutingAssembly().GetManifestResourceStream("LuminaCoder.exe"))
+            using (Stream res = Assembly.GetExecutingAssembly().GetManifestResourceStream("LuminaCode.exe"))
             {
                 if (res == null) throw new InvalidOperationException("未找到内嵌程序资源。");
                 using (FileStream fs = new FileStream(exe, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -27,20 +27,20 @@ class LuminaCoderSetup
 
             dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));
             string sm = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.Programs), "LuminaCoder.lnk");
+                Environment.GetFolderPath(Environment.SpecialFolder.Programs), "LuminaCode.lnk");
             dynamic sc = shell.CreateShortcut(sm);
             sc.TargetPath = exe;
             sc.WorkingDirectory = dest;
             sc.Save();
 
             string desk = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "LuminaCoder.lnk");
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "LuminaCode.lnk");
             dynamic dc = shell.CreateShortcut(desk);
             dc.TargetPath = exe;
             dc.WorkingDirectory = dest;
             dc.Save();
 
-            MessageBox.Show("LuminaCoder 1.0.0 已安装到：\n" + dest +
+            MessageBox.Show("LuminaCode 1.0.1 已安装到：\n" + dest +
                 "\n\n已在开始菜单和桌面创建快捷方式。",
                 "安装完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

@@ -22,8 +22,8 @@ UserQuietInstCmd=
 SourceFiles=SourceFiles
 
 [Strings]
-TargetName=E:\Users\Administrator\Desktop\Workspace\LuminaCoder\installer\LuminaCoder-Setup-1.0.0.exe
-FriendlyName=LuminaCoder 1.0.0 Setup
+TargetName=E:\Users\Administrator\Desktop\Workspace\LuminaCoder\installer\LuminaCode-Setup-1.0.1.exe
+FriendlyName=LuminaCode 1.0.1 Setup
 AppLaunched=install.cmd
 SourceFiles=SourceFiles
 
@@ -31,7 +31,7 @@ SourceFiles=SourceFiles
 SourceFiles0=payload
 
 [SourceFiles0]
-File1=LuminaCoder.exe
+File1=LuminaCode.exe
 File2=install.cmd
 File3=uninstall.cmd
 File4=README.txt

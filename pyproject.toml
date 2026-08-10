@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "lumina"
-version = "1.0.0"
-description = "LuminaCoder - a local MCP-driven coding agent powered by DeepSeek V4 Flash"
+version = "1.0.1"
+description = "LuminaCode - a local MCP-driven coding agent powered by DeepSeek V4 Flash"
 requires-python = ">=3.10"
 dependencies = [
     "httpx>=0.27",

@@ -23,6 +23,7 @@ from rich.rule import Rule
 from rich.table import Table
 from rich.text import Text
 
+from lumina import __version__
 from lumina.config import get_settings, resolve_env_file
 from lumina.factory import build_agent
 from lumina.logging_setup import setup_logging
@@ -30,10 +31,24 @@ from lumina.types import Message
 
 app = typer.Typer(
     name="lumina",
-    help="LuminaCoder - a local MCP-driven coding agent powered by DeepSeek V4 Flash.",
+    help="LuminaCode - a local MCP-driven coding agent powered by DeepSeek V4 Flash.",
     no_args_is_help=True,
 )
 console = Console()
+
+
+@app.callback(invoke_without_command=True)
+def main(
+    version: bool = typer.Option(False, "-version", "--version", help="Show version and exit."),
+) -> None:
+    """LuminaCode 命令行入口。
+
+    `lumina -version` / `lumina --version` 输出当前版本号后退出；
+    不带参数时显示帮助信息。
+    """
+    if version:
+        console.print(f"LuminaCode version {__version__}")
+        raise typer.Exit()
 
 
 class CliApprover:
@@ -317,7 +332,7 @@ def web(
                 time.sleep(0.05)
             try:
                 webview.create_window(
-                    "LuminaCoder", url, width=1200, height=820, min_size=(900, 620)
+                    "LuminaCode", url, width=1200, height=820, min_size=(900, 620)
                 )
                 webview.start()
             except Exception as exc:  # noqa: BLE001
