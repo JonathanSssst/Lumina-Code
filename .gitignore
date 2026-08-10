@@ -31,3 +31,7 @@ lumina.db-journal
 # Session data (SQLite)
 .lumina/sessions.db
 .lumina/sessions.db-journal
+.lumina/sessions.db-shm
+.lumina/sessions.db-wal
+*.db-shm
+*.db-wal

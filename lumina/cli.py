@@ -260,6 +260,10 @@ def web(
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(1200, "--port"),
     port_range: int = typer.Option(100, "--port-range", help="Max ports to scan above --port when busy"),
+    use_webview: bool = typer.Option(
+        True, "--webview/--no-webview",
+        help="Open in a desktop WebView window (default) instead of the browser",
+    ),
 ) -> None:
     """Launch the web UI (requires the 'web' extra: pip install lumina[web])."""
     try:
@@ -286,7 +290,46 @@ def web(
         raise typer.Exit(code=1)
     if chosen != port:
         console.print(f"[yellow]Port {port} in use, using {chosen} instead.[/]")
-    console.print(f"[green]Web UI:[/] http://{host}:{chosen}  (workdir: {workdir.resolve()})")
+    console.print(f"[green]Web UI:[/] http://{host}:{chosen}  (workdir: {workspace})")
+
+    import time
+    import webbrowser
+
+    url = f"http://{host}:{chosen}"
+    if use_webview:
+        try:
+            import webview
+        except ImportError:
+            webview = None
+            console.print(
+                "[yellow]pywebview not installed; falling back to the browser. "
+                "Install with: pip install \"lumina[webview]\"[/]"
+            )
+        if webview is not None:
+            import threading
+
+            server_config = uvicorn.Config(app_, host=host, port=chosen, log_level="warning")
+            server = uvicorn.Server(server_config)
+            server_thread = threading.Thread(target=server.run, daemon=True)
+            server_thread.start()
+            while not server.started:
+                time.sleep(0.05)
+            try:
+                webview.create_window(
+                    "LuminaCoder", url, width=1200, height=820, min_size=(900, 620)
+                )
+                webview.start()
+            except Exception as exc:  # noqa: BLE001
+                console.print(f"[yellow]WebView failed to start ({exc}); opening the browser instead.[/]")
+                webbrowser.open(url)
+                while server.is_serving():
+                    time.sleep(1)
+            finally:
+                server.should_exit = True
+                server_thread.join(timeout=10)
+            return
+
+    webbrowser.open(url)
     uvicorn.run(app_, host=host, port=chosen)
 
 

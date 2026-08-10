@@ -8,10 +8,34 @@ from typing import Any
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from lumina.config import Settings
+from lumina.config import Settings, get_settings
+from lumina.config_edit import write_env
 from lumina.factory import build_agent
 from lumina.store import SessionStore, default_db_path
 from lumina.types import Message
+
+_EDITABLE_KEYS = (
+    "DEEPSEEK_API_KEY",
+    "DEEPSEEK_BASE_URL",
+    "DEEPSEEK_MODEL",
+    "DEEPSEEK_PLANNER_MODEL",
+    "LUMINA_MAX_TOKENS",
+    "LUMINA_TOKEN_BUDGET",
+    "LUMINA_MAX_ITERATIONS",
+    "LUMINA_TEMPERATURE",
+    "LUMINA_ENABLE_PLANNER",
+    "LUMINA_COMPRESSION",
+    "LUMINA_SELF_REVIEW",
+)
+
+
+def _config_payload(s: Settings) -> dict:
+    payload: dict = {}
+    for field_name, field in Settings.model_fields.items():
+        alias = field.alias
+        if alias in _EDITABLE_KEYS:
+            payload[alias] = getattr(s, field_name)
+    return payload
 
 _INDEX_HTML = """<!doctype html>
 <html lang="zh-CN">
@@ -19,17 +43,38 @@ _INDEX_HTML = """<!doctype html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>LuminaCoder</title>
+<script>
+try { document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "light"); } catch (e) {}
+</script>
 <style>
   :root {
+    --bg: #fafafa; --panel: #ffffff; --panel2: #f4f4f5; --border: #d4d4d8;
+    --text: #18181b; --muted: #71717a; --accent: #6366f1; --user: #2563eb;
+    --code-bg: #f1f0f3; --code-text: #18181b;
+    --error-bg: #fef2f2; --error-border: #f87171; --error-text: #dc2626;
+    --thinking-bg: #fafafa; --thinking-text: #3f3f46;
+    --tool-bg: #ffffff;
+    --approval-bg: #fffbeb;
+    --header-bg: rgba(250, 250, 250, .85);
+    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  }
+  [data-theme="dark"] {
     --bg: #09090b; --panel: #18181b; --panel2: #27272a; --border: #3f3f46;
-    --text: #e4e4e7; --muted: #a1a1aa; --accent: #6366f1; --user: #2563eb;
+    --text: #e4e4e7; --muted: #a1a1aa; --accent: #818cf8; --user: #3b82f6;
+    --code-bg: #0d0d10; --code-text: #e4e4e7;
+    --error-bg: #2a1215; --error-border: #7f1d1d; --error-text: #fca5a5;
+    --thinking-bg: #0f0f12; --thinking-text: #cbd5e1;
+    --tool-bg: #131316;
+    --approval-bg: #241a05;
+    --header-bg: rgba(9, 9, 11, .8);
   }
   * { box-sizing: border-box; }
   body { margin: 0; height: 100vh; display: flex; flex-direction: column;
          background: var(--bg); color: var(--text);
+         transition: background .2s ease, color .2s ease;
          font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
   header { padding: 10px 20px; display: flex; gap: 10px; align-items: center;
-           border-bottom: 1px solid var(--border); background: rgba(9,9,11,.8); backdrop-filter: blur(8px); }
+           border-bottom: 1px solid var(--border); background: var(--header-bg); backdrop-filter: blur(8px); }
   header strong { font-size: 14px; letter-spacing: .2px; }
   header .spacer { flex: 1; }
   select, button, input { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
@@ -50,45 +95,45 @@ _INDEX_HTML = """<!doctype html>
   .msg .markdown ul, .msg .markdown ol { margin: .4em 0; padding-left: 22px; }
   .msg .markdown li { margin: .15em 0; }
   .msg .markdown code { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
-                        padding: 1px 5px; font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: 12.5px; }
-  .msg .markdown pre { background: #0d0d10; border: 1px solid var(--border); border-radius: 8px;
+                        padding: 1px 5px; font-family: var(--mono); font-size: 12.5px; }
+  .msg .markdown pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
                        padding: 10px 12px; overflow-x: auto; }
-  .msg .markdown pre code { background: none; border: none; padding: 0; font-size: 12.5px; }
+  .msg .markdown pre code { background: none; border: none; padding: 0; font-size: 12.5px; color: var(--code-text); }
   .msg .markdown blockquote { margin: .4em 0; padding: 2px 12px; border-left: 3px solid var(--accent);
                               color: var(--muted); }
   .msg .markdown a { color: var(--accent); }
-  .msg.error .bubble { background: #2a1215; border: 1px solid #7f1d1d; color: #fca5a5; }
+  .msg.error .bubble { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
   details.thinking { margin: 10px 0 14px; border: 1px dashed var(--border); border-radius: 10px;
-                     background: #0f0f12; }
+                     background: var(--thinking-bg); }
   details.thinking summary { cursor: pointer; user-select: none; padding: 7px 12px;
                              color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
   details.thinking summary::before { content: "🧠"; font-size: 12px; }
   details.thinking[open] summary { border-bottom: 1px solid var(--border); }
-  details.thinking .think-body { padding: 8px 12px 12px; font-size: 13px; color: #cbd5e1;
+  details.thinking .think-body { padding: 8px 12px 12px; font-size: 13px; color: var(--thinking-text);
                                  line-height: 1.55; }
-  details.thinking .think-body pre, details.thinking .think-body code { font-family: ui-monospace, Consolas, monospace; }
-  .tool-card { margin: 6px 0 14px; border: 1px solid var(--border); border-radius: 10px; background: #131316; }
+  details.thinking .think-body pre, details.thinking .think-body code { font-family: var(--mono); }
+  .tool-card { margin: 6px 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--tool-bg); }
   .tool-card .tool-head { display: flex; gap: 8px; align-items: center; padding: 6px 10px; cursor: pointer; user-select: none; }
-  .tool-card .tool-head:hover { background: var(--panel); border-radius: 10px; }
+  .tool-card .tool-head:hover { background: var(--panel2); border-radius: 10px; }
   .tool-card .dot { width: 7px; height: 7px; border-radius: 50%; background: #8b5cf6; flex: none; }
-  .tool-card .tname { color: #c4b5fd; font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
-  .tool-card .targs { color: var(--muted); font-size: 11px; font-family: ui-monospace, Consolas, monospace;
+  .tool-card .tname { color: #8b5cf6; font-family: var(--mono); font-size: 12px; }
+  .tool-card .targs { color: var(--muted); font-size: 11px; font-family: var(--mono);
                       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
   .tool-card .chev { color: var(--muted); font-size: 11px; }
   .tool-card .tool-body { display: none; border-top: 1px solid var(--border); padding: 10px 12px;
                           max-height: 300px; overflow: auto; }
   .tool-card .tool-body pre { margin: 0; white-space: pre-wrap; word-break: break-word;
-                              font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #cbd5e1; }
-  .tool-card.err { border-color: #7f1d1d; } .tool-card.err .dot { background: #ef4444; }
+                              font-family: var(--mono); font-size: 12px; color: var(--code-text); }
+  .tool-card.err { border-color: var(--error-border); } .tool-card.err .dot { background: #ef4444; }
   .approval { margin: 10px 0; padding: 10px 14px; border: 1px solid #f59e0b; border-radius: 10px;
-              background: #241a05; font-size: 13px; }
+              background: var(--approval-bg); font-size: 13px; }
   .approval .approval-actions { margin-top: 8px; display: flex; gap: 8px; }
   .approval .approval-actions button { padding: 4px 14px; font-size: 13px; }
   .approval .approval-actions button.ok { background: #16a34a; border-color: #16a34a; color: #fff; }
   .approval .approval-actions button.no { background: #dc2626; border-color: #dc2626; color: #fff; }
   .stat { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
   #inputbar { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border);
-              background: rgba(9,9,11,.8); }
+              background: var(--header-bg); }
   #inputwrap { flex: 1; max-width: 800px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
   #input { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
            padding: 11px 14px; color: var(--text); font-size: 14px; }
@@ -98,6 +143,22 @@ _INDEX_HTML = """<!doctype html>
   label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted);
           cursor: pointer; white-space: nowrap; }
   label input { accent-color: var(--accent); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none;
+                   align-items: flex-start; justify-content: center; z-index: 50; padding: 40px 16px; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; width: 100%;
+           max-width: 560px; padding: 20px 22px; max-height: 82vh; overflow: auto; }
+  .modal h3 { margin: 0 0 4px; font-size: 16px; }
+  .modal .hint { color: var(--muted); font-size: 12px; margin: 0 0 14px; line-height: 1.5; }
+  .modal .field { margin-bottom: 12px; }
+  .modal .field label { display: block; margin-bottom: 4px; font-size: 12px; }
+  .modal .row { display: flex; gap: 12px; }
+  .modal .row .field { flex: 1; }
+  .modal input[type=text], .modal input[type=password], .modal input[type=number] { width: 100%; }
+  .modal .cb { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .modal .actions .save { background: var(--accent); border: none; color: #fff; }
+  .modal .save-note { color: #16a34a; font-size: 12px; margin-top: 8px; }
   ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-thumb { background: var(--panel2); border-radius: 5px; }
 </style>
 </head>
@@ -110,6 +171,8 @@ _INDEX_HTML = """<!doctype html>
   <button onclick="deleteSession()" style="background:transparent;border-color:transparent;color:#f87171;">删除</button>
   <span class="spacer"></span>
   <span id="tokStat" class="stat" style="display:none;"></span>
+  <button id="themeBtn" onclick="toggleTheme()" title="切换深色/浅色">🌙</button>
+  <button onclick="openSettings()" title="编辑配置">⚙ 设置</button>
   <button id="stopBtn" onclick="stopRun()" style="display:none;color:#f87171;border-color:#7f1d1d;">停止</button>
   <label><input id="autoApprove" type="checkbox"/>自动批准</label>
 </header>
@@ -118,6 +181,34 @@ _INDEX_HTML = """<!doctype html>
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="send()">发送</button>
 </div></div>
+<div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
+  <div class="modal">
+    <h3>设置</h3>
+    <p class="hint">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
+    <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
+    <div class="field"><label>Base URL</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
+    <div class="row">
+      <div class="field"><label>模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
+      <div class="field"><label>规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
+      <div class="field"><label>任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
+      <div class="field"><label>温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>
+    </div>
+    <label class="cb"><input id="cfg_LUMINA_ENABLE_PLANNER" type="checkbox"/>启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)</label>
+    <label class="cb"><input id="cfg_LUMINA_COMPRESSION" type="checkbox"/>上下文压缩 (LUMINA_COMPRESSION)</label>
+    <label class="cb"><input id="cfg_LUMINA_SELF_REVIEW" type="checkbox"/>完成时自我审查 (LUMINA_SELF_REVIEW)</label>
+    <div class="actions">
+      <button onclick="closeSettings()">取消</button>
+      <button class="save" onclick="saveSettings()">保存</button>
+    </div>
+    <div id="saveNote" class="save-note"></div>
+  </div>
+</div>
 <script>
 const ws = new WebSocket(`ws://${location.host}/ws`);
 const log = document.getElementById("log");
@@ -369,6 +460,46 @@ input.addEventListener("keydown", (e) => {
 document.getElementById("autoApprove").addEventListener("change", (e) => {
   ws.send(JSON.stringify({ type: "set_auto", value: e.target.checked }));
 });
+
+/* ---------- theme toggle ---------- */
+let theme = localStorage.getItem("lumina-theme") || "light";
+document.documentElement.setAttribute("data-theme", theme);
+function updateThemeBtn(){ document.getElementById("themeBtn").textContent = theme === "light" ? "🌙" : "☀"; }
+updateThemeBtn();
+function toggleTheme(){
+  theme = theme === "light" ? "dark" : "light";
+  document.documentElement.setAttribute("data-theme", theme);
+  localStorage.setItem("lumina-theme", theme);
+  updateThemeBtn();
+}
+
+/* ---------- settings panel ---------- */
+function openSettings(){
+  document.getElementById("saveNote").textContent = "";
+  fetch("/api/config").then(r => r.json()).then(cfg => {
+    Object.keys(cfg).forEach(k => {
+      const el = document.getElementById("cfg_" + k);
+      if (el) { if (el.type === "checkbox") el.checked = !!cfg[k]; else el.value = cfg[k] == null ? "" : cfg[k]; }
+    });
+  });
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+function closeSettings(){ document.getElementById("settingsOverlay").classList.remove("open"); }
+function saveSettings(){
+  const fields = {};
+  document.querySelectorAll("#settingsOverlay input").forEach(el => {
+    const key = el.id.replace("cfg_", "");
+    fields[key] = el.type === "checkbox" ? el.checked : el.value.trim();
+  });
+  fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(fields),
+  }).then(r => r.json()).then(res => {
+    document.getElementById("saveNote").textContent =
+      res.ok ? "已保存到 .env，新会话将使用新配置。" : ("保存失败: " + (res.message || ""));
+  });
+}
 </script>
 </body>
 </html>"""
@@ -424,6 +555,8 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
     app = FastAPI(title="LuminaCoder")
     workspace = Path(workspace).resolve()
     store = SessionStore(default_db_path(workspace))
+    app.state.workspace = workspace
+    app.state.settings = settings
 
     def session_payload(sid: int) -> dict:
         s = store.get_session(sid)
@@ -438,11 +571,34 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
     async def index() -> str:
         return _INDEX_HTML
 
+    @app.get("/api/config")
+    async def get_config() -> dict:
+        return _config_payload(app.state.settings)
+
+    @app.post("/api/config")
+    async def post_config(payload: dict[str, Any]) -> dict:
+        updates: dict[str, str] = {}
+        for key in _EDITABLE_KEYS:
+            if key in payload:
+                value = payload[key]
+                if isinstance(value, bool):
+                    value = "true" if value else "false"
+                updates[key] = str(value)
+        if not updates:
+            return {"ok": False, "message": "no valid configuration fields"}
+        try:
+            write_env(app.state.workspace / ".env", updates)
+        except OSError as exc:
+            return {"ok": False, "message": str(exc)}
+        get_settings.cache_clear()
+        app.state.settings = get_settings()
+        return {"ok": True}
+
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket) -> None:
         await ws.accept()
         approver = WsApprover(ws)
-        agent = build_agent(workspace, settings, approver, WsHooks(ws))
+        agent = build_agent(app.state.workspace, app.state.settings, approver, WsHooks(ws))
         current_session: int | None = None
         running: asyncio.Task | None = None
 

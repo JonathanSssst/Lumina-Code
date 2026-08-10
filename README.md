@@ -7,6 +7,9 @@
 
 - **自主执行闭环**：探索 → 规划 → 执行 → 测试 → 自修复 → 自我审查
 - **双界面**：CLI（`lumina run` / `lumina chat`）与 Web UI（Markdown 渲染、Thinking 折叠、工具调用卡片、多会话管理）
+- **桌面 WebView 窗口**：`lumina web` 默认以系统 WebView 弹出桌面窗口（可 `--no-webview` 退回浏览器）
+- **深色 / 浅色主题**：一键切换，偏好本地记忆（默认浅色）
+- **设置面板**：Web UI 内直接编辑 `.env`（API Key、token 预算、模型等），保存后新会话生效
 - **安全分级**：白名单命令自动放行，危险命令（`rm -rf`、`git push` 等）需人工批准，未知命令需批准
 - **Reasoner 分层规划**：`deepseek-reasoner` 规划，flash 模型执行
 - **上下文压缩**：长任务接近 token 预算时自动摘要早期历史，防止中断
@@ -25,7 +28,8 @@ pip install -e ".[web,dev]"
 可选组件：
 
 ```bash
-pip install -e ".[mcp]"   # MCP 服务器支持
+pip install -e ".[mcp]"       # MCP 服务器支持
+pip install -e ".[webview]"   # 桌面 WebView 窗口（lumina web 默认使用；Windows 10/11 自带 WebView2）
 ```
 
 ## 配置
@@ -73,7 +77,8 @@ lumina chat
 ### Web UI
 
 ```bash
-lumina web                 # 默认 http://127.0.0.1:1200
+lumina web                 # 默认打开桌面 WebView 窗口，http://127.0.0.1:1200
+lumina web --no-webview    # 改为在浏览器中打开
 lumina web --port 9000     # 指定端口
 ```
 
@@ -81,6 +86,8 @@ Web UI 特性：
 
 - 新建 / 删除 / 重命名会话，会话自动持久化
 - 任务可随时「停止」
+- 深色 / 浅色主题一键切换（默认浅色，本地记忆）
+- ⚙ 设置面板：直接编辑 `.env`（API Key、Base URL、模型、token 预算、迭代上限、温度、规划 / 压缩 / 自我审查开关），保存后新会话生效
 - Markdown 渲染（代码块、标题、列表、引用、链接）
 - 思考过程（Thinking）折叠面板
 - 工具调用卡片可点击展开查看参数与结果
