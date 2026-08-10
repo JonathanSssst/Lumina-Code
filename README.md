@@ -7,10 +7,10 @@
 
 - **自主执行闭环**：探索 → 规划 → 执行 → 测试 → 自修复 → 自我审查
 - **双界面**：CLI（`lumina run` / `lumina chat`）与 Web UI（Markdown 渲染、Thinking 折叠、工具调用卡片、多会话管理）
-- **桌面 WebView 窗口**：`lumina web` 默认以系统 WebView 弹出桌面窗口（可 `--no-webview` 退回浏览器）
-- **深色 / 浅色主题**：一键切换，偏好本地记忆（默认浅色）
+- **桌面应用**：直接运行 `python app.py` 打开原生桌面窗口（pywebview），无需每次进入项目目录执行 `lumina web`
+- **深色 / 浅色主题**：一键切换，偏好本地记忆（默认深色）
 - **设置面板**：Web UI 内直接编辑 `.env`（API Key、token 预算、模型等），保存后新会话生效
-- **多工作区**：一个 Web 实例可切换多个工作目录，会话与数据库按工作区隔离
+- **多工作区**：内置工作区管理器，可浏览 / 添加 / 删除 / 切换任意项目目录，会话与数据库按工作区隔离，并记住上次使用的工作区
 - **安全分级**：白名单命令自动放行，危险命令（`rm -rf`、`git push` 等）需人工批准，未知命令需批准
 - **Reasoner 分层规划**：`deepseek-reasoner` 规划，flash 模型执行
 - **并行子 agent**：`run_parallel` 工具将任务拆给多个只读子 agent 并发探索，合并结果
@@ -79,7 +79,18 @@ lumina chat
 # 会话内命令：/new /list /resume <id> /delete <id> /exit
 ```
 
-### Web UI
+### 桌面应用（推荐）
+
+```bash
+python app.py            # 启动桌面窗口（pywebview）
+python app.py --no-webview   # 改为在浏览器中打开
+python app.py --port 1300    # 指定起始端口（端口被占用时自动向后扫描）
+```
+
+首次启动默认工作区为项目根目录；点击顶栏文件夹按钮可打开「选择工作区」面板，
+浏览并添加任意项目目录，随时切换。下次启动会自动恢复上次使用的工作区。
+
+### Web UI（CLI 方式）
 
 ```bash
 lumina web                 # 默认打开桌面 WebView 窗口，http://127.0.0.1:1200
@@ -90,20 +101,31 @@ lumina web --port 9000     # 指定端口
 Web UI 特性：
 
 - 新建 / 删除 / 重命名会话，会话自动持久化
-- 多工作区切换（`LUMINA_WORKSPACES` 配置额外工作区）
-- 任务可随时「停止」
+- 工作区选择：顶栏下拉切换，或打开「选择工作区」面板浏览 / 添加 / 删除项目目录（桌面窗口可用原生文件夹选择器）
+- 发送后「发送」按钮变为「停止」，回复结束后自动恢复
 - 会话导出（Markdown / JSON 下载）
-- 深色 / 浅色主题一键切换（默认浅色，本地记忆）
+- 深色 / 浅色主题一键切换（默认深色，本地记忆）
 - ⚙ 设置面板：直接编辑 `.env`（API Key、Base URL、模型、token 预算、迭代上限、温度、规划 / 压缩 / 自我审查开关），保存后新会话生效
-- Markdown 渲染（代码块、标题、列表、引用、链接）
-- 思考过程（Thinking）折叠面板
-- 工具调用卡片可点击展开查看参数与结果
+- Markdown 渲染（代码块、标题、列表、表格、分割线、引用、链接）
+- 思考过程（Thinking）折叠面板，显示「已思考 N 秒」
+- 工具操作汇总卡片：显示「已读取 N 个文件 · 已编辑 path +n -m」等，可点击展开详情
 - 「自动批准」开关：勾选后所有待批准操作直接放行
 - 按 `↑`/`↓` 浏览历史输入
+
+## 打包为桌面程序（PyInstaller）
+
+```bash
+pip install pyinstaller
+pyinstaller --windowed --name LuminaCoder app.py
+```
+
+打包后运行 `LuminaCoder.exe` 即为桌面软件；配置、工作区列表与运行状态
+保存在 `%APPDATA%\LuminaCoder`（可用环境变量 `LUMINA_HOME` 覆盖）。
 
 ## 架构
 
 ```
+app.py                # 桌面应用入口（pywebview + 内嵌 HTTP 服务），打包入口
 lumina/
 ├── cli.py             # Typer CLI 入口（run/chat/web/doctor）
 ├── config.py          # 环境变量配置（.env）

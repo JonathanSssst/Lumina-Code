@@ -133,7 +133,6 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .icon-btn:hover { background: var(--panel2); border-color: var(--border); color: var(--text); }
   .icon-btn svg { width: 17px; height: 17px; }
   .icon-btn.danger:hover { color: var(--danger); }
-  .icon-btn.stop { color: var(--danger); }
   #themeBtn .i-sun, #themeBtn .i-moon { width: 17px; height: 17px; }
   [data-theme="dark"] #themeBtn .i-sun { display: none; }
   [data-theme="dark"] #themeBtn .i-moon { display: block; }
@@ -253,7 +252,21 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   #send:hover { filter: brightness(1.06); }
   #send:active { transform: translateY(1px); }
   #send:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  #send.stopping { background: var(--danger); box-shadow: 0 4px 14px rgba(248,113,113,.3); }
   #send svg { width: 16px; height: 16px; }
+
+  /* workspace manager */
+  .ws-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--panel2);
+    transition: border-color .18s ease; }
+  .ws-row:hover { border-color: var(--accent-line); }
+  .ws-info { flex: 1; min-width: 0; }
+  .ws-name { font-size: 13px; font-weight: 600; }
+  .ws-path { font-size: 11.5px; color: var(--faint); font-family: var(--mono); word-break: break-all; }
+  .ws-actions { display: flex; gap: 8px; flex: none; }
+  .ws-actions button { padding: 5px 12px; font-size: 12px; }
+  .ws-actions button.danger { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .ws-actions button:disabled { opacity: .35; cursor: not-allowed; }
 
   /* modal */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
@@ -301,6 +314,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </div>
   <div class="sel-group">
     <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
+    <button class="icon-btn" onclick="openWsManager()" title="选择 / 管理工作区"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></button>
     <select id="sessions" onchange="switchSession(this.value)" title="会话"></select>
   </div>
   <div class="btn-group">
@@ -316,13 +330,12 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
   </button>
   <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
-  <button class="icon-btn stop" id="stopBtn" onclick="stopRun()" style="display:none;" title="停止任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
   <label class="toggle"><input id="autoApprove" type="checkbox"/><span>自动批准</span></label>
 </header>
 <div id="main"><div id="log"></div></div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
-  <button id="send" onclick="send()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
+  <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
 </div></div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
@@ -352,6 +365,25 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     <div id="saveNote" class="save-note"></div>
   </div>
 </div>
+<div id="wsOverlay" class="modal-overlay" onclick="if(event.target===this)closeWsManager()">
+  <div class="modal">
+    <h3>选择工作区</h3>
+    <p class="hint">切换要使用的项目目录。添加的工作区会保存到 <code>LUMINA_WORKSPACES</code>，下次启动仍可选用。</p>
+    <div id="wsList"></div>
+    <div class="field">
+      <label>添加工作区</label>
+      <div class="row">
+        <input id="wsPathInput" type="text" placeholder="输入项目目录的绝对路径"/>
+        <button onclick="browseWsFolder()" style="flex:none" title="选择文件夹">浏览…</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button onclick="closeWsManager()">关闭</button>
+      <button class="save" onclick="addWs()">添加</button>
+    </div>
+    <div id="wsNote" class="save-note"></div>
+  </div>
+</div>
 <script>
 let ws = null;
 let activeWorkspace = "";
@@ -379,7 +411,22 @@ function connectWS(path){
   ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
 }
 
-function setBusy(b){ busy = b; sendBtn.disabled = b; document.getElementById("stopBtn").style.display = b ? "inline-block" : "none"; }
+function setBusy(b){
+  busy = b;
+  if (b) {
+    sendBtn.dataset.mode = "stop";
+    sendBtn.classList.add("stopping");
+    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>停止';
+  } else {
+    sendBtn.dataset.mode = "send";
+    sendBtn.classList.remove("stopping");
+    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送';
+  }
+}
+function sendBtnClick(){
+  if (busy) stopRun();
+  else send();
+}
 function updateTok(){
   const el = document.getElementById("tokStat");
   if (tokenUsed > 0) { el.textContent = "tokens: " + tokenUsed; el.style.display = "inline"; }
@@ -648,6 +695,7 @@ function switchWorkspace(value){
   thinkingEl = null; resetStream(); resetOps();
   tokenUsed = 0; updateTok();
   connectWS(value);
+  persistDefaultWorkspace(value);
 }
 
 function renderSessions(sessions) {
@@ -766,18 +814,114 @@ function exportSession() {
     })
     .catch(e => appendMd("error", "导出失败: " + e.message));
 }
-fetch("/api/workspaces").then(r => r.json()).then(data => {
-  const wsSel = document.getElementById("wsSel");
-  data.workspaces.forEach(ws_ => {
-    const opt = document.createElement("option");
-    opt.value = ws_.path;
-    opt.textContent = ws_.name;
-    wsSel.appendChild(opt);
+/* ---------- workspaces manager ---------- */
+let wsList = [];
+let activeWorkspacePath = "";
+function persistDefaultWorkspace(path){
+  fetch("/api/workspaces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "set_default", path }),
+  }).catch(() => {});
+}
+function refreshWorkspaces(){
+  return fetch("/api/workspaces").then(r => r.json()).then(data => {
+    wsList = data.workspaces || [];
+    const wsSel = document.getElementById("wsSel");
+    const prev = wsSel.value;
+    wsSel.innerHTML = "";
+    wsList.forEach(ws_ => {
+      const opt = document.createElement("option");
+      opt.value = ws_.path;
+      opt.textContent = ws_.name;
+      wsSel.appendChild(opt);
+    });
+    if (prev && wsList.some(w => w.path === prev)) wsSel.value = prev;
+    else wsSel.value = data.default;
+    activeWorkspacePath = wsSel.value;
+    renderWsList();
   });
-  wsSel.value = data.default;
-  connectWS(data.default);
-});
-</script>
+}
+function renderWsList(){
+  const box = document.getElementById("wsList");
+  box.innerHTML = "";
+  if (!wsList.length) {
+    box.innerHTML = '<p class="hint" style="margin:0 0 12px">尚未配置工作区，请在下方添加一个项目目录。</p>';
+    return;
+  }
+  wsList.forEach(ws_ => {
+    const row = document.createElement("div");
+    row.className = "ws-row";
+    const info = document.createElement("div");
+    info.className = "ws-info";
+    const nm = document.createElement("div");
+    nm.className = "ws-name";
+    nm.textContent = ws_.name + (ws_.path === activeWorkspacePath ? "（当前）" : "");
+    const pt = document.createElement("div");
+    pt.className = "ws-path";
+    pt.textContent = ws_.path;
+    info.appendChild(nm); info.appendChild(pt);
+    const act = document.createElement("div");
+    act.className = "ws-actions";
+    const go = document.createElement("button");
+    go.textContent = "切换";
+    go.onclick = () => { switchWorkspace(ws_.path); closeWsManager(); };
+    const del = document.createElement("button");
+    del.className = "danger";
+    del.textContent = "删除";
+    del.disabled = ws_.path === activeWorkspace;
+    del.onclick = () => removeWs(ws_.path);
+    act.appendChild(go); act.appendChild(del);
+    row.appendChild(info); row.appendChild(act);
+    box.appendChild(row);
+  });
+}
+function openWsManager(){
+  document.getElementById("wsNote").textContent = "";
+  document.getElementById("wsPathInput").value = "";
+  refreshWorkspaces().then(() => document.getElementById("wsOverlay").classList.add("open"));
+}
+function closeWsManager(){ document.getElementById("wsOverlay").classList.remove("open"); }
+function setWsNote(text, ok){
+  const note = document.getElementById("wsNote");
+  note.textContent = text;
+  note.style.color = ok ? "var(--ok)" : "var(--danger)";
+}
+async function browseWsFolder(){
+  if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.pick_folder === "function") {
+    try {
+      const path = await window.pywebview.api.pick_folder();
+      if (path) { document.getElementById("wsPathInput").value = path; return; }
+    } catch (e) {}
+  }
+  setWsNote("当前环境无法弹出文件夹选择器，请手动输入绝对路径。", false);
+}
+function addWs(){
+  const p = document.getElementById("wsPathInput").value.trim();
+  if (!p) { setWsNote("请输入目录路径。", false); return; }
+  fetch("/api/workspaces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "add", path: p }),
+  }).then(r => r.json()).then(res => {
+    if (res.ok) {
+      setWsNote("已添加。", true);
+      document.getElementById("wsPathInput").value = "";
+      refreshWorkspaces();
+    } else setWsNote("添加失败: " + (res.message || ""), false);
+  });
+}
+function removeWs(path){
+  fetch("/api/workspaces", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "remove", path }),
+  }).then(r => r.json()).then(res => {
+    if (res.ok) { setWsNote("已删除。", true); refreshWorkspaces(); }
+    else setWsNote("删除失败: " + (res.message || ""), false);
+  });
+}
+refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || ""));</script>
 </body>
 </html>"""
 
@@ -838,6 +982,9 @@ def create_app(
     settings: Settings,
     workspace: Path,
     workspaces: list[Path] | None = None,
+    *,
+    config_env: Path | None = None,
+    state_file: Path | None = None,
 ) -> FastAPI:
     app = FastAPI(title="LuminaCoder")
     workspace = Path(workspace).resolve()
@@ -848,6 +995,36 @@ def create_app(
     app.state.workspaces = ws_paths
     app.state.settings = settings
     app.state.stores: dict[str, SessionStore] = {}
+    app.state.config_env = Path(config_env).resolve() if config_env else None
+    app.state.state_file = Path(state_file).resolve() if state_file else None
+
+    def env_target() -> Path:
+        return app.state.config_env or (app.state.workspaces[0] / ".env")
+
+    def _load_state() -> dict:
+        try:
+            return json.loads(app.state.state_file.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def _save_state(data: dict) -> None:
+        try:
+            app.state.state_file.parent.mkdir(parents=True, exist_ok=True)
+            app.state.state_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        except OSError:
+            pass
+
+    def _workspaces_payload() -> dict:
+        return {
+            "workspaces": [{"path": str(p), "name": p.name or str(p)} for p in ws_paths],
+            "default": str(workspace),
+        }
+
+    def _persist_workspaces() -> None:
+        try:
+            write_env(env_target(), {"LUMINA_WORKSPACES": ",".join(str(p) for p in ws_paths)})
+        except OSError:
+            pass
 
     def get_store(path: Path) -> SessionStore:
         key = str(path)
@@ -878,10 +1055,50 @@ def create_app(
 
     @app.get("/api/workspaces")
     async def list_workspaces() -> dict:
-        return {
-            "workspaces": [{"path": str(p), "name": p.name or str(p)} for p in ws_paths],
-            "default": str(workspace),
-        }
+        return _workspaces_payload()
+
+    @app.post("/api/workspaces")
+    async def mutate_workspaces(payload: dict[str, Any]) -> dict:
+        action = str(payload.get("action", ""))
+        raw = str(payload.get("path", "")).strip()
+        if not raw:
+            return {"ok": False, "message": "缺少路径参数 path"}
+        p = Path(raw).expanduser().resolve()
+        known = [str(w) for w in ws_paths]
+
+        if action == "add":
+            if not p.is_dir():
+                return {"ok": False, "message": f"不是有效目录: {p}"}
+            if str(p) not in known:
+                ws_paths.append(p)
+                _persist_workspaces()
+            return {"ok": True, **_workspaces_payload()}
+
+        if action == "remove":
+            if str(p) == str(workspace):
+                return {"ok": False, "message": "不能移除当前正在使用的工作区，请先切换到其他工作区"}
+            before = len(ws_paths)
+            ws_paths[:] = [w for w in ws_paths if str(w) != str(p)]
+            if len(ws_paths) == before:
+                return {"ok": False, "message": "工作区不在列表中"}
+            _persist_workspaces()
+            if app.state.state_file is not None:
+                state = _load_state()
+                if state.get("last_workspace") == str(p):
+                    state["last_workspace"] = str(workspace)
+                    _save_state(state)
+            return {"ok": True, **_workspaces_payload()}
+
+        if action == "set_default":
+            if str(p) not in known:
+                return {"ok": False, "message": "工作区不在列表中"}
+            if app.state.state_file is not None:
+                state = _load_state()
+                state["last_workspace"] = str(p)
+                _save_state(state)
+            return {"ok": True}
+
+        return {"ok": False, "message": f"未知操作: {action}"}
 
     @app.get("/api/session/{sid}/export")
     async def export_session(sid: int, format: str = "markdown", workspace: str = "") -> Any:
@@ -929,7 +1146,7 @@ def create_app(
         if not updates:
             return {"ok": False, "message": "no valid configuration fields"}
         try:
-            write_env(app.state.workspaces[0] / ".env", updates)
+            write_env(env_target(), updates)
         except OSError as exc:
             return {"ok": False, "message": str(exc)}
         get_settings.cache_clear()

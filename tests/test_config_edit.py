@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from lumina.config_edit import read_env, write_env
 from lumina.store import SessionStore, default_db_path
 from lumina.types import Message
@@ -79,3 +81,56 @@ def test_workspaces_and_session_export(tmp_path):
 
         missing = c.get(f"/api/session/{sid}/export?workspace={ws1.name}")
         assert missing.status_code == 404
+
+
+def test_workspace_manager_endpoints(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    ws1 = tmp_path / "w1"
+    ws2 = tmp_path / "w2"
+    ws1.mkdir()
+    ws2.mkdir()
+    env = tmp_path / "app.env"
+    state = tmp_path / "state.json"
+    app = create_app(
+        settings=Settings(DEEPSEEK_API_KEY="k"),
+        workspace=ws1,
+        workspaces=[ws1, ws2],
+        config_env=env,
+        state_file=state,
+    )
+    with TestClient(app) as c:
+        ws3 = tmp_path / "w3"
+        ws3.mkdir()
+
+        r = c.post("/api/workspaces", json={"action": "add", "path": str(ws3)})
+        assert r.json()["ok"]
+        assert {w["name"] for w in r.json()["workspaces"]} == {"w1", "w2", "w3"}
+        assert "LUMINA_WORKSPACES" in env.read_text(encoding="utf-8")
+
+        r = c.post("/api/workspaces", json={"action": "add", "path": str(ws3)})
+        assert r.json()["ok"] and len(r.json()["workspaces"]) == 3
+
+        r = c.post("/api/workspaces", json={"action": "add", "path": str(tmp_path / "nope")})
+        assert not r.json()["ok"]
+
+        r = c.post("/api/workspaces", json={"action": "remove", "path": str(ws1)})
+        assert not r.json()["ok"]  # cannot remove the active workspace
+
+        r = c.post("/api/workspaces", json={"action": "remove", "path": str(ws2)})
+        assert r.json()["ok"]
+        assert {w["name"] for w in r.json()["workspaces"]} == {"w1", "w3"}
+
+        r = c.post("/api/workspaces", json={"action": "set_default", "path": str(ws3)})
+        assert r.json()["ok"]
+        assert json.loads(state.read_text(encoding="utf-8"))["last_workspace"] == str(ws3.resolve())
+
+        r = c.post("/api/workspaces", json={"action": "set_default", "path": str(ws2)})
+        assert not r.json()["ok"]
+
+        r = c.post("/api/config", json={"LUMINA_TOKEN_BUDGET": "12345"})
+        assert r.json()["ok"]
+        assert "LUMINA_TOKEN_BUDGET=12345" in env.read_text(encoding="utf-8")

@@ -323,8 +323,7 @@ def web(
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[yellow]WebView failed to start ({exc}); opening the browser instead.[/]")
                 webbrowser.open(url)
-                while server.is_serving():
-                    time.sleep(1)
+                server_thread.join()
             finally:
                 server.should_exit = True
                 server_thread.join(timeout=10)
