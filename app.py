@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import io
+import logging
 import os
 import socket
 import sys
@@ -20,6 +21,8 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger("lumina.app")
 
 if sys.stdout is None:  # frozen --windowed GUI has no console attached
     sys.stdout = io.StringIO()
@@ -120,6 +123,29 @@ def _icon_path() -> Path | None:
     return cand if cand.is_file() else None
 
 
+def _apply_window_icon(window: Any) -> None:
+    """Best-effort: set the native WinForms window icon on Windows.
+
+    pywebview 6 has no `icon=` argument, so reach into the WinForms Form
+    through pythonnet (already loaded by the winforms backend).
+    """
+    if sys.platform != "win32":
+        return
+    icon = _icon_path()
+    if icon is None:
+        return
+    try:
+        import clr  # type: ignore[import-not-found]  # pythonnet
+
+        clr.AddReference("System.Drawing")
+        from System.Drawing import Icon  # type: ignore[import-not-found]
+
+        if window is not None and getattr(window, "native", None) is not None:
+            window.native.Icon = Icon(str(icon))
+    except Exception:
+        logger.debug("could not set window icon", exc_info=True)
+
+
 def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False) -> None:
     import uvicorn
 
@@ -171,22 +197,21 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
             webview = None
         if webview is not None:
             try:
-                icon = _icon_path()
-                webview.create_window(
+                _window = webview.create_window(
                     "LuminaCoder",
                     url,
                     width=1200,
                     height=820,
                     min_size=(900, 620),
                     js_api=bridge,
-                    icon=str(icon) if icon else None,
                 )
+                _apply_window_icon(_window)
                 webview.start()
                 server.should_exit = True
                 thread.join(timeout=10)
                 return
-            except Exception:  # noqa: BLE001, S110
-                pass
+            except Exception:
+                logger.exception("webview failed, falling back to browser")
 
     import webbrowser
 
