@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import io
 import os
 import socket
 import sys
@@ -19,6 +20,11 @@ import threading
 import time
 from pathlib import Path
 from typing import Any
+
+if sys.stdout is None:  # frozen --windowed GUI has no console attached
+    sys.stdout = io.StringIO()
+if sys.stderr is None:
+    sys.stderr = io.StringIO()
 
 _PROJECT_ROOT = Path(__file__).resolve().parent
 
