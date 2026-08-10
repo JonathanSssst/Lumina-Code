@@ -166,3 +166,73 @@ def test_theme_prefs_roundtrip(tmp_path):
         )
         with TestClient(fresh) as f:
             assert f.get("/api/prefs").json() == {"theme": "light"}
+
+
+def test_settings_endpoints(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    state = tmp_path / "state.json"
+    app = create_app(
+        settings=Settings(DEEPSEEK_API_KEY="k"),
+        workspace=tmp_path,
+        state_file=state,
+    )
+    with TestClient(app) as c:
+        d = c.get("/api/settings").json()
+        assert d["language"] == "zh-CN"
+        assert d["auto_approve"] is False
+        assert d["color_scheme"] == "system"
+        assert d["theme"] == "system"
+        assert d["term_font"] == "JetBrainsMono Nerd Font Mono"
+
+        r = c.post("/api/settings", json={"auto_approve": True, "theme": "matrix", "ui_font": "Segoe UI"})
+        assert r.json()["ok"]
+        saved = c.get("/api/settings").json()
+        assert saved["auto_approve"] is True
+        assert saved["theme"] == "matrix"
+        assert saved["ui_font"] == "Segoe UI"
+        assert saved["language"] == "zh-CN"  # untouched defaults preserved
+
+        bad = c.post("/api/settings", json={"nonsense": 1})
+        assert bad.json()["ok"]  # unknown keys ignored, no crash
+
+
+def test_servers_endpoints(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    state = tmp_path / "state.json"
+    app = create_app(
+        settings=Settings(DEEPSEEK_API_KEY="k"),
+        workspace=tmp_path,
+        state_file=state,
+    )
+    with TestClient(app) as c:
+        assert c.get("/api/servers").json() == {"servers": []}
+
+        r = c.post(
+            "/api/servers",
+            json={"action": "add", "url": "http://localhost:1200", "name": "Localhost", "user": "lumina-coder"},
+        )
+        assert r.json()["ok"]
+        servers = r.json()["servers"]
+        assert len(servers) == 1
+        assert servers[0]["url"] == "http://localhost:1200"
+
+        r = c.post("/api/servers", json={"action": "add", "url": ""})
+        assert not r.json()["ok"]  # empty url rejected
+
+        r = c.post("/api/servers", json={"action": "update", "index": 0, "name": "Rename"})
+        assert r.json()["ok"]
+        assert r.json()["servers"][0]["name"] == "Rename"
+
+        r = c.post("/api/servers", json={"action": "remove", "index": 0})
+        assert r.json()["ok"]
+        assert r.json()["servers"] == []
+
+        assert json.loads(state.read_text(encoding="utf-8"))["servers"] == []

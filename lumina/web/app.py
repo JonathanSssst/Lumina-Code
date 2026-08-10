@@ -68,7 +68,25 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     --on-accent: #1a1208;
     --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", ui-monospace, Consolas, monospace;
     --sans: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-ui: var(--sans);
+    --font-code: var(--mono);
+    --font-term: var(--mono);
     --shadow: 0 10px 34px rgba(0,0,0,.5);
+  }
+  [data-theme-style="matrix"] {
+    --bg: #050503; --bg-grad: radial-gradient(1100px 560px at 82% -12%, rgba(0,255,102,.06), transparent 60%);
+    --panel: #070805; --panel2: #0b0d08; --panel3: #10130b;
+    --border: #173b1f; --border-strong: #2a5a30;
+    --text: #33ff66; --muted: #20a64a; --faint: #14602e;
+    --accent: #00ff66; --accent-2: #7dff9e;
+    --accent-soft: rgba(0,255,102,.12); --accent-line: rgba(0,255,102,.38);
+    --user-grad: linear-gradient(135deg, #7dff9e, #00c853);
+    --tool: #00ffcc; --tool-soft: rgba(0,255,204,.12);
+    --code-bg: #04070a; --code-text: #33ff66;
+    --error-bg: #140505; --error-border: #5c1111; --error-text: #ff6b6b;
+    --thinking-bg: #04070a; --approval-bg: #0a1408;
+    --header-bg: rgba(5,5,3,.72);
+    --ok: #34d399; --danger: #f87171; --on-accent: #04140a;
   }
   [data-theme="light"] {
     --bg: #f6f5f1;
@@ -94,7 +112,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   html, body { height: 100%; }
   body { margin: 0; display: flex;
          background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
-         color: var(--text); font-family: var(--sans);
+         color: var(--text); font-family: var(--font-ui);
          -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
          transition: background-color .35s ease, color .35s ease; }
   ::selection { background: var(--accent-soft); color: var(--text); }
@@ -105,7 +123,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     box-shadow: 0 0 0 1px rgba(245,177,61,.28), 0 6px 18px rgba(245,177,61,.22); }
   .brand-mark svg { width: 15px; height: 15px; }
 
-  select, button, input { font-family: var(--sans); color: var(--text);
+  select, button, input { font-family: var(--font-ui); color: var(--text);
     background: var(--panel2); border: 1px solid var(--border); border-radius: 9px;
     padding: 7px 11px; font-size: 13px; outline: none;
     transition: border-color .18s ease, background .18s ease, transform .08s ease, box-shadow .18s ease, color .18s ease; }
@@ -186,6 +204,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 
   /* ---------- sidebar collapsed ---------- */
   #sidebar.collapsed { width: 56px; }
+  #sidebar.collapsed .brand-mark,
   #sidebar.collapsed .side-brand-txt,
   #sidebar.collapsed .side-label, #sidebar.collapsed .side-label .cnt,
   #sidebar.collapsed .si-title, #sidebar.collapsed .si-meta,
@@ -325,7 +344,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     transition: border-color .2s ease, box-shadow .2s ease; }
   #inputwrap:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 4px var(--accent-soft); }
   #input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 14px;
-    padding: 10px 0; outline: none; font-family: var(--sans); }
+    padding: 10px 0; outline: none; font-family: var(--font-ui); }
   #input::placeholder { color: var(--faint); }
   #send { background: var(--accent); border: none; color: var(--on-accent); border-radius: 10px;
     padding: 9px 17px; cursor: pointer; font-weight: 600; font-size: 13.5px;
@@ -392,11 +411,60 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .modal .actions .save { background: var(--accent); border: none; color: var(--on-accent); }
   .modal .save-note { color: var(--ok); font-size: 12px; margin-top: 10px; min-height: 14px; }
 
+  /* settings */
+  .settings-shell { display: flex; gap: 0; min-height: 420px; max-height: 72vh; margin: 0 -24px;
+    border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .settings-nav { flex: none; width: 132px; border-right: 1px solid var(--border);
+    padding: 10px 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+  .settings-nav .snav { text-align: left; background: transparent; border: none; color: var(--muted);
+    padding: 7px 12px; border-radius: 8px; font-size: 12.5px; cursor: pointer; white-space: nowrap; }
+  .settings-nav .snav:hover { background: var(--panel2); color: var(--text); }
+  .settings-nav .snav.active { background: var(--accent-soft); color: var(--accent); }
+  .settings-body { flex: 1; min-width: 0; padding: 14px 20px 16px; overflow-y: auto; }
+  .settings-body .pane { display: none; }
+  .settings-body .pane.active { display: block; animation: fade .18s ease; }
+  .settings-body h4 { margin: 0 0 10px; font-size: 12px; font-weight: 650; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--muted); }
+  .settings-body .sec { margin-bottom: 20px; }
+  .set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 8px 0; border-bottom: 1px dashed var(--border); }
+  .set-row:last-child { border-bottom: none; }
+  .set-info { min-width: 0; }
+  .set-label { font-size: 13px; font-weight: 550; }
+  .set-desc { font-size: 11px; color: var(--faint); margin-top: 2px; line-height: 1.45; }
+  .set-ctl { flex: none; display: flex; align-items: center; gap: 8px; }
+  .set-ctl select { max-width: 220px; }
+  .set-ctl input[type=text] { width: 220px; }
+  .set-ctl .toggle { font-size: 13px; }
+  .kbd { font-family: var(--font-code); font-size: 11.5px; background: var(--panel2);
+    border: 1px solid var(--border-strong); border-radius: 6px; padding: 2px 7px; color: var(--text); white-space: nowrap; }
+  .set-list { display: flex; flex-direction: column; }
+  .set-list .list-row { display: flex; align-items: center; gap: 10px; padding: 9px 12px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); }
+  .status-dot { width: 9px; height: 9px; border-radius: 50%; flex: none;
+    background: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,.16); }
+  .status-dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(52,211,153,.16); }
+  .list-row .ls-name { flex: 1; min-width: 0; font-size: 13px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list-row .ls-url { font-size: 11px; color: var(--faint); font-family: var(--font-code); }
+  .list-row .ls-actions { display: flex; gap: 4px; flex: none; }
+  .list-row .ls-actions .icon-btn { width: 30px; height: 30px; }
+  .model-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin-bottom: 8px;
+    border: 1px solid var(--border); border-radius: 10px; background: var(--panel2); }
+  .model-row .m-ic { width: 30px; height: 30px; border-radius: 8px; flex: none; display: grid;
+    place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 13px; }
+  .model-row .m-name { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 650; }
+  .model-row .m-status { font-size: 11px; color: var(--ok); }
+  .model-row .m-status.err { color: var(--danger); }
+
   ::-webkit-scrollbar { width: 11px; height: 11px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px;
     border: 3px solid transparent; background-clip: padding-box; }
   ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
+  pre, code, .markdown pre code, .tool-card .tool-body pre,
+  details.thinking .think-body pre, details.thinking .think-body code { font-family: var(--font-code); }
+  .stat, .si-meta, .toc-item, .ops-head, .tname { font-family: var(--font-code); }
 </style>
 <meta name="color-scheme" content="dark light"/>
 </head>
@@ -467,29 +535,225 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
     <h3>设置</h3>
-    <p class="hint">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
-    <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
-    <div class="field"><label>Base URL</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
-    <div class="row">
-      <div class="field"><label>模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
-      <div class="field"><label>规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
+    <p class="hint">偏好设置自动保存到本地，重启后仍会保留。带 * 的选项仅保存，暂不生效。</p>
+    <div class="settings-shell">
+      <div class="settings-nav">
+        <button class="snav active" data-pane="pane-desktop" onclick="switchSettingsTab(this)">桌面</button>
+        <button class="snav" data-pane="pane-servers" onclick="switchSettingsTab(this)">服务器</button>
+        <button class="snav" data-pane="pane-models" onclick="switchSettingsTab(this)">模型</button>
+      </div>
+      <div class="settings-body">
+        <div class="pane active" id="pane-desktop">
+          <div class="sec">
+            <h4>通用</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">语言</div><div class="set-desc">更改 LuminaCoder 的显示语言 *</div></div>
+              <div class="set-ctl"><select id="set_language">
+                <option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="en">English</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">自动批准</div><div class="set-desc">权限请求将被自动批准</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_auto_approve" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">终端 shell</div><div class="set-desc">选择终端使用的 shell。兼容的 shell 也会用于智能体工具调用 *</div></div>
+              <div class="set-ctl"><select id="set_shell">
+                <option value="auto">自动（默认）</option><option value="powershell">powershell</option>
+                <option value="bash">bash</option><option value="cmd">cmd</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">显示推理摘要</div><div class="set-desc">在时间线中显示模型推理摘要，即思考过程</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_show_reasoning" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">展开 shell 工具部分</div><div class="set-desc">在时间线中展开 shell 工具部分</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_expand_shell" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">展开编辑工具部分</div><div class="set-desc">在时间线中展开 write_file、edit_file 等工具部分</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_expand_edit" type="checkbox"/><span></span></label></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>外观</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">配色方案</div><div class="set-desc">选择跟随系统、浅色或深色主题</div></div>
+              <div class="set-ctl"><select id="set_color_scheme">
+                <option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCoder 的主题 *</div></div>
+              <div class="set-ctl"><select id="set_theme">
+                <option value="system">system</option><option value="tokyonight">tokyonight</option>
+                <option value="everforest">everforest</option><option value="ayu">ayu</option>
+                <option value="catppuccin">catppuccin</option><option value="catppuccin-macchiato">catppuccin-macchiato</option>
+                <option value="gruvbox">gruvbox</option><option value="kanagawa">kanagawa</option>
+                <option value="nord">nord</option><option value="matrix">matrix</option><option value="one-dark">one-dark</option>
+              </select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">界面字体</div><div class="set-desc">自定义整个界面使用的字体（留空为 System Sans）</div></div>
+              <div class="set-ctl"><input id="set_ui_font" type="text" placeholder="System Sans"/></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">代码字体</div><div class="set-desc">自定义代码块使用的字体（留空为 System Sans）</div></div>
+              <div class="set-ctl"><input id="set_code_font" type="text" placeholder="System Sans"/></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">终端字体</div><div class="set-desc">自定义终端使用的字体（留空为 JetBrainsMono Nerd Font Mono）*</div></div>
+              <div class="set-ctl"><input id="set_term_font" type="text" placeholder="JetBrainsMono Nerd Font Mono"/></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>系统通知</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时显示系统通知 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_notif_agent" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时显示系统通知 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_notif_permission" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时显示系统通知 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_notif_error" type="checkbox"/><span></span></label></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>音效</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时播放声音 *</div></div>
+              <div class="set-ctl"><select id="set_sound_agent"><option value="none">无</option></select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时播放声音 *</div></div>
+              <div class="set-ctl"><select id="set_sound_permission"><option value="none">无</option></select></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时播放声音 *</div></div>
+              <div class="set-ctl"><select id="set_sound_error"><option value="none">无</option></select></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>更新</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">发行说明</div><div class="set-desc">更新后显示“新功能”弹窗 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_release_notes" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">检查更新</div><div class="set-desc">手动检查更新并在有更新时安装 *</div></div>
+              <div class="set-ctl"><button id="checkUpdateBtn" onclick="checkUpdate()">检查更新</button><span id="updateNote" class="set-desc"></span></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>高级</h4>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">文件树</div><div class="set-desc">在会话中显示文件树面板 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_file_tree" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">命令面板</div><div class="set-desc">在标题栏中显示搜索和命令面板按钮 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_command_palette" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">服务器状态</div><div class="set-desc">在标题栏中显示服务器状态按钮 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_server_status" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">自定义智能体</div><div class="set-desc">在输入框中显示智能体选择器 *</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_custom_agents" type="checkbox"/><span></span></label></div>
+            </div>
+          </div>
+          <div class="sec">
+            <h4>快捷键（仅展示，暂不支持自定义）</h4>
+            <div class="set-row"><div class="set-info"><div class="set-label">打开设置</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">,</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">返回</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">[</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">前进</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">]</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">搜索项目</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">O</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">新建会话</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">T</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">关闭终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">W</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">切换终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">`</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">新建终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">T</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">Prompt</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">E</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label">Shell</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">X</span></div></div>
+          </div>
+        </div>
+        <div class="pane" id="pane-servers">
+          <div class="sec">
+            <h4>服务器列表</h4>
+            <p class="hint" style="margin-bottom:12px">连接远程 LuminaCoder 服务器。*：当前仅保存配置，尚未实现远程连接。</p>
+            <div class="set-ctl" style="justify-content:flex-end; margin-bottom:12px">
+              <button onclick="openServerDialog(-1)">添加服务器</button>
+            </div>
+            <div class="set-list" id="serverList"></div>
+          </div>
+        </div>
+        <div class="pane" id="pane-models">
+          <div class="sec">
+            <h4>模型列表</h4>
+            <p class="hint" style="margin-bottom:12px">DeepSeek V4 Flash 是当前默认模型。初次使用请点击 ··· 配置 API Key。</p>
+            <div class="set-list" id="modelList"></div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="row">
-      <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
-      <div class="field"><label>任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
-    </div>
-    <div class="row">
-      <div class="field"><label>最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
-      <div class="field"><label>温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>
-    </div>
-    <label class="cb"><input id="cfg_LUMINA_ENABLE_PLANNER" type="checkbox"/>启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)</label>
-    <label class="cb"><input id="cfg_LUMINA_COMPRESSION" type="checkbox"/>上下文压缩 (LUMINA_COMPRESSION)</label>
-    <label class="cb"><input id="cfg_LUMINA_SELF_REVIEW" type="checkbox"/>完成时自我审查 (LUMINA_SELF_REVIEW)</label>
     <div class="actions">
-      <button onclick="closeSettings()">取消</button>
-      <button class="save" onclick="saveSettings()">保存</button>
+      <button class="save" onclick="closeSettings()">关闭</button>
     </div>
     <div id="saveNote" class="save-note"></div>
+  </div>
+</div>
+<div id="serverOverlay" class="modal-overlay" onclick="if(event.target===this)closeServerDialog()">
+  <div class="modal" style="max-width:460px">
+    <h3 id="serverDialogTitle">添加服务器</h3>
+    <p class="hint">填写要连接的服务器的信息。密码会被保存到本地状态文件。</p>
+    <div class="field"><label>服务器 URL</label><input id="srv_url" type="text" placeholder="http://localhost:1200"/></div>
+    <div class="field"><label>服务器名称（可选）</label><input id="srv_name" type="text" placeholder="Localhost"/></div>
+    <div class="row">
+      <div class="field"><label>用户名（可选）</label><input id="srv_user" type="text" value="lumina-coder"/></div>
+      <div class="field"><label>密码（可选）</label><input id="srv_password" type="password" placeholder="密码"/></div>
+    </div>
+    <div class="actions">
+      <button onclick="closeServerDialog()">取消</button>
+      <button class="save" onclick="saveServerDialog()">保存</button>
+    </div>
+    <div id="srvNote" class="save-note"></div>
+  </div>
+</div>
+<div id="modelOverlay" class="modal-overlay" onclick="if(event.target===this)closeModelDialog()">
+  <div class="modal">
+    <h3>配置 DeepSeek V4 Flash</h3>
+    <p class="hint">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
+    <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
+    <details style="margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:10px 14px">
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">高级参数</summary>
+      <div style="margin-top:12px">
+        <div class="field"><label>Base URL</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
+        <div class="row">
+          <div class="field"><label>模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
+          <div class="field"><label>规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
+          <div class="field"><label>任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
+          <div class="field"><label>温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>
+        </div>
+        <label class="cb"><input id="cfg_LUMINA_ENABLE_PLANNER" type="checkbox"/>启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)</label>
+        <label class="cb"><input id="cfg_LUMINA_COMPRESSION" type="checkbox"/>上下文压缩 (LUMINA_COMPRESSION)</label>
+        <label class="cb"><input id="cfg_LUMINA_SELF_REVIEW" type="checkbox"/>完成时自我审查 (LUMINA_SELF_REVIEW)</label>
+      </div>
+    </details>
+    <div class="actions">
+      <button onclick="closeModelDialog()">取消</button>
+      <button class="save" onclick="saveModelConfig()">保存</button>
+    </div>
+    <div id="modelNote" class="save-note"></div>
   </div>
 </div>
 <div id="wsOverlay" class="modal-overlay" onclick="if(event.target===this)closeWsManager()">
@@ -536,7 +800,10 @@ function connectWS(path){
   if (ws) { ws.onclose = null; ws.close(); }
   activeWorkspace = path || "";
   ws = new WebSocket(`ws://${location.host}/ws${activeWorkspace ? "?w=" + encodeURIComponent(activeWorkspace) : ""}`);
-  ws.onopen = () => ws.send(JSON.stringify({ type: "list" }));
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: "list" }));
+    if (settings && settings.auto_approve) ws.send(JSON.stringify({ type: "set_auto", value: true }));
+  };
   ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
 }
 
@@ -778,6 +1045,11 @@ function ensureOpsCard(){
     chev.textContent = open ? "▸" : "▾";
   };
   card.appendChild(head); card.appendChild(opsBody);
+  if (settings.expand_shell || settings.expand_edit) {
+    opsBody.style.display = "block";
+    card.classList.add("open");
+    chev.textContent = "▾";
+  }
   log.appendChild(card);
   opsCard = card;
   scrollBottom();
@@ -836,6 +1108,7 @@ function handleWSMessage(m) {
       else if (msg.role === "assistant") appendMd("assistant", msg.content);
     });
   } else if (m.type === "reasoning") {
+    if (!settings.show_reasoning) return;
     if (!thinkingEl) {
       const det = document.createElement("details");
       det.className = "thinking";
@@ -1020,27 +1293,37 @@ input.addEventListener("keydown", (e) => {
 });
 document.getElementById("autoApprove").addEventListener("change", (e) => {
   ws.send(JSON.stringify({ type: "set_auto", value: e.target.checked }));
+  settings.auto_approve = e.target.checked;
+  persistSettings();
 });
 
-/* ---------- theme toggle ---------- */
-let theme = localStorage.getItem("lumina-theme") || "dark";
-document.documentElement.setAttribute("data-theme", theme);
+/* ---------- theme ---------- */
+let settings = {};
+const APP_VERSION = "1.0.0";
+const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
+(function initThemeFast(){
+  document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");
+})();
 function updateThemeBtn(){ /* theme icon toggled via CSS based on [data-theme] */ }
 updateThemeBtn();
-fetch("/api/prefs").then(function(r){ return r.json(); }).then(function(d){
-  if (d && (d.theme === "dark" || d.theme === "light")) {
-    theme = d.theme;
-    try { localStorage.setItem("lumina-theme", theme); } catch (e) {}
-    document.documentElement.setAttribute("data-theme", theme);
-  }
-}).catch(function(){});
-function toggleTheme(){
-  theme = theme === "light" ? "dark" : "light";
-  document.documentElement.setAttribute("data-theme", theme);
-  try { localStorage.setItem("lumina-theme", theme); } catch (e) {}
-  fetch("/api/prefs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: theme }) }).catch(function(){});
+function applyTheme(){
+  const scheme = settings.color_scheme || "system";
+  const dark = scheme === "dark" || (scheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  try { localStorage.setItem("lumina-theme", dark ? "dark" : "light"); } catch (e) {}
+  if (settings.theme === "matrix") document.documentElement.setAttribute("data-theme-style", "matrix");
+  else document.documentElement.removeAttribute("data-theme-style");
   updateThemeBtn();
 }
+function toggleTheme(){
+  const darkNow = document.documentElement.getAttribute("data-theme") === "dark";
+  settings.color_scheme = darkNow ? "light" : "dark";
+  applyTheme();
+  persistSettings();
+}
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (!settings.color_scheme || settings.color_scheme === "system") applyTheme();
+});
 
 /* ---------- sidebar ---------- */
 function toggleSidebar(){
@@ -1067,20 +1350,241 @@ function toggleToc(){
 })();
 
 /* ---------- settings panel ---------- */
+function setCssVar(name, value, fallback){
+  if (value) document.documentElement.style.setProperty(name, value + ", " + fallback);
+  else document.documentElement.style.removeProperty(name);
+}
+function applyFonts(){
+  setCssVar("--font-ui", settings.ui_font || "", "var(--sans)");
+  setCssVar("--font-code", settings.code_font || "", "var(--mono)");
+  setCssVar("--font-term", settings.term_font || "", "var(--mono)");
+}
+function applySettings(){
+  applyTheme();
+  applyFonts();
+  const aa = document.getElementById("autoApprove");
+  if (aa) aa.checked = !!settings.auto_approve;
+}
+function readSettingsFromDom(){
+  const map = {
+    language: document.getElementById("set_language").value,
+    auto_approve: document.getElementById("set_auto_approve").checked,
+    shell: document.getElementById("set_shell").value,
+    show_reasoning: document.getElementById("set_show_reasoning").checked,
+    expand_shell: document.getElementById("set_expand_shell").checked,
+    expand_edit: document.getElementById("set_expand_edit").checked,
+    color_scheme: document.getElementById("set_color_scheme").value,
+    theme: document.getElementById("set_theme").value,
+    ui_font: document.getElementById("set_ui_font").value.trim(),
+    code_font: document.getElementById("set_code_font").value.trim(),
+    term_font: document.getElementById("set_term_font").value.trim(),
+    notif_agent: document.getElementById("set_notif_agent").checked,
+    notif_permission: document.getElementById("set_notif_permission").checked,
+    notif_error: document.getElementById("set_notif_error").checked,
+    sound_agent: document.getElementById("set_sound_agent").value,
+    sound_permission: document.getElementById("set_sound_permission").value,
+    sound_error: document.getElementById("set_sound_error").value,
+    release_notes: document.getElementById("set_release_notes").checked,
+    file_tree: document.getElementById("set_file_tree").checked,
+    command_palette: document.getElementById("set_command_palette").checked,
+    server_status: document.getElementById("set_server_status").checked,
+    custom_agents: document.getElementById("set_custom_agents").checked,
+  };
+  settings = Object.assign({}, settings, map);
+}
+function writeSettingsToDom(){
+  const ids = {
+    language: "set_language", auto_approve: "set_auto_approve", shell: "set_shell",
+    show_reasoning: "set_show_reasoning", expand_shell: "set_expand_shell", expand_edit: "set_expand_edit",
+    color_scheme: "set_color_scheme", theme: "set_theme", ui_font: "set_ui_font",
+    code_font: "set_code_font", term_font: "set_term_font", notif_agent: "set_notif_agent",
+    notif_permission: "set_notif_permission", notif_error: "set_notif_error",
+    sound_agent: "set_sound_agent", sound_permission: "set_sound_permission", sound_error: "set_sound_error",
+    release_notes: "set_release_notes", file_tree: "set_file_tree", command_palette: "set_command_palette",
+    server_status: "set_server_status", custom_agents: "set_custom_agents",
+  };
+  Object.keys(ids).forEach(key => {
+    const el = document.getElementById(ids[key]);
+    if (!el) return;
+    if (el.type === "checkbox") el.checked = !!settings[key];
+    else el.value = settings[key] == null ? "" : settings[key];
+  });
+}
+function persistSettings(){
+  fetch("/api/settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(settings),
+  }).then(r => r.json()).then(res => {
+    const note = document.getElementById("saveNote");
+    if (note) note.textContent = res.ok ? "已保存" : ("保存失败: " + (res.message || ""));
+  }).catch(() => {});
+}
+function settingsChanged(){
+  readSettingsFromDom();
+  applySettings();
+  persistSettings();
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "set_auto", value: !!settings.auto_approve }));
+}
+function switchSettingsTab(btn){
+  document.querySelectorAll(".settings-nav .snav").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  document.querySelectorAll(".settings-body .pane").forEach(p => p.classList.remove("active"));
+  document.getElementById(btn.dataset.pane).classList.add("active");
+  if (btn.dataset.pane === "pane-servers") renderServers();
+  if (btn.dataset.pane === "pane-models") renderModels();
+}
+function loadSettings(){
+  return fetch("/api/settings").then(r => r.json()).then(data => {
+    settings = data || {};
+    writeSettingsToDom();
+    applySettings();
+    renderModels();
+  }).catch(() => {});
+}
 function openSettings(){
   document.getElementById("saveNote").textContent = "";
+  loadSettings();
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+function closeSettings(){ document.getElementById("settingsOverlay").classList.remove("open"); }
+(function bindSettingsControls(){
+  document.querySelectorAll("#settingsOverlay .set-ctl input, #settingsOverlay .set-ctl select").forEach(el => {
+    el.addEventListener("change", settingsChanged);
+  });
+})();
+
+/* ---------- servers ---------- */
+let servers = [];
+let serverEditing = -1;
+function loadServers(){
+  return fetch("/api/servers").then(r => r.json()).then(data => {
+    servers = (data && data.servers) || [];
+    renderServers();
+  }).catch(() => {});
+}
+function renderServers(){
+  const box = document.getElementById("serverList");
+  box.innerHTML = "";
+  if (!servers.length) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.textContent = "尚未添加服务器。点击右上角“添加服务器”进行添加。";
+    box.appendChild(p);
+    return;
+  }
+  servers.forEach((s, i) => {
+    const row = document.createElement("div");
+    row.className = "list-row";
+    const dot = document.createElement("span");
+    dot.className = "status-dot";
+    const info = document.createElement("div");
+    info.style.minWidth = "0";
+    const name = document.createElement("div");
+    name.className = "ls-name";
+    name.textContent = s.name || s.url;
+    const url = document.createElement("div");
+    url.className = "ls-url";
+    url.textContent = s.url;
+    info.appendChild(name); info.appendChild(url);
+    const acts = document.createElement("div");
+    acts.className = "ls-actions";
+    const edit = document.createElement("button");
+    edit.className = "icon-btn";
+    edit.textContent = "···";
+    edit.title = "编辑";
+    edit.onclick = () => openServerDialog(i);
+    const del = document.createElement("button");
+    del.className = "icon-btn danger";
+    del.title = "删除";
+    del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>';
+    del.onclick = () => {
+      if (confirm("确定删除服务器 " + (s.name || s.url) + " ？")) {
+        fetch("/api/servers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove", index: i }),
+        }).then(r => r.json()).then(res => { if (res.ok) { servers = res.servers; renderServers(); } });
+      }
+    };
+    acts.appendChild(edit); acts.appendChild(del);
+    row.appendChild(dot); row.appendChild(info); row.appendChild(acts);
+    box.appendChild(row);
+  });
+}
+function openServerDialog(idx){
+  serverEditing = idx;
+  document.getElementById("serverDialogTitle").textContent = idx >= 0 ? "编辑服务器" : "添加服务器";
+  const s = idx >= 0 ? servers[idx] : {};
+  document.getElementById("srv_url").value = s.url || "";
+  document.getElementById("srv_name").value = s.name || "";
+  document.getElementById("srv_user").value = s.user || "lumina-coder";
+  document.getElementById("srv_password").value = s.password || "";
+  document.getElementById("srvNote").textContent = "";
+  document.getElementById("serverOverlay").classList.add("open");
+}
+function closeServerDialog(){ document.getElementById("serverOverlay").classList.remove("open"); }
+function saveServerDialog(){
+  const payload = {
+    url: document.getElementById("srv_url").value.trim(),
+    name: document.getElementById("srv_name").value.trim(),
+    user: document.getElementById("srv_user").value.trim(),
+    password: document.getElementById("srv_password").value,
+  };
+  const action = serverEditing >= 0 ? "update" : "add";
+  if (action === "update") payload.index = serverEditing;
+  fetch("/api/servers", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(Object.assign({ action }, payload)),
+  }).then(r => r.json()).then(res => {
+    if (res.ok) { servers = res.servers; renderServers(); closeServerDialog(); }
+    else document.getElementById("srvNote").textContent = res.message || "保存失败";
+  });
+}
+
+/* ---------- models ---------- */
+const MODELS = [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" }];
+function renderModels(cfg){
+  const box = document.getElementById("modelList");
+  if (!box) return;
+  box.innerHTML = "";
+  MODELS.forEach(m => {
+    const row = document.createElement("div");
+    row.className = "model-row";
+    const ic = document.createElement("span");
+    ic.className = "m-ic";
+    ic.textContent = "DS";
+    const name = document.createElement("span");
+    name.className = "m-name";
+    name.textContent = m.name;
+    const status = document.createElement("span");
+    const hasKey = cfg && cfg.DEEPSEEK_API_KEY;
+    status.className = "m-status" + (hasKey ? "" : " err");
+    status.textContent = hasKey ? "已配置 API Key" : "未配置 API Key，点击 ··· 配置";
+    const menu = document.createElement("button");
+    menu.className = "icon-btn";
+    menu.textContent = "···";
+    menu.title = "配置";
+    menu.onclick = openModelDialog;
+    row.appendChild(ic); row.appendChild(name); row.appendChild(status); row.appendChild(menu);
+    box.appendChild(row);
+  });
+}
+function openModelDialog(){
   fetch("/api/config").then(r => r.json()).then(cfg => {
     Object.keys(cfg).forEach(k => {
       const el = document.getElementById("cfg_" + k);
       if (el) { if (el.type === "checkbox") el.checked = !!cfg[k]; else el.value = cfg[k] == null ? "" : cfg[k]; }
     });
+    document.getElementById("modelNote").textContent = "";
+    document.getElementById("modelOverlay").classList.add("open");
   });
-  document.getElementById("settingsOverlay").classList.add("open");
 }
-function closeSettings(){ document.getElementById("settingsOverlay").classList.remove("open"); }
-function saveSettings(){
+function closeModelDialog(){ document.getElementById("modelOverlay").classList.remove("open"); }
+function saveModelConfig(){
   const fields = {};
-  document.querySelectorAll("#settingsOverlay input").forEach(el => {
+  document.querySelectorAll("#modelOverlay input").forEach(el => {
     const key = el.id.replace("cfg_", "");
     fields[key] = el.type === "checkbox" ? el.checked : el.value.trim();
   });
@@ -1089,9 +1593,25 @@ function saveSettings(){
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(fields),
   }).then(r => r.json()).then(res => {
-    document.getElementById("saveNote").textContent =
-      res.ok ? "已保存到 .env，新会话将使用新配置。" : ("保存失败: " + (res.message || ""));
+    const note = document.getElementById("modelNote");
+    note.textContent = res.ok ? "已保存到 .env，新会话将使用新配置。" : ("保存失败: " + (res.message || ""));
+    if (res.ok) renderModels(fields);
   });
+}
+function checkUpdate(){
+  const btn = document.getElementById("checkUpdateBtn");
+  const note = document.getElementById("updateNote");
+  btn.disabled = true;
+  note.textContent = "正在检查…";
+  fetch("https://api.github.com/repos/JonathanSssst/Lumina-Coder/releases/latest")
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      const latest = (data.tag_name || "").replace(/^v/i, "");
+      const cur = APP_VERSION.replace(/^v/i, "");
+      note.textContent = (!latest || latest === cur) ? ("已是最新版本 (v" + APP_VERSION + ")") : ("发现新版本 " + data.tag_name);
+    })
+    .catch(e => { note.textContent = "检查失败: " + e.message; })
+    .finally(() => { btn.disabled = false; });
 }
 
 /* ---------- workspaces + export ---------- */
@@ -1215,7 +1735,7 @@ function removeWs(path){
     else setWsNote("删除失败: " + (res.message || ""), false);
   });
 }
-refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || ""));</script>
+loadSettings().then(() => refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || "")));</script>
 </body>
 </html>"""
 
@@ -1409,6 +1929,104 @@ def create_app(
             state["theme"] = theme
             _save_state(state)
         return {"ok": True, "theme": theme}
+
+    def _default_settings() -> dict:
+        return {
+            "language": "zh-CN",
+            "auto_approve": False,
+            "shell": "auto",
+            "show_reasoning": False,
+            "expand_shell": False,
+            "expand_edit": False,
+            "color_scheme": "system",
+            "theme": "system",
+            "ui_font": "",
+            "code_font": "",
+            "term_font": "JetBrainsMono Nerd Font Mono",
+            "notif_agent": True,
+            "notif_permission": True,
+            "notif_error": False,
+            "sound_agent": "none",
+            "sound_permission": "none",
+            "sound_error": "none",
+            "release_notes": True,
+            "file_tree": False,
+            "command_palette": False,
+            "server_status": False,
+            "custom_agents": False,
+        }
+
+    def _load_settings() -> dict:
+        defaults = _default_settings()
+        if app.state.state_file is None:
+            return defaults
+        stored = _load_state().get("settings") or {}
+        return {**defaults, **stored}
+
+    def _save_settings(data: dict) -> None:
+        if app.state.state_file is None:
+            return
+        state = _load_state()
+        state["settings"] = data
+        _save_state(state)
+
+    @app.get("/api/settings")
+    async def get_settings_data() -> dict:
+        return _load_settings()
+
+    @app.post("/api/settings")
+    async def set_settings_data(payload: dict[str, Any]) -> dict:
+        current = _load_settings()
+        merged = {**current}
+        for key, value in (payload or {}).items():
+            if key in current:
+                merged[key] = value
+        _save_settings(merged)
+        return {"ok": True, "settings": merged}
+
+    @app.get("/api/servers")
+    async def list_servers() -> dict:
+        servers = _load_state().get("servers", []) if app.state.state_file is not None else []
+        if not isinstance(servers, list):
+            servers = []
+        return {"servers": servers}
+
+    @app.post("/api/servers")
+    async def mutate_servers(payload: dict[str, Any]) -> dict:
+        if app.state.state_file is None:
+            return {"ok": False, "message": "无状态文件，无法保存服务器"}
+        state = _load_state()
+        servers = state.get("servers", [])
+        if not isinstance(servers, list):
+            servers = []
+        action = str(payload.get("action", ""))
+        idx = int(payload.get("index", -1))
+        if action == "add":
+            url = str(payload.get("url", "")).strip()
+            if not url:
+                return {"ok": False, "message": "服务器 URL 不能为空"}
+            entry = {
+                "url": url,
+                "name": str(payload.get("name", "")).strip() or url,
+                "user": str(payload.get("user", "")).strip(),
+                "password": str(payload.get("password", "")).strip(),
+            }
+            servers.append(entry)
+        elif action == "update":
+            if not (0 <= idx < len(servers)):
+                return {"ok": False, "message": "服务器不存在"}
+            for key in ("url", "name", "user", "password"):
+                if key in payload:
+                    servers[idx][key] = str(payload.get(key, "")).strip()
+        elif action == "remove":
+            if not (0 <= idx < len(servers)):
+                return {"ok": False, "message": "服务器不存在"}
+            servers.pop(idx)
+        else:
+            return {"ok": False, "message": f"未知操作: {action}"}
+        state["servers"] = servers
+        _save_state(state)
+        return {"ok": True, "servers": servers}
 
     @app.get("/api/session/{sid}/export")
     async def export_session(sid: int, format: str = "markdown", workspace: str = "") -> Any:
