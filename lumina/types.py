@@ -22,6 +22,7 @@ class ToolResult(BaseModel):
     is_error: bool = False
     requires_approval: bool = False
     denied: bool = False
+    stats: dict[str, Any] | None = None
 
 
 class Message(BaseModel):

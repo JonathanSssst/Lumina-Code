@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import time
@@ -93,12 +94,15 @@ class FileTools:
             try:
                 target = self._resolve(path)
                 target.parent.mkdir(parents=True, exist_ok=True)
+                old = target.read_text(encoding="utf-8", errors="replace") if target.is_file() else ""
                 self._snapshot(target)
                 target.write_text(content, encoding="utf-8")
+                added, removed = _diff_counts(old, content)
                 return ToolResult(
                     tool_call_id="",
                     name="write_file",
                     content=f"Wrote {len(content)} chars to {path}",
+                    stats={"path": path, "added": added, "removed": removed},
                 )
             except PermissionError as exc:
                 return ToolResult(tool_call_id="", name="write_file", content=str(exc), is_error=True)
@@ -141,10 +145,12 @@ class FileTools:
                 self._snapshot(target)
                 target.write_text(text.replace(old_string, new_string), encoding="utf-8")
                 diff = _simple_diff(old_string, new_string)
+                added, removed = _diff_counts(old_string, new_string)
                 return ToolResult(
                     tool_call_id="",
                     name="edit_file",
                     content=f"Edited {path}\n{diff}",
+                    stats={"path": path, "added": added, "removed": removed},
                 )
             except PermissionError as exc:
                 return ToolResult(tool_call_id="", name="edit_file", content=str(exc), is_error=True)
@@ -247,10 +253,12 @@ class FileTools:
                     )
                 self._snapshot(target)
                 target.write_text(text.replace(old, new), encoding="utf-8")
+                added, removed = _diff_counts(text, text.replace(old, new))
                 return ToolResult(
                     tool_call_id="",
                     name="replace_all",
                     content=f"Replaced {count} occurrence(s) of '{old}' in {path}",
+                    stats={"path": path, "added": added, "removed": removed},
                 )
             except PermissionError as exc:
                 return ToolResult(tool_call_id="", name="replace_all", content=str(exc), is_error=True)
@@ -309,6 +317,19 @@ class FileTools:
                 return ToolResult(tool_call_id="", name="undo_file", content=str(exc), is_error=True)
             except Exception as exc:  # noqa: BLE001
                 return ToolResult(tool_call_id="", name="undo_file", content=f"undo_file failed: {exc}", is_error=True)
+
+
+def _diff_counts(old_string: str, new_string: str) -> tuple[int, int]:
+    """Count added/removed lines between two texts (unified-diff semantics)."""
+    old_lines = old_string.splitlines()
+    new_lines = new_string.splitlines()
+    added = removed = 0
+    for line in difflib.unified_diff(old_lines, new_lines, n=0, lineterm=""):
+        if line.startswith("+") and not line.startswith("+++"):
+            added += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            removed += 1
+    return added, removed
 
 
 def _simple_diff(old_string: str, new_string: str) -> str:

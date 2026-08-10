@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -44,144 +44,285 @@ _INDEX_HTML = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>LuminaCoder</title>
 <script>
-try { document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "light"); } catch (e) {}
+try { document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark"); } catch (e) {}
 </script>
 <style>
   :root {
-    --bg: #fafafa; --panel: #ffffff; --panel2: #f4f4f5; --border: #d4d4d8;
-    --text: #18181b; --muted: #71717a; --accent: #6366f1; --user: #2563eb;
-    --code-bg: #f1f0f3; --code-text: #18181b;
-    --error-bg: #fef2f2; --error-border: #f87171; --error-text: #dc2626;
-    --thinking-bg: #fafafa; --thinking-text: #3f3f46;
-    --tool-bg: #ffffff;
-    --approval-bg: #fffbeb;
-    --header-bg: rgba(250, 250, 250, .85);
-    --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
-  }
-  [data-theme="dark"] {
-    --bg: #09090b; --panel: #18181b; --panel2: #27272a; --border: #3f3f46;
-    --text: #e4e4e7; --muted: #a1a1aa; --accent: #818cf8; --user: #3b82f6;
-    --code-bg: #0d0d10; --code-text: #e4e4e7;
-    --error-bg: #2a1215; --error-border: #7f1d1d; --error-text: #fca5a5;
-    --thinking-bg: #0f0f12; --thinking-text: #cbd5e1;
-    --tool-bg: #131316;
+    /* Lumina — dark developer console (default) */
+    --bg: #0a0a0e;
+    --bg-grad: radial-gradient(1100px 560px at 82% -12%, rgba(245,177,61,.07), transparent 60%),
+               radial-gradient(820px 480px at -5% 105%, rgba(94,197,216,.05), transparent 55%);
+    --panel: #131318; --panel2: #1b1b22; --panel3: #21212b;
+    --border: #26262f; --border-strong: #393946;
+    --text: #ececf0; --muted: #9595a4; --faint: #6b6b78;
+    --accent: #f5b13d; --accent-2: #fbd07a;
+    --accent-soft: rgba(245,177,61,.14); --accent-line: rgba(245,177,61,.36);
+    --user-grad: linear-gradient(135deg, #fbd07a, #e08a2b);
+    --tool: #5ec5d8; --tool-soft: rgba(94,197,216,.13);
+    --code-bg: #0c0c10; --code-text: #e6e6ec;
+    --error-bg: #2a1216; --error-border: #7f1d1d; --error-text: #fca5a5;
+    --thinking-bg: #0e0e13;
     --approval-bg: #241a05;
-    --header-bg: rgba(9, 9, 11, .8);
+    --header-bg: rgba(10,10,14,.72);
+    --ok: #34d399; --danger: #f87171;
+    --on-accent: #1a1208;
+    --mono: "JetBrains Mono", "SF Mono", "Cascadia Code", ui-monospace, Consolas, monospace;
+    --sans: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --shadow: 0 10px 34px rgba(0,0,0,.5);
+  }
+  [data-theme="light"] {
+    --bg: #f6f5f1;
+    --bg-grad: radial-gradient(1100px 560px at 82% -12%, rgba(217,119,6,.09), transparent 60%),
+               radial-gradient(820px 480px at -5% 105%, rgba(8,145,178,.06), transparent 55%);
+    --panel: #ffffff; --panel2: #f1efe8; --panel3: #e9e6dc;
+    --border: #e1ded2; --border-strong: #cbc7b8;
+    --text: #1b1b20; --muted: #6a6a76; --faint: #9a9aa3;
+    --accent: #c2710c; --accent-2: #d97706;
+    --accent-soft: rgba(194,113,12,.10); --accent-line: rgba(194,113,12,.32);
+    --user-grad: linear-gradient(135deg, #f0a014, #d97706);
+    --tool: #0e7490; --tool-soft: rgba(14,116,144,.10);
+    --code-bg: #f3f1ea; --code-text: #1b1b20;
+    --error-bg: #fef2f2; --error-border: #f87171; --error-text: #b91c1c;
+    --thinking-bg: #f7f6f1;
+    --approval-bg: #fffbeb;
+    --header-bg: rgba(246,245,241,.72);
+    --ok: #059669; --danger: #dc2626;
+    --on-accent: #1a1208;
+    --shadow: 0 10px 34px rgba(70,55,15,.14);
   }
   * { box-sizing: border-box; }
-  body { margin: 0; height: 100vh; display: flex; flex-direction: column;
-         background: var(--bg); color: var(--text);
-         transition: background .2s ease, color .2s ease;
-         font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { padding: 10px 20px; display: flex; gap: 10px; align-items: center;
-           border-bottom: 1px solid var(--border); background: var(--header-bg); backdrop-filter: blur(8px); }
-  header strong { font-size: 14px; letter-spacing: .2px; }
+  html, body { height: 100%; }
+  body { margin: 0; display: flex; flex-direction: column;
+         background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
+         color: var(--text); font-family: var(--sans);
+         -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+         transition: background-color .35s ease, color .35s ease; }
+  ::selection { background: var(--accent-soft); color: var(--text); }
+
+  /* ---------- header ---------- */
+  header { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 22px;
+           background: var(--header-bg); backdrop-filter: blur(14px) saturate(140%);
+           -webkit-backdrop-filter: blur(14px) saturate(140%);
+           border-bottom: 1px solid var(--border); z-index: 10; }
+  .brand { display: flex; align-items: center; gap: 10px; flex: none; }
+  .brand-mark { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent-2), var(--accent));
+    box-shadow: 0 0 0 1px rgba(245,177,61,.28), 0 6px 18px rgba(245,177,61,.22); }
+  .brand-mark svg { width: 15px; height: 15px; }
+  header strong { font-size: 15px; font-weight: 650; letter-spacing: .2px; }
+  .sel-group { display: flex; gap: 8px; align-items: center; }
+  .btn-group { display: flex; gap: 2px; align-items: center; padding: 3px;
+    border: 1px solid var(--border); border-radius: 10px; background: rgba(127,127,127,.05); }
   header .spacer { flex: 1; }
-  select, button, input { background: var(--panel2); color: var(--text); border: 1px solid var(--border);
-                          border-radius: 8px; padding: 6px 10px; font-size: 13px; outline: none; }
+
+  select, button, input { font-family: var(--sans); color: var(--text);
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 9px;
+    padding: 7px 11px; font-size: 13px; outline: none;
+    transition: border-color .18s ease, background .18s ease, transform .08s ease, box-shadow .18s ease, color .18s ease; }
+  select { cursor: pointer; padding-right: 26px; appearance: none; -webkit-appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+                      linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 14px) 52%, calc(100% - 9px) 52%;
+    background-size: 5px 5px; background-repeat: no-repeat; }
+  select:hover, button:hover { border-color: var(--accent-line); }
   button { cursor: pointer; }
-  button:hover { border-color: var(--accent); }
+  button:active { transform: translateY(1px); }
+
+  .icon-btn { width: 34px; height: 34px; padding: 0; display: grid; place-items: center;
+    background: transparent; border: 1px solid transparent; border-radius: 8px; color: var(--muted); }
+  .icon-btn:hover { background: var(--panel2); border-color: var(--border); color: var(--text); }
+  .icon-btn svg { width: 17px; height: 17px; }
+  .icon-btn.danger:hover { color: var(--danger); }
+  .icon-btn.stop { color: var(--danger); }
+  #themeBtn .i-sun, #themeBtn .i-moon { width: 17px; height: 17px; }
+  [data-theme="dark"] #themeBtn .i-sun { display: none; }
+  [data-theme="dark"] #themeBtn .i-moon { display: block; }
+  [data-theme="light"] #themeBtn .i-sun { display: block; }
+  [data-theme="light"] #themeBtn .i-moon { display: none; }
+
+  .toggle { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted);
+    cursor: pointer; white-space: nowrap; user-select: none; }
+  .toggle input { appearance: none; -webkit-appearance: none; width: 30px; height: 17px; margin: 0;
+    background: var(--panel3); border: 1px solid var(--border-strong); border-radius: 999px;
+    position: relative; cursor: pointer; transition: background .2s ease, border-color .2s ease; }
+  .toggle input::after { content: ""; position: absolute; top: 1px; left: 1px; width: 13px; height: 13px;
+    border-radius: 50%; background: var(--muted); transition: transform .2s ease, background .2s ease; }
+  .toggle input:checked { background: var(--accent-soft); border-color: var(--accent-line); }
+  .toggle input:checked::after { transform: translateX(12px); background: var(--accent); }
+
+  .stat { color: var(--faint); font-size: 11.5px; font-family: var(--mono); letter-spacing: .2px;
+    padding: 4px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); }
+
+  /* ---------- main / log ---------- */
   #main { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
-  #log { max-width: 800px; margin: 0 auto; padding: 20px; }
-  .msg { margin-bottom: 14px; line-height: 1.6; font-size: 14px; word-break: break-word; }
-  .msg .bubble { display: inline-block; padding: 9px 14px; border-radius: 14px; }
+  #log { max-width: 820px; margin: 0 auto; padding: 28px 22px 44px; }
+
+  .msg { margin-bottom: 16px; line-height: 1.65; font-size: 14px; word-break: break-word;
+    animation: rise .32s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .msg .bubble { display: inline-block; padding: 10px 15px; border-radius: 15px; }
   .msg.user { display: flex; justify-content: flex-end; }
-  .msg.user .bubble { background: var(--user); color: #fff; border-bottom-right-radius: 4px; max-width: 85%; }
+  .msg.user .bubble { background: var(--user-grad); color: var(--on-accent);
+    border-radius: 15px 15px 4px 15px; max-width: 85%; font-weight: 500;
+    box-shadow: 0 6px 22px rgba(245,177,61,.18); }
   .msg.assistant .bubble { background: var(--panel); border: 1px solid var(--border);
-                           border-bottom-left-radius: 4px; max-width: 100%; }
-  .msg .markdown h1, .msg .markdown h2, .msg .markdown h3 { margin: .6em 0 .3em; line-height: 1.3; }
-  .msg .markdown h1 { font-size: 17px; } .msg .markdown h2 { font-size: 15px; } .msg .markdown h3 { font-size: 14px; }
-  .msg .markdown p { margin: .4em 0; }
-  .msg .markdown ul, .msg .markdown ol { margin: .4em 0; padding-left: 22px; }
-  .msg .markdown li { margin: .15em 0; }
-  .msg .markdown code { background: var(--panel2); border: 1px solid var(--border); border-radius: 4px;
-                        padding: 1px 5px; font-family: var(--mono); font-size: 12.5px; }
-  .msg .markdown pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
-                       padding: 10px 12px; overflow-x: auto; }
+    border-radius: 4px 15px 15px 15px; max-width: 100%; }
+  .msg .markdown h1, .msg .markdown h2, .msg .markdown h3 { margin: .7em 0 .35em; line-height: 1.3; font-weight: 650; }
+  .msg .markdown h1 { font-size: 18px; } .msg .markdown h2 { font-size: 16px; } .msg .markdown h3 { font-size: 14px; }
+  .msg .markdown p { margin: .45em 0; }
+  .msg .markdown hr { border: none; border-top: 1px solid var(--border-strong); margin: .7em 0; }
+  .msg .markdown table { border-collapse: collapse; margin: .5em 0; font-size: 12.5px; width: 100%; }
+  .msg .markdown th, .msg .markdown td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; }
+  .msg .markdown th { background: var(--panel2); font-weight: 600; }
+  .msg .markdown ul, .msg .markdown ol { margin: .45em 0; padding-left: 22px; }
+  .msg .markdown li { margin: .2em 0; }
+  .msg .markdown code { background: var(--panel2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 1px 6px; font-family: var(--mono); font-size: 12.5px; color: var(--accent); }
+  .msg.user .markdown code { background: rgba(0,0,0,.14); border-color: rgba(0,0,0,.14); color: var(--on-accent); }
+  .msg.user .markdown a { color: var(--on-accent); border-color: rgba(0,0,0,.3); }
+  .msg .markdown pre { background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px; overflow-x: auto; }
   .msg .markdown pre code { background: none; border: none; padding: 0; font-size: 12.5px; color: var(--code-text); }
-  .msg .markdown blockquote { margin: .4em 0; padding: 2px 12px; border-left: 3px solid var(--accent);
-                              color: var(--muted); }
-  .msg .markdown a { color: var(--accent); }
+  .msg .markdown blockquote { margin: .5em 0; padding: 4px 14px; border-left: 3px solid var(--accent);
+    color: var(--muted); background: var(--accent-soft); border-radius: 0 8px 8px 0; }
+  .msg .markdown a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
   .msg.error .bubble { background: var(--error-bg); border: 1px solid var(--error-border); color: var(--error-text); }
-  details.thinking { margin: 10px 0 14px; border: 1px dashed var(--border); border-radius: 10px;
-                     background: var(--thinking-bg); }
-  details.thinking summary { cursor: pointer; user-select: none; padding: 7px 12px;
-                             color: var(--muted); font-size: 13px; display: flex; gap: 8px; align-items: center; }
-  details.thinking summary::before { content: "🧠"; font-size: 12px; }
+  .msg.stat { color: var(--faint); font-family: var(--mono); font-size: 11.5px; text-align: center;
+    padding: 8px 0; border-top: 1px dashed var(--border); margin: 18px 0; }
+
+  /* thinking */
+  details.thinking { margin: 8px 0 16px; border: 1px solid var(--border); border-radius: 12px;
+    background: var(--thinking-bg); overflow: hidden; }
+  details.thinking summary { cursor: pointer; user-select: none; padding: 9px 14px;
+    color: var(--muted); font-size: 12.5px; display: flex; gap: 8px; align-items: center;
+    font-family: var(--mono); letter-spacing: .3px; transition: background .18s ease; }
+  details.thinking summary:hover { background: var(--panel2); }
+  details.thinking summary .think-ic { width: 14px; height: 14px; color: var(--accent); flex: none; }
   details.thinking[open] summary { border-bottom: 1px solid var(--border); }
-  details.thinking .think-body { padding: 8px 12px 12px; font-size: 13px; color: var(--thinking-text);
-                                 line-height: 1.55; }
+  details.thinking .think-body { padding: 10px 14px 14px; font-size: 13px; color: var(--muted); line-height: 1.6; }
   details.thinking .think-body pre, details.thinking .think-body code { font-family: var(--mono); }
-  .tool-card { margin: 6px 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--tool-bg); }
-  .tool-card .tool-head { display: flex; gap: 8px; align-items: center; padding: 6px 10px; cursor: pointer; user-select: none; }
-  .tool-card .tool-head:hover { background: var(--panel2); border-radius: 10px; }
-  .tool-card .dot { width: 7px; height: 7px; border-radius: 50%; background: #8b5cf6; flex: none; }
-  .tool-card .tname { color: #8b5cf6; font-family: var(--mono); font-size: 12px; }
-  .tool-card .targs { color: var(--muted); font-size: 11px; font-family: var(--mono);
-                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .tool-card .chev { color: var(--muted); font-size: 11px; }
-  .tool-card .tool-body { display: none; border-top: 1px solid var(--border); padding: 10px 12px;
-                          max-height: 300px; overflow: auto; }
+
+  /* tool card */
+  .tool-card { margin: 6px 0 16px; border: 1px solid var(--border); border-radius: 11px;
+    background: var(--panel); overflow: hidden; transition: border-color .18s ease; }
+  .tool-card:hover { border-color: var(--border-strong); }
+  .tool-card .tool-head { display: flex; gap: 9px; align-items: center; padding: 8px 12px;
+    cursor: pointer; user-select: none; transition: background .15s ease; }
+  .tool-card .tool-head:hover { background: var(--panel2); }
+  .tool-card .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--tool); flex: none;
+    box-shadow: 0 0 0 3px var(--tool-soft); }
+  .tool-card .tname { color: var(--tool); font-family: var(--mono); font-size: 12px; font-weight: 600; }
+  .tool-card .targs { color: var(--faint); font-size: 11.5px; font-family: var(--mono);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .tool-card .ops-head { color: var(--tool); font-family: var(--mono); font-size: 12px; font-weight: 600; flex: 1; }
+  .tool-card .chev { color: var(--faint); font-size: 11px; transition: transform .2s ease; }
+  .tool-card.open .chev { transform: rotate(90deg); }
+  .tool-card .tool-body { display: none; border-top: 1px solid var(--border); padding: 12px 14px;
+    max-height: 320px; overflow: auto; background: var(--code-bg); }
   .tool-card .tool-body pre { margin: 0; white-space: pre-wrap; word-break: break-word;
-                              font-family: var(--mono); font-size: 12px; color: var(--code-text); }
-  .tool-card.err { border-color: var(--error-border); } .tool-card.err .dot { background: #ef4444; }
-  .approval { margin: 10px 0; padding: 10px 14px; border: 1px solid #f59e0b; border-radius: 10px;
-              background: var(--approval-bg); font-size: 13px; }
-  .approval .approval-actions { margin-top: 8px; display: flex; gap: 8px; }
-  .approval .approval-actions button { padding: 4px 14px; font-size: 13px; }
-  .approval .approval-actions button.ok { background: #16a34a; border-color: #16a34a; color: #fff; }
-  .approval .approval-actions button.no { background: #dc2626; border-color: #dc2626; color: #fff; }
-  .stat { color: var(--muted); font-size: 12px; font-family: ui-monospace, Consolas, monospace; }
-  #inputbar { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--border);
-              background: var(--header-bg); }
-  #inputwrap { flex: 1; max-width: 800px; margin: 0 auto; display: flex; gap: 8px; align-items: center; }
-  #input { flex: 1; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-           padding: 11px 14px; color: var(--text); font-size: 14px; }
-  #input:focus { border-color: var(--accent); }
-  #send { background: var(--accent); border: none; color: #fff; border-radius: 10px; padding: 10px 20px; cursor: pointer; }
-  #send:disabled { opacity: .4; cursor: not-allowed; }
-  label { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted);
-          cursor: pointer; white-space: nowrap; }
-  label input { accent-color: var(--accent); }
-  .modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none;
-                   align-items: flex-start; justify-content: center; z-index: 50; padding: 40px 16px; }
-  .modal-overlay.open { display: flex; }
-  .modal { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; width: 100%;
-           max-width: 560px; padding: 20px 22px; max-height: 82vh; overflow: auto; }
-  .modal h3 { margin: 0 0 4px; font-size: 16px; }
-  .modal .hint { color: var(--muted); font-size: 12px; margin: 0 0 14px; line-height: 1.5; }
-  .modal .field { margin-bottom: 12px; }
-  .modal .field label { display: block; margin-bottom: 4px; font-size: 12px; }
-  .modal .row { display: flex; gap: 12px; }
+    font-family: var(--mono); font-size: 12px; color: var(--code-text); line-height: 1.55; }
+  .tool-card .tool-body pre.err { color: var(--danger); }
+  .tool-card.err { border-color: var(--error-border); }
+  .tool-card.err .dot { background: var(--danger); box-shadow: 0 0 0 3px rgba(248,113,113,.16); }
+  .tool-card.err .tname { color: var(--danger); }
+  .tool-card.err .ops-head { color: var(--danger); }
+
+  /* approval */
+  .approval { margin: 12px 0; padding: 12px 15px; border: 1px solid var(--accent-line);
+    border-radius: 12px; background: linear-gradient(180deg, var(--accent-soft), transparent);
+    font-size: 13px; display: flex; flex-direction: column; gap: 10px; animation: rise .3s ease both; }
+  .approval .approval-actions { display: flex; gap: 8px; }
+  .approval .approval-actions button { padding: 6px 16px; font-size: 13px; font-weight: 550; }
+  .approval .approval-actions button.ok { background: var(--ok); border-color: var(--ok); color: #04130d; }
+  .approval .approval-actions button.no { background: transparent; border-color: var(--danger); color: var(--danger); }
+  .approval.err { border-color: var(--error-border); background: var(--error-bg); }
+
+  /* input bar */
+  #inputbar { display: flex; padding: 16px 22px 18px; border-top: 1px solid var(--border);
+    background: var(--header-bg); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  #inputwrap { flex: 1; max-width: 820px; margin: 0 auto; display: flex; gap: 10px; align-items: center;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 5px 5px 5px 16px;
+    transition: border-color .2s ease, box-shadow .2s ease; }
+  #inputwrap:focus-within { border-color: var(--accent-line); box-shadow: 0 0 0 4px var(--accent-soft); }
+  #input { flex: 1; background: transparent; border: none; color: var(--text); font-size: 14px;
+    padding: 10px 0; outline: none; font-family: var(--sans); }
+  #input::placeholder { color: var(--faint); }
+  #send { background: var(--accent); border: none; color: var(--on-accent); border-radius: 10px;
+    padding: 9px 17px; cursor: pointer; font-weight: 600; font-size: 13.5px;
+    display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 14px rgba(245,177,61,.3); }
+  #send:hover { filter: brightness(1.06); }
+  #send:active { transform: translateY(1px); }
+  #send:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+  #send svg { width: 16px; height: 16px; }
+
+  /* modal */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px); display: none; align-items: flex-start; justify-content: center;
+    z-index: 50; padding: 48px 16px; }
+  .modal-overlay.open { display: flex; animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: var(--panel); border: 1px solid var(--border-strong); border-radius: 18px; width: 100%;
+    max-width: 560px; padding: 24px 24px 20px; max-height: 82vh; overflow: auto; box-shadow: var(--shadow);
+    animation: pop .28s cubic-bezier(.2,.8,.2,1); }
+  @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(.98); } to { opacity: 1; transform: none; } }
+  .modal h3 { margin: 0 0 4px; font-size: 17px; font-weight: 650; display: flex; align-items: center; gap: 10px; }
+  .modal h3::before { content: ""; width: 4px; height: 17px; background: var(--accent); border-radius: 2px; }
+  .modal .hint { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; line-height: 1.55; }
+  .modal .hint code { background: var(--panel2); padding: 1px 6px; border-radius: 5px;
+    font-family: var(--mono); font-size: 11.5px; border: 1px solid var(--border); }
+  .modal .field { margin-bottom: 14px; }
+  .modal .field label { display: block; margin-bottom: 6px; font-size: 12px; color: var(--muted); }
+  .modal .row { display: flex; gap: 14px; }
   .modal .row .field { flex: 1; }
   .modal input[type=text], .modal input[type=password], .modal input[type=number] { width: 100%; }
-  .modal .cb { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-  .modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-  .modal .actions .save { background: var(--accent); border: none; color: #fff; }
-  .modal .save-note { color: #16a34a; font-size: 12px; margin-top: 8px; }
-  ::-webkit-scrollbar { width: 10px; } ::-webkit-scrollbar-thumb { background: var(--panel2); border-radius: 5px; }
+  .modal .cb { display: flex; align-items: center; gap: 9px; margin-bottom: 11px; padding: 9px 12px;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
+    font-size: 12.5px; transition: border-color .18s ease; }
+  .modal .cb:hover { border-color: var(--accent-line); }
+  .modal .cb input { accent-color: var(--accent); width: 15px; height: 15px; }
+  .modal .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .modal .actions button { padding: 8px 20px; font-weight: 550; }
+  .modal .actions .save { background: var(--accent); border: none; color: var(--on-accent); }
+  .modal .save-note { color: var(--ok); font-size: 12px; margin-top: 10px; min-height: 14px; }
+
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 6px;
+    border: 3px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); background-clip: padding-box; }
 </style>
+<meta name="color-scheme" content="dark light"/>
 </head>
 <body>
 <header>
-  <strong>LuminaCoder</strong>
-  <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
-  <select id="sessions" onchange="switchSession(this.value)"></select>
-  <button onclick="newSession()">新建</button>
-  <button onclick="renameSession()">重命名</button>
-  <button onclick="exportSession()">导出</button>
-  <button onclick="deleteSession()" style="background:transparent;border-color:transparent;color:#f87171;">删除</button>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
+    <strong>LuminaCoder</strong>
+  </div>
+  <div class="sel-group">
+    <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
+    <select id="sessions" onchange="switchSession(this.value)" title="会话"></select>
+  </div>
+  <div class="btn-group">
+    <button class="icon-btn" onclick="newSession()" title="新建会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon-btn" onclick="renameSession()" title="重命名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+    <button class="icon-btn" onclick="exportSession()" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
+    <button class="icon-btn danger" onclick="deleteSession()" title="删除会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></button>
+  </div>
   <span class="spacer"></span>
   <span id="tokStat" class="stat" style="display:none;"></span>
-  <button id="themeBtn" onclick="toggleTheme()" title="切换深色/浅色">🌙</button>
-  <button onclick="openSettings()" title="编辑配置">⚙ 设置</button>
-  <button id="stopBtn" onclick="stopRun()" style="display:none;color:#f87171;border-color:#7f1d1d;">停止</button>
-  <label><input id="autoApprove" type="checkbox"/>自动批准</label>
+  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">
+    <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+    <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+  </button>
+  <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
+  <button class="icon-btn stop" id="stopBtn" onclick="stopRun()" style="display:none;" title="停止任务"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg></button>
+  <label class="toggle"><input id="autoApprove" type="checkbox"/><span>自动批准</span></label>
 </header>
 <div id="main"><div id="log"></div></div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
-  <button id="send" onclick="send()">发送</button>
+  <button id="send" onclick="send()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
 </div></div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
@@ -223,7 +364,9 @@ let busy = false;
 let currentSession = null;
 let streamEl = null, mdBuf = "";
 let thinkingEl = null, thinkBuf = "";
-let pendingTool = null;
+let thinkStart = 0, thinkTimer = null, thinkSpan = null;
+let opsCard = null, opsHead = null, opsBody = null, opsPending = null;
+let opsReads = new Set(), opsSkills = 0, opsEdits = {};
 let inputHistory = [];
 let histIndex = -1;
 let tokenUsed = 0;
@@ -247,6 +390,16 @@ function scrollBottom(){ main.scrollTop = main.scrollHeight; }
 
 /* ---------- markdown (minimal, safe) ---------- */
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function parseTableRow(line){
+  let parts = line.trim().split("|");
+  if (parts.length && parts[0].trim() === "") parts.shift();
+  if (parts.length && parts[parts.length - 1].trim() === "") parts.pop();
+  return parts.map(c => c.trim());
+}
+function isTableSep(line){
+  const cells = parseTableRow(line);
+  return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
+}
 function renderMarkdown(src){
   let s = esc(String(src || "").replace(/\\r\\n/g, "\\n"));
   const stash = [];
@@ -264,8 +417,25 @@ function renderMarkdown(src){
     if (h) { out += "<h"+h[1].length+">"+h[2]+"</h"+h[1].length+">"; i++; continue; }
     if (/^\\u0000\\d+\\u0000$/.test(line.trim())) { out += stash[+line.trim().replace(/\\u0000/g,"")] || ""; i++; continue; }
     if (/^&gt; /.test(line)) { const q=[]; while (i<lines.length && /^&gt; /.test(lines[i])) { q.push(lines[i].replace(/^&gt; /,"")); i++; } out += "<blockquote>"+q.join("<br>")+"</blockquote>"; continue; }
+    if (/^\\s*(?:-{3,}|\\*{3,}|_{3,})\\s*$/.test(line)) { out += "<hr/>"; i++; continue; }
     if (/^[-*] /.test(line)) { const it=[]; while (i<lines.length && /^[-*] /.test(lines[i])) { it.push(lines[i].replace(/^[-*] /,"")); i++; } out += "<ul>"+it.map(x=>"<li>"+x+"</li>").join("")+"</ul>"; continue; }
     if (/^\\d+\\. /.test(line)) { const it=[]; while (i<lines.length && /^\\d+\\. /.test(lines[i])) { it.push(lines[i].replace(/^\\d+\\. /,"")); i++; } out += "<ol>"+it.map(x=>"<li>"+x+"</li>").join("")+"</ol>"; continue; }
+    if (line.indexOf("|") !== -1 && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      const rows = [parseTableRow(line)];
+      let j = i + 2;
+      while (j < lines.length && lines[j].indexOf("|") !== -1 && !isTableSep(lines[j])) {
+        rows.push(parseTableRow(lines[j])); j++;
+      }
+      const head = rows[0];
+      let t = "<table><thead><tr>" + head.map(h => "<th>" + (h || "") + "</th>").join("") + "</tr></thead><tbody>";
+      for (let r = 1; r < rows.length; r++) {
+        t += "<tr>" + rows[r].map(c => "<td>" + (c || "") + "</td>").join("") + "</tr>";
+      }
+      t += "</tbody></table>";
+      out += t;
+      i = j;
+      continue;
+    }
     const para = [];
     while (i < lines.length && lines[i].trim() !== "") { para.push(lines[i]); i++; }
     if (para.length) out += "<p>"+para.join("<br>")+"</p>";
@@ -295,34 +465,73 @@ function appendStat(text){
   scrollBottom();
   return div;
 }
-function toolCard(name, args){
+/* ---------- tool ops summary card ---------- */
+function resetOps(){
+  opsCard = null; opsHead = null; opsBody = null; opsPending = null;
+  opsReads = new Set(); opsSkills = 0; opsEdits = {};
+}
+function ensureOpsCard(){
+  if (opsCard) return;
   const card = document.createElement("div");
   card.className = "tool-card";
   const head = document.createElement("div");
   head.className = "tool-head";
   const dot = document.createElement("span"); dot.className = "dot";
-  const tname = document.createElement("span"); tname.className = "tname"; tname.textContent = name;
-  const targs = document.createElement("span"); targs.className = "targs";
-  const argText = JSON.stringify(args || {});
-  targs.textContent = argText.length > 80 ? argText.slice(0, 80) + "…" : argText;
+  opsHead = document.createElement("span"); opsHead.className = "ops-head";
+  opsHead.style.whiteSpace = "pre-line";
   const chev = document.createElement("span"); chev.className = "chev"; chev.textContent = "▸";
-  head.appendChild(dot); head.appendChild(tname); head.appendChild(targs); head.appendChild(chev);
-  const body = document.createElement("div");
-  body.className = "tool-body";
-  const pre = document.createElement("pre");
-  pre.textContent = "$ " + name + " " + argText;
-  body.appendChild(pre);
+  head.appendChild(dot); head.appendChild(opsHead); head.appendChild(chev);
+  opsBody = document.createElement("div");
+  opsBody.className = "tool-body";
   head.onclick = () => {
-    const open = body.style.display !== "none";
-    body.style.display = open ? "none" : "block";
+    const open = opsBody.style.display !== "none";
+    opsBody.style.display = open ? "none" : "block";
+    card.classList.toggle("open", !open);
     chev.textContent = open ? "▸" : "▾";
   };
-  card.appendChild(head); card.appendChild(body);
+  card.appendChild(head); card.appendChild(opsBody);
   log.appendChild(card);
+  opsCard = card;
   scrollBottom();
-  return { card, body, pre };
+}
+function renderOpsHead(){
+  if (!opsCard) return;
+  const parts = [];
+  if (opsReads.size) parts.push("已读取 " + opsReads.size + " 个文件");
+  if (opsSkills) parts.push("调用 " + opsSkills + " 个技能");
+  const paths = Object.keys(opsEdits);
+  let text = parts.join(" · ");
+  if (paths.length) {
+    const lines = paths.map(p => "已编辑 " + p + " +" + opsEdits[p].added + " -" + opsEdits[p].removed);
+    if (text) text += "\\n";
+    text += lines.join("\\n");
+  }
+  opsHead.textContent = text || "工具操作";
+}
+function appendOpsDetail(name, args){
+  const pre = document.createElement("pre");
+  const argText = JSON.stringify(args || {});
+  pre.textContent = "$ " + name + " " + (argText.length > 80 ? argText.slice(0, 80) + "…" : argText);
+  opsBody.appendChild(pre);
+  return pre;
 }
 function resetStream(){ streamEl = null; mdBuf = ""; }
+
+/* ---------- thinking timer ---------- */
+function updateThinkLabel(){
+  if (thinkSpan) thinkSpan.textContent = "已思考 " + Math.max(0, Math.round((Date.now() - thinkStart) / 1000)) + " 秒";
+}
+function startThinkTimer(){
+  thinkStart = Date.now();
+  clearInterval(thinkTimer);
+  thinkTimer = setInterval(updateThinkLabel, 1000);
+  updateThinkLabel();
+}
+function stopThinkTimer(){
+  clearInterval(thinkTimer);
+  thinkTimer = null;
+  updateThinkLabel();
+}
 
 /* ---------- websocket ---------- */
 function handleWSMessage(m) {
@@ -340,19 +549,22 @@ function handleWSMessage(m) {
       det.className = "thinking";
       det.open = false;
       const sum = document.createElement("summary");
-      sum.textContent = "Thinking";
+      sum.innerHTML = '<svg class="think-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14Z"/></svg><span>已思考 0 秒</span>';
       const tb = document.createElement("div");
       tb.className = "think-body";
       det.appendChild(sum); det.appendChild(tb);
       log.appendChild(det);
       thinkingEl = tb;
       thinkBuf = "";
+      thinkSpan = sum.querySelector("span");
+      startThinkTimer();
     }
     thinkBuf += m.chunk;
     thinkingEl.innerHTML = renderMarkdown(thinkBuf);
     scrollBottom();
   } else if (m.type === "stream") {
     if (!streamEl) {
+      stopThinkTimer();
       const div = document.createElement("div");
       div.className = "msg assistant";
       const inner = document.createElement("div");
@@ -367,14 +579,31 @@ function handleWSMessage(m) {
     scrollBottom();
   } else if (m.type === "tool_call") {
     resetStream();
-    pendingTool = toolCard(m.name, m.arguments);
+    stopThinkTimer();
+    ensureOpsCard();
+    const name = m.name || "";
+    const args = m.arguments || {};
+    if (name === "read_file" && args.path) opsReads.add(args.path);
+    else if (name === "write_file" || name === "edit_file" || name === "replace_all") { /* counted on result */ }
+    else opsSkills++;
+    renderOpsHead();
+    opsPending = appendOpsDetail(name, args);
   } else if (m.type === "tool_result") {
-    const card = pendingTool || toolCard(m.name, {});
-    pendingTool = null;
-    if (m.is_error) card.card.classList.add("err");
-    const line = document.createElement("pre");
-    line.textContent = "\\n[" + (m.is_error ? "error" : "ok") + "]\\n" + (m.content || "");
-    card.body.appendChild(line);
+    if (!opsCard) ensureOpsCard();
+    if (m.stats && m.stats.path) {
+      const p = m.stats.path;
+      if (!opsEdits[p]) opsEdits[p] = { added: 0, removed: 0 };
+      opsEdits[p].added += m.stats.added || 0;
+      opsEdits[p].removed += m.stats.removed || 0;
+      renderOpsHead();
+    }
+    if (opsPending) {
+      if (m.is_error) opsPending.classList.add("err");
+      const line = document.createElement("pre");
+      line.textContent = "\\n[" + (m.is_error ? "error" : "ok") + "]\\n" + (m.content || "");
+      opsPending.appendChild(line);
+      opsPending = null;
+    }
     scrollBottom();
   } else if (m.type === "approval_request") {
     if (document.getElementById("autoApprove").checked) { respond(m.request_id, true); return; }
@@ -394,6 +623,7 @@ function handleWSMessage(m) {
     log.appendChild(box);
     scrollBottom();
   } else if (m.type === "done") {
+    stopThinkTimer();
     resetStream();
     setBusy(false);
     tokenUsed += m.total_tokens || 0;
@@ -402,10 +632,10 @@ function handleWSMessage(m) {
     if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大 LUMINA_TOKEN_BUDGET）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
   } else if (m.type === "cancelled") {
-    resetStream(); setBusy(false);
+    stopThinkTimer(); resetStream(); setBusy(false);
     appendStat("[stopped] 任务已手动停止");
   } else if (m.type === "error") {
-    resetStream(); setBusy(false);
+    stopThinkTimer(); resetStream(); setBusy(false);
     appendMd("error", "错误: " + m.message);
   }
 }
@@ -414,7 +644,8 @@ function switchWorkspace(value){
   if (busy) return;
   currentSession = null;
   log.innerHTML = "";
-  thinkingEl = null; resetStream(); pendingTool = null;
+  stopThinkTimer();
+  thinkingEl = null; resetStream(); resetOps();
   tokenUsed = 0; updateTok();
   connectWS(value);
 }
@@ -436,7 +667,8 @@ function respond(id, approved) {
 function switchSession(id) {
   if (busy || !id) return;
   log.innerHTML = "";
-  thinkingEl = null; resetStream(); pendingTool = null;
+  stopThinkTimer();
+  thinkingEl = null; resetStream(); resetOps();
   tokenUsed = 0; updateTok();
   ws.send(JSON.stringify({ type: "resume", session_id: Number(id) }));
 }
@@ -465,7 +697,8 @@ function send() {
   inputHistory.push(text); if (inputHistory.length > 100) inputHistory.shift();
   histIndex = inputHistory.length;
   setBusy(true);
-  thinkingEl = null; resetStream(); pendingTool = null;
+  stopThinkTimer();
+  thinkingEl = null; resetStream(); resetOps();
   appendMd("user", text);
   ws.send(JSON.stringify({ type: "message", content: text }));
   input.value = "";
@@ -480,9 +713,9 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 });
 
 /* ---------- theme toggle ---------- */
-let theme = localStorage.getItem("lumina-theme") || "light";
+let theme = localStorage.getItem("lumina-theme") || "dark";
 document.documentElement.setAttribute("data-theme", theme);
-function updateThemeBtn(){ document.getElementById("themeBtn").textContent = theme === "light" ? "🌙" : "☀"; }
+function updateThemeBtn(){ /* theme icon toggled via CSS based on [data-theme] */ }
 updateThemeBtn();
 function toggleTheme(){
   theme = theme === "light" ? "dark" : "light";
@@ -591,7 +824,13 @@ class WsHooks:
 
     async def on_tool_result(self, result) -> None:
         await self.ws.send_json(
-            {"type": "tool_result", "name": result.name, "is_error": result.is_error, "content": result.content[:2000]}
+            {
+                "type": "tool_result",
+                "name": result.name,
+                "is_error": result.is_error,
+                "content": result.content[:2000],
+                "stats": result.stats,
+            }
         )
 
 
