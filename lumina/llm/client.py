@@ -27,13 +27,11 @@ class DeepSeekClient:
         self.settings = settings
         self.base_url = settings.deepseek_base_url.rstrip("/")
         self.model = settings.deepseek_model
+        self.api_key = settings.api_key
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
             timeout=httpx.Timeout(60.0, connect=10.0),
-            headers={
-                "Authorization": f"Bearer {settings.api_key}",
-                "Content-Type": "application/json",
-            },
+            headers={"Content-Type": "application/json"},
         )
 
     async def aclose(self) -> None:
@@ -76,6 +74,11 @@ class DeepSeekClient:
             ]
             payload["tool_choice"] = "auto"
 
+        if not self.api_key:
+            raise RuntimeError(
+                "未配置 DeepSeek API Key。请打开 设置 > 模型，填写 API 密钥（DEEPSEEK_API_KEY）后重试。"
+            )
+
         last_error: Exception | None = None
         for attempt in range(3):
             try:
@@ -103,6 +106,7 @@ class DeepSeekClient:
         response = await self._client.post(
             "/chat/completions",
             json=payload,
+            headers={"Authorization": f"Bearer {self.api_key}"},
         )
         response.raise_for_status()
 

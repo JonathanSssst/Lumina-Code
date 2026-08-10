@@ -74,7 +74,7 @@ class Settings(BaseSettings):
 
     @property
     def api_key(self) -> str:
-        return self.deepseek_api_key or ""
+        return (self.deepseek_api_key or "").strip()
 
     def validate_for_run(self) -> None:
         if not self.api_key:
