@@ -134,3 +134,35 @@ def test_workspace_manager_endpoints(tmp_path):
         r = c.post("/api/config", json={"LUMINA_TOKEN_BUDGET": "12345"})
         assert r.json()["ok"]
         assert "LUMINA_TOKEN_BUDGET=12345" in env.read_text(encoding="utf-8")
+
+
+def test_theme_prefs_roundtrip(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    state = tmp_path / "state.json"
+    app = create_app(
+        settings=Settings(DEEPSEEK_API_KEY="k"),
+        workspace=tmp_path,
+        state_file=state,
+    )
+    with TestClient(app) as c:
+        assert c.get("/api/prefs").json() == {"theme": "dark"}
+
+        r = c.post("/api/prefs", json={"theme": "light"})
+        assert r.json() == {"ok": True, "theme": "light"}
+        assert json.loads(state.read_text(encoding="utf-8"))["theme"] == "light"
+        assert c.get("/api/prefs").json() == {"theme": "light"}
+
+        bad = c.post("/api/prefs", json={"theme": "neon"})
+        assert not bad.json()["ok"]
+
+        fresh = create_app(
+            settings=Settings(DEEPSEEK_API_KEY="k"),
+            workspace=tmp_path,
+            state_file=state,
+        )
+        with TestClient(fresh) as f:
+            assert f.get("/api/prefs").json() == {"theme": "light"}

@@ -1027,10 +1027,18 @@ let theme = localStorage.getItem("lumina-theme") || "dark";
 document.documentElement.setAttribute("data-theme", theme);
 function updateThemeBtn(){ /* theme icon toggled via CSS based on [data-theme] */ }
 updateThemeBtn();
+fetch("/api/prefs").then(function(r){ return r.json(); }).then(function(d){
+  if (d && (d.theme === "dark" || d.theme === "light")) {
+    theme = d.theme;
+    try { localStorage.setItem("lumina-theme", theme); } catch (e) {}
+    document.documentElement.setAttribute("data-theme", theme);
+  }
+}).catch(function(){});
 function toggleTheme(){
   theme = theme === "light" ? "dark" : "light";
   document.documentElement.setAttribute("data-theme", theme);
-  localStorage.setItem("lumina-theme", theme);
+  try { localStorage.setItem("lumina-theme", theme); } catch (e) {}
+  fetch("/api/prefs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ theme: theme }) }).catch(function(){});
   updateThemeBtn();
 }
 
@@ -1385,6 +1393,22 @@ def create_app(
             return {"ok": True}
 
         return {"ok": False, "message": f"未知操作: {action}"}
+
+    @app.get("/api/prefs")
+    async def get_prefs() -> dict:
+        state = _load_state() if app.state.state_file is not None else {}
+        return {"theme": state.get("theme") or "dark"}
+
+    @app.post("/api/prefs")
+    async def set_prefs(payload: dict[str, Any]) -> dict:
+        theme = str(payload.get("theme", "")).lower()
+        if theme not in ("dark", "light"):
+            return {"ok": False, "message": "theme 必须是 dark 或 light"}
+        if app.state.state_file is not None:
+            state = _load_state()
+            state["theme"] = theme
+            _save_state(state)
+        return {"ok": True, "theme": theme}
 
     @app.get("/api/session/{sid}/export")
     async def export_session(sid: int, format: str = "markdown", workspace: str = "") -> Any:
