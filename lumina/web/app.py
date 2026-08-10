@@ -152,15 +152,86 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .stat { color: var(--faint); font-size: 11.5px; font-family: var(--mono); letter-spacing: .2px;
     padding: 4px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); }
 
+  /* ---------- app layout ---------- */
+  #app { flex: 1; display: flex; min-height: 0; }
+
+  /* ---------- sidebar ---------- */
+  #sidebar { width: 264px; flex: none; display: flex; flex-direction: column;
+    background: var(--panel); border-right: 1px solid var(--border);
+    overflow: hidden; transition: width .22s ease, transform .22s ease; z-index: 20; }
+  .side-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); }
+  .side-brand-txt { font-size: 13px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  .side-section { padding: 14px 12px 6px; min-height: 0; }
+  .side-grow { flex: 1; overflow-y: auto; padding-bottom: 10px; }
+  .side-label { display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 650; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px; white-space: nowrap; }
+  .side-label .cnt { color: var(--faint); font-weight: 500; letter-spacing: 0; }
+  .side-ws { display: flex; gap: 8px; align-items: center; }
+  .side-ws select { flex: 1; min-width: 0; }
+  #sessionList { display: flex; flex-direction: column; }
+  .session-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border-radius: 9px; cursor: pointer; margin-bottom: 2px;
+    border: 1px solid transparent; transition: background .15s ease, border-color .15s ease; }
+  .session-item:hover { background: var(--panel2); }
+  .session-item.active { background: var(--accent-soft); border-color: var(--accent-line); }
+  .session-item .si-dot { display: none; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-strong); flex: none; }
+  .session-item.active .si-dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .session-item .si-title { flex: 1; min-width: 0; font-size: 12.5px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .session-item .si-meta { flex: none; font-size: 10.5px; color: var(--faint); font-family: var(--mono); }
+  .side-actions { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); }
+  .side-actions .icon-btn { flex: 1; width: auto; height: 32px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--panel2); }
+  .side-actions .icon-btn:hover { border-color: var(--accent-line); color: var(--text); }
+  .side-foot { border-top: 1px solid var(--border); padding: 10px 12px;
+    display: flex; flex-direction: column; gap: 10px; }
+  .side-foot .stat { display: block; text-align: center; }
+  .side-foot-btns { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .foot-icns { display: flex; gap: 4px; align-items: center; }
+
+  /* collapse toggle icons */
+  #collapseBtn .i-right { display: none; }
+  #sidebar.collapsed #collapseBtn .i-left { display: none; }
+  #sidebar.collapsed #collapseBtn .i-right { display: block; }
+
+  /* ---------- sidebar collapsed ---------- */
+  #sidebar.collapsed { width: 56px; }
+  #sidebar.collapsed .side-brand-txt,
+  #sidebar.collapsed .side-label, #sidebar.collapsed .side-label .cnt,
+  #sidebar.collapsed .si-title, #sidebar.collapsed .si-meta,
+  #sidebar.collapsed .side-ws select, #sidebar.collapsed .toggle,
+  #sidebar.collapsed .side-foot .stat { display: none; }
+  #sidebar.collapsed .side-section { padding: 14px 10px 6px; }
+  #sidebar.collapsed .side-ws { justify-content: center; }
+  #sidebar.collapsed .session-item { justify-content: center; padding: 8px 0; }
+  #sidebar.collapsed .session-item .si-dot { display: block; }
+  #sidebar.collapsed .side-actions { flex-direction: column; padding: 8px 10px; }
+  #sidebar.collapsed .side-actions .icon-btn { flex: none; width: 36px; height: 34px; margin: 0 auto; }
+  #sidebar.collapsed .side-foot { align-items: center; }
+  #sidebar.collapsed .side-foot-btns { flex-direction: column; gap: 6px; }
+  #sidebar.collapsed .foot-icns { flex-direction: column; gap: 4px; }
+  #sideToggle .i-close { display: none; }
+  body.sidebar-hidden #sideToggle .i-open { display: none; }
+  body.sidebar-hidden #sideToggle .i-close { display: block; }
+
+  @media (max-width: 760px) {
+    #app { position: relative; }
+    #sidebar { position: absolute; top: 0; bottom: 0; left: 0; box-shadow: var(--shadow); }
+    #sidebar.collapsed { transform: translateX(-100%); width: 264px; }
+  }
+
   /* ---------- main / log ---------- */
-  #main { flex: 1; overflow-y: auto; scroll-behavior: smooth; }
+  #main { flex: 1; overflow-y: auto; scroll-behavior: smooth; min-width: 0; }
   #log { max-width: 820px; margin: 0 auto; padding: 28px 22px 44px; }
 
   .msg { margin-bottom: 16px; line-height: 1.65; font-size: 14px; word-break: break-word;
     animation: rise .32s ease both; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
   .msg .bubble { display: inline-block; padding: 10px 15px; border-radius: 15px; }
-  .msg.user { display: flex; justify-content: flex-end; }
+  .msg.user { display: flex; flex-direction: column; align-items: flex-end; }
   .msg.user .bubble { background: var(--user-grad); color: var(--on-accent);
     border-radius: 15px 15px 4px 15px; max-width: 85%; font-weight: 500;
     box-shadow: 0 6px 22px rgba(245,177,61,.18); }
@@ -255,6 +326,19 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   #send.stopping { background: var(--danger); box-shadow: 0 4px 14px rgba(248,113,113,.3); }
   #send svg { width: 16px; height: 16px; }
 
+  /* message hover actions */
+  .msg-actions { display: flex; gap: 4px; margin-top: 6px; opacity: 0; transition: opacity .15s ease; }
+  .msg:hover .msg-actions { opacity: 1; }
+  .msg-actions button { padding: 2px 9px; font-size: 11px; border-radius: 7px; color: var(--muted);
+    background: var(--panel2); border: 1px solid var(--border); }
+  .msg-actions button:hover { color: var(--text); border-color: var(--accent-line); }
+  .stat.flash { border: 1px dashed var(--accent-line); color: var(--accent); }
+
+  /* edit bar */
+  .editbar { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 22px;
+    border-top: 1px solid var(--border); background: var(--accent-soft); font-size: 12px; color: var(--accent); }
+  .editbar button { padding: 2px 12px; font-size: 11.5px; color: var(--muted); }
+
   /* workspace manager */
   .ws-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; margin-bottom: 8px;
     border: 1px solid var(--border); border-radius: 10px; background: var(--panel2);
@@ -308,31 +392,60 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 </head>
 <body>
 <header>
+  <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
+    <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
+  </button>
   <div class="brand">
     <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
     <strong>LuminaCoder</strong>
   </div>
-  <div class="sel-group">
-    <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
-    <button class="icon-btn" onclick="openWsManager()" title="选择 / 管理工作区"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></button>
-    <select id="sessions" onchange="switchSession(this.value)" title="会话"></select>
+  <span class="spacer"></span>
+</header>
+<div id="app">
+<aside id="sidebar">
+  <div class="side-head">
+    <button class="icon-btn" id="collapseBtn" onclick="toggleSidebar()" title="收起侧边栏">
+      <svg class="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      <svg class="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </button>
+    <span class="side-brand-txt">工作台</span>
   </div>
-  <div class="btn-group">
+  <div class="side-section">
+    <div class="side-label">工作区</div>
+    <div class="side-ws">
+      <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
+      <button class="icon-btn" onclick="openWsManager()" title="选择 / 管理工作区"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></button>
+    </div>
+  </div>
+  <div class="side-section side-grow">
+    <div class="side-label">会话 <span class="cnt" id="sideCnt"></span></div>
+    <div id="sessionList"></div>
+    <select id="sessions" style="display:none"></select>
+  </div>
+  <div class="side-actions">
     <button class="icon-btn" onclick="newSession()" title="新建会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="icon-btn" onclick="renameSession()" title="重命名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
     <button class="icon-btn" onclick="exportSession()" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
     <button class="icon-btn danger" onclick="deleteSession()" title="删除会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></button>
   </div>
-  <span class="spacer"></span>
-  <span id="tokStat" class="stat" style="display:none;"></span>
-  <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">
-    <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
-    <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
-  </button>
-  <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
-  <label class="toggle"><input id="autoApprove" type="checkbox"/><span>自动批准</span></label>
-</header>
+  <div class="side-foot">
+    <span id="tokStat" class="stat" style="display:none;"></span>
+    <div class="side-foot-btns">
+      <label class="toggle"><input id="autoApprove" type="checkbox"/><span>自动批准</span></label>
+      <span class="foot-icns">
+        <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">
+          <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        </button>
+        <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg></button>
+      </span>
+    </div>
+  </div>
+</aside>
 <div id="main"><div id="log"></div></div>
+</div>
+<div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
@@ -391,9 +504,11 @@ const log = document.getElementById("log");
 const main = document.getElementById("main");
 const input = document.getElementById("input");
 const sendBtn = document.getElementById("send");
-const sel = document.getElementById("sessions");
 let busy = false;
 let currentSession = null;
+let sessionsData = [];
+let userCounter = 0;
+let editingUi = null;
 let streamEl = null, mdBuf = "";
 let thinkingEl = null, thinkBuf = "";
 let thinkStart = 0, thinkTimer = null, thinkSpan = null;
@@ -493,16 +608,97 @@ function renderMarkdown(src){
 }
 
 /* ---------- DOM helpers ---------- */
-function appendMd(cls, text, bubble){
+function appendMd(cls, text){
   const div = document.createElement("div");
   div.className = "msg " + cls;
+  if (cls === "user") { div.dataset.uindex = userCounter++; div.dataset.text = text; }
+  else if (cls === "assistant") div.dataset.text = text;
   const inner = document.createElement("div");
   inner.className = "bubble markdown";
   inner.innerHTML = renderMarkdown(text);
   div.appendChild(inner);
+  if (cls === "user" || cls === "assistant") div.appendChild(buildMsgActions(div, cls));
   log.appendChild(div);
   scrollBottom();
   return inner;
+}
+/* ---------- message actions: copy / edit / resend / regenerate ---------- */
+function actionBtn(label, fn){
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.onclick = fn;
+  return b;
+}
+function buildMsgActions(div, cls){
+  const box = document.createElement("div");
+  box.className = "msg-actions";
+  box.appendChild(actionBtn("复制", () => copyMessage(div)));
+  if (cls === "user") {
+    box.appendChild(actionBtn("编辑", () => editMessage(div)));
+    box.appendChild(actionBtn("重新发送", () => resendMessage(div)));
+  } else {
+    box.appendChild(actionBtn("重新生成", () => regenerateAt(div)));
+  }
+  return box;
+}
+function flashNote(text){
+  const div = document.createElement("div");
+  div.className = "stat flash";
+  div.textContent = text;
+  log.appendChild(div);
+  scrollBottom();
+  setTimeout(() => div.remove(), 1600);
+}
+function legacyCopy(text, done){
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand("copy"); done(); } catch (e) {}
+  document.body.removeChild(ta);
+}
+function copyMessage(el){
+  const text = el.dataset.text || "";
+  if (!text) return;
+  const done = () => flashNote("[copied] 已复制");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
+  } else legacyCopy(text, done);
+}
+function showEditbar(){ document.getElementById("editbar").style.display = "flex"; }
+function hideEditbar(){ const el = document.getElementById("editbar"); if (el) el.style.display = "none"; }
+function cancelEdit(){ editingUi = null; hideEditbar(); }
+function editMessage(el){
+  editingUi = parseInt(el.dataset.uindex, 10);
+  input.value = el.dataset.text || "";
+  input.focus();
+  showEditbar();
+}
+function resendMessage(el){
+  truncateAndSend(parseInt(el.dataset.uindex, 10), el.dataset.text || "");
+}
+function regenerateAt(el){
+  let prev = el.previousElementSibling;
+  while (prev && !(prev.classList.contains("msg") && prev.classList.contains("user"))) {
+    prev = prev.previousElementSibling;
+  }
+  if (prev) truncateAndSend(parseInt(prev.dataset.uindex, 10), prev.dataset.text || "");
+}
+function truncateAndSend(ui, text){
+  if (busy || !currentSession || ui < 0) return;
+  const target = document.querySelector('.msg.user[data-uindex="' + ui + '"]');
+  while (target && target.nextSibling) log.removeChild(target.nextSibling);
+  if (target) target.remove();
+  hideEditbar();
+  editingUi = null;
+  userCounter = ui;
+  ws.send(JSON.stringify({ type: "truncate", session_id: currentSession, before_user: ui }));
+  setBusy(true);
+  stopThinkTimer();
+  thinkingEl = null; resetStream(); resetOps();
+  appendMd("user", text);
+  ws.send(JSON.stringify({ type: "message", content: text }));
 }
 function appendStat(text){
   const div = document.createElement("div");
@@ -563,6 +759,9 @@ function appendOpsDetail(name, args){
   return pre;
 }
 function resetStream(){ streamEl = null; mdBuf = ""; }
+function finalizeStreamText(){
+  if (streamEl && streamEl.parentElement) streamEl.parentElement.dataset.text = mdBuf;
+}
 
 /* ---------- thinking timer ---------- */
 function updateThinkLabel(){
@@ -584,8 +783,9 @@ function stopThinkTimer(){
 function handleWSMessage(m) {
   if (m.type === "sessions") renderSessions(m.sessions);
   else if (m.type === "session") { currentSession = m.session.id; tokenUsed = 0; updateTok(); }
-  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; }
+  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); }
   else if (m.type === "history") {
+    userCounter = 0;
     m.messages.forEach(msg => {
       if (msg.role === "user") appendMd("user", msg.content);
       else if (msg.role === "assistant") appendMd("assistant", msg.content);
@@ -614,9 +814,11 @@ function handleWSMessage(m) {
       stopThinkTimer();
       const div = document.createElement("div");
       div.className = "msg assistant";
+      div.dataset.text = "";
       const inner = document.createElement("div");
       inner.className = "bubble markdown";
       div.appendChild(inner);
+      div.appendChild(buildMsgActions(div, "assistant"));
       log.appendChild(div);
       streamEl = inner;
       mdBuf = "";
@@ -671,6 +873,7 @@ function handleWSMessage(m) {
     scrollBottom();
   } else if (m.type === "done") {
     stopThinkTimer();
+    finalizeStreamText();
     resetStream();
     setBusy(false);
     tokenUsed += m.total_tokens || 0;
@@ -679,10 +882,10 @@ function handleWSMessage(m) {
     if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大 LUMINA_TOKEN_BUDGET）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
   } else if (m.type === "cancelled") {
-    stopThinkTimer(); resetStream(); setBusy(false);
+    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false);
     appendStat("[stopped] 任务已手动停止");
   } else if (m.type === "error") {
-    stopThinkTimer(); resetStream(); setBusy(false);
+    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false);
     appendMd("error", "错误: " + m.message);
   }
 }
@@ -693,21 +896,30 @@ function switchWorkspace(value){
   log.innerHTML = "";
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
+  userCounter = 0; editingUi = null; hideEditbar();
   tokenUsed = 0; updateTok();
   connectWS(value);
   persistDefaultWorkspace(value);
 }
 
 function renderSessions(sessions) {
-  const prev = currentSession;
-  sel.innerHTML = "";
-  sessions.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s.id;
-    opt.textContent = "#" + s.id + " " + (s.title || "").slice(0, 24) + " (" + s.messages + ")";
-    sel.appendChild(opt);
+  sessionsData = sessions || [];
+  document.getElementById("sideCnt").textContent = sessionsData.length ? "· " + sessionsData.length : "";
+  const list = document.getElementById("sessionList");
+  list.innerHTML = "";
+  sessionsData.forEach(s => {
+    const item = document.createElement("div");
+    item.className = "session-item" + (s.id === currentSession ? " active" : "");
+    item.onclick = () => switchSession(s.id);
+    const dot = document.createElement("span"); dot.className = "si-dot";
+    const title = document.createElement("span"); title.className = "si-title";
+    title.textContent = (s.title || "#" + s.id).slice(0, 26);
+    title.title = s.title || "";
+    const meta = document.createElement("span"); meta.className = "si-meta";
+    meta.textContent = "#" + s.id + " · " + s.messages;
+    item.appendChild(dot); item.appendChild(title); item.appendChild(meta);
+    list.appendChild(item);
   });
-  if (prev != null && sessions.some(s => s.id === prev)) sel.value = prev;
 }
 function respond(id, approved) {
   ws.send(JSON.stringify({ type: "approval_response", request_id: id, approved }));
@@ -717,16 +929,18 @@ function switchSession(id) {
   log.innerHTML = "";
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
+  userCounter = 0; editingUi = null; hideEditbar();
   tokenUsed = 0; updateTok();
   ws.send(JSON.stringify({ type: "resume", session_id: Number(id) }));
 }
 function newSession() {
   if (busy) return;
+  editingUi = null; hideEditbar();
   ws.send(JSON.stringify({ type: "new_session" }));
 }
 function renameSession() {
   if (busy || !currentSession) return;
-  const cur = (sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : "").replace(/^#[\\d]+ /, "");
+  const cur = (sessionsData.find(s => s.id === currentSession) || {}).title || "";
   const t = prompt("新的会话标题", cur);
   if (t === null) return;
   ws.send(JSON.stringify({ type: "rename_session", session_id: currentSession, title: t }));
@@ -742,6 +956,7 @@ function deleteSession() {
 function send() {
   const text = input.value.trim();
   if (!text || busy) return;
+  if (editingUi != null) { const ui = editingUi; editingUi = null; hideEditbar(); truncateAndSend(ui, text); return; }
   inputHistory.push(text); if (inputHistory.length > 100) inputHistory.shift();
   histIndex = inputHistory.length;
   setBusy(true);
@@ -771,6 +986,21 @@ function toggleTheme(){
   localStorage.setItem("lumina-theme", theme);
   updateThemeBtn();
 }
+
+/* ---------- sidebar ---------- */
+function toggleSidebar(){
+  const sb = document.getElementById("sidebar");
+  const collapsed = sb.classList.toggle("collapsed");
+  document.body.classList.toggle("sidebar-hidden", collapsed);
+  try { localStorage.setItem("lumina-sidebar", collapsed ? "1" : "0"); } catch (e) {}
+}
+(function initSidebar(){
+  const sb = document.getElementById("sidebar");
+  if (sb && localStorage.getItem("lumina-sidebar") === "1") {
+    sb.classList.add("collapsed");
+    document.body.classList.add("sidebar-hidden");
+  }
+})();
 
 /* ---------- settings panel ---------- */
 function openSettings(){
@@ -1271,6 +1501,17 @@ def create_app(
                     running = asyncio.create_task(
                         run_in_background(content, current_session, history)
                     )
+
+                elif mtype == "truncate":
+                    if running and not running.done():
+                        await ws.send_json({"type": "error", "message": "任务运行中，请先等待完成"})
+                        continue
+                    if current_session is None:
+                        continue
+                    if not store.truncate_after_user(current_session, int(msg.get("before_user", -1))):
+                        await ws.send_json({"type": "error", "message": "无法回退：找不到该消息"})
+                        continue
+                    await push_sessions(ws, store, ws_path)
 
                 elif mtype == "approval_response":
                     approver.submit(bool(msg.get("approved")))

@@ -69,3 +69,32 @@ def test_set_title_and_touch(tmp_path):
     store.set_title(sid, "新标题")
     assert store.get_session(sid).title == "新标题"
     store.close()
+
+
+def test_truncate_after_user(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+
+    store.append_message(sid, Message(role="user", content="第一问"))
+    store.append_message(sid, Message(role="assistant", content="第一个回答"))
+    store.append_message(sid, Message(role="tool", tool_call_id="t1", name="read_file", content="内容"))
+    store.append_message(sid, Message(role="user", content="第二问"))
+    store.append_message(sid, Message(role="assistant", content="第二个回答"))
+
+    assert store.truncate_after_user(sid, 1) is True
+    assert [m.role for m in store.get_messages(sid)] == ["user", "assistant", "tool"]
+    assert [m.content for m in store.get_messages(sid) if m.role == "user"] == ["第一问"]
+
+    store.append_message(sid, Message(role="user", content="改后第二问"))
+    assert [m.content for m in store.get_messages(sid) if m.role == "user"] == ["第一问", "改后第二问"]
+    store.close()
+
+
+def test_truncate_after_user_invalid_index(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+    store.append_message(sid, Message(role="user", content="x"))
+    assert store.truncate_after_user(sid, 5) is False
+    assert store.truncate_after_user(sid, -1) is False
+    assert len(store.get_messages(sid)) == 1
+    store.close()

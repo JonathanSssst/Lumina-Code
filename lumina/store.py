@@ -186,6 +186,23 @@ class SessionStore:
             )
         return messages
 
+    def truncate_after_user(self, session_id: int, user_index: int) -> bool:
+        """Delete the user_index-th user message (0-based) and everything after it."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT seq FROM messages WHERE session_id = ? AND role = 'user' ORDER BY seq",
+                (session_id,),
+            ).fetchall()
+        if user_index < 0 or user_index >= len(rows):
+            return False
+        seq = int(rows[user_index]["seq"])
+        with self._lock:
+            self._conn.execute(
+                "DELETE FROM messages WHERE session_id = ? AND seq >= ?", (session_id, seq)
+            )
+            self._conn.commit()
+        return True
+
     def _next_seq(self, session_id: int) -> int:
         with self._lock:
             row = self._conn.execute(
