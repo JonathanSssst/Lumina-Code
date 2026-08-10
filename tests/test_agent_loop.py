@@ -121,6 +121,22 @@ async def test_agent_exhausts_budget(workspace, settings):
     assert result.stopped_reason == "budget_exhausted"
 
 
+async def test_reset_budget_starts_fresh_conversation(workspace, settings):
+    settings.token_budget = 1000
+    settings.self_review = False
+    client = FakeClient([_resp(content="ok")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    agent.budget.record(Usage(prompt_tokens=700, completion_tokens=700, total_tokens=1400))
+    assert agent.budget.exhausted
+
+    agent.reset_budget()
+    assert not agent.budget.exhausted
+    assert agent.budget.total_tokens == 0
+    assert agent.budget.iterations == 0
+    result = await agent.run("task")
+    assert result.stopped_reason == "completed"
+
+
 async def test_hooks_fire(workspace, settings):
     seen: list[str] = []
 

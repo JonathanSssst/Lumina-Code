@@ -81,6 +81,15 @@ class Agent:
         if web is not None:
             await web.aclose()
 
+    def reset_budget(self) -> None:
+        """Start a fresh token/iteration budget for a new conversation."""
+        self.budget = TokenBudget(
+            max_tokens=self.settings.token_budget,
+            max_iterations=self.settings.max_iterations,
+        )
+        self._compressed = False
+        self._reviewed = False
+
     def _project_instructions(self) -> str:
         """Load AGENTS.md from the workspace to seed project-specific rules."""
         for name in ("AGENTS.md", "agents.md"):

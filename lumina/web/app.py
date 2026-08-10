@@ -92,7 +92,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; }
-  body { margin: 0; display: flex; flex-direction: column;
+  body { margin: 0; display: flex;
          background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
          color: var(--text); font-family: var(--sans);
          -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
@@ -153,7 +153,9 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     padding: 4px 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--panel); }
 
   /* ---------- app layout ---------- */
-  #app { flex: 1; display: flex; min-height: 0; }
+  #app { flex: 1; display: flex; min-height: 0; min-width: 0; }
+  #right { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #work { flex: 1; display: flex; min-height: 0; min-width: 0; }
 
   /* ---------- sidebar ---------- */
   #sidebar { width: 264px; flex: none; display: flex; flex-direction: column;
@@ -222,10 +224,24 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     #sidebar { position: absolute; top: 0; bottom: 0; left: 0; box-shadow: var(--shadow); }
     #sidebar.collapsed { transform: translateX(-100%); width: 264px; }
   }
+  @media (max-width: 900px) {
+    #toc { display: none; }
+  }
 
   /* ---------- main / log ---------- */
   #main { flex: 1; overflow-y: auto; scroll-behavior: smooth; min-width: 0; }
   #log { max-width: 820px; margin: 0 auto; padding: 28px 22px 44px; }
+
+  /* ---------- right conversation navigation ---------- */
+  #toc { width: 210px; flex: none; border-left: 1px solid var(--border); overflow-y: auto;
+    background: var(--panel); }
+  .toc-label { font-size: 11px; font-weight: 650; letter-spacing: .8px; text-transform: uppercase;
+    color: var(--muted); padding: 14px 14px 8px; white-space: nowrap; }
+  .toc-item { padding: 7px 14px; font-size: 12px; color: var(--muted); cursor: pointer;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-left: 2px solid transparent; transition: background .15s ease, color .15s ease; }
+  .toc-item:hover { background: var(--panel2); color: var(--text); }
+  .toc-item.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); }
 
   .msg { margin-bottom: 16px; line-height: 1.65; font-size: 14px; word-break: break-word;
     animation: rise .32s ease both; }
@@ -391,17 +407,6 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <meta name="color-scheme" content="dark light"/>
 </head>
 <body>
-<header>
-  <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
-    <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
-    <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
-  </button>
-  <div class="brand">
-    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
-    <strong>LuminaCoder</strong>
-  </div>
-  <span class="spacer"></span>
-</header>
 <div id="app">
 <aside id="sidebar">
   <div class="side-head">
@@ -443,13 +448,29 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     </div>
   </div>
 </aside>
-<div id="main"><div id="log"></div></div>
+<div id="right">
+<header>
+  <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
+    <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
+  </button>
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
+    <strong>LuminaCoder</strong>
+  </div>
+  <span class="spacer"></span>
+</header>
+<div id="work">
+  <div id="main"><div id="log"></div></div>
+  <aside id="toc"><div class="toc-label">对话导航</div><div id="tocList"></div></aside>
 </div>
 <div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
 </div></div>
+</div>
+</div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal">
     <h3>设置</h3>
@@ -620,6 +641,7 @@ function appendMd(cls, text){
   if (cls === "user" || cls === "assistant") div.appendChild(buildMsgActions(div, cls));
   log.appendChild(div);
   scrollBottom();
+  if (cls === "user") rebuildToc();
   return inner;
 }
 /* ---------- message actions: copy / edit / resend / regenerate ---------- */
@@ -700,6 +722,36 @@ function truncateAndSend(ui, text){
   appendMd("user", text);
   ws.send(JSON.stringify({ type: "message", content: text }));
 }
+/* ---------- right conversation navigation ---------- */
+function rebuildToc(){
+  const list = document.getElementById("tocList");
+  if (!list) return;
+  list.innerHTML = "";
+  document.querySelectorAll(".msg.user[data-uindex]").forEach(el => {
+    const n = parseInt(el.dataset.uindex, 10);
+    const text = (el.dataset.text || "").replace(/\\s+/g, " ").slice(0, 26);
+    const item = document.createElement("div");
+    item.className = "toc-item";
+    item.dataset.uindex = n;
+    item.textContent = (n + 1) + ". " + (text || "消息 " + n);
+    item.title = el.dataset.text || "";
+    item.onclick = () => el.scrollIntoView({ behavior: "smooth", block: "start" });
+    list.appendChild(item);
+  });
+}
+function updateTocActive(){
+  const list = document.getElementById("tocList");
+  if (!list) return;
+  const mTop = main.getBoundingClientRect().top;
+  let cur = null;
+  document.querySelectorAll(".msg.user[data-uindex]").forEach(el => {
+    if (el.getBoundingClientRect().top - mTop - 120 <= 0) cur = el;
+  });
+  list.querySelectorAll(".toc-item").forEach(it => {
+    it.classList.toggle("active", cur && it.dataset.uindex === cur.dataset.uindex);
+  });
+}
+main.addEventListener("scroll", updateTocActive);
 function appendStat(text){
   const div = document.createElement("div");
   div.className = "msg stat";
@@ -783,7 +835,7 @@ function stopThinkTimer(){
 function handleWSMessage(m) {
   if (m.type === "sessions") renderSessions(m.sessions);
   else if (m.type === "session") { currentSession = m.session.id; tokenUsed = 0; updateTok(); }
-  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); }
+  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); rebuildToc(); }
   else if (m.type === "history") {
     userCounter = 0;
     m.messages.forEach(msg => {
@@ -897,6 +949,7 @@ function switchWorkspace(value){
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
   userCounter = 0; editingUi = null; hideEditbar();
+  rebuildToc();
   tokenUsed = 0; updateTok();
   connectWS(value);
   persistDefaultWorkspace(value);
@@ -930,6 +983,7 @@ function switchSession(id) {
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
   userCounter = 0; editingUi = null; hideEditbar();
+  rebuildToc();
   tokenUsed = 0; updateTok();
   ws.send(JSON.stringify({ type: "resume", session_id: Number(id) }));
 }
@@ -1442,6 +1496,7 @@ def create_app(
                         await ws.send_json({"type": "error", "message": "任务运行中，请先等待完成"})
                         continue
                     current_session = store.create_session(ws_path, "新会话")
+                    agent.reset_budget()
                     await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     await push_sessions(ws, store, ws_path)
 
@@ -1476,6 +1531,8 @@ def create_app(
                     if store.get_session(sid) is None:
                         await ws.send_json({"type": "error", "message": f"会话 {sid} 不存在"})
                         continue
+                    if current_session != sid:
+                        agent.reset_budget()
                     current_session = sid
                     await ws.send_json({"type": "session", "session": session_payload(store, sid)})
                     msgs = [
@@ -1491,6 +1548,7 @@ def create_app(
                         continue
                     if current_session is None:
                         current_session = store.create_session(ws_path, "新会话")
+                        agent.reset_budget()
                         await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     content = msg.get("content", "")
                     history = store.get_messages(current_session)
