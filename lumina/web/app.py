@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from lumina.config import Settings, get_settings
 from lumina.config_edit import write_env
@@ -165,9 +165,11 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <body>
 <header>
   <strong>LuminaCoder</strong>
+  <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
   <select id="sessions" onchange="switchSession(this.value)"></select>
   <button onclick="newSession()">新建</button>
   <button onclick="renameSession()">重命名</button>
+  <button onclick="exportSession()">导出</button>
   <button onclick="deleteSession()" style="background:transparent;border-color:transparent;color:#f87171;">删除</button>
   <span class="spacer"></span>
   <span id="tokStat" class="stat" style="display:none;"></span>
@@ -210,7 +212,8 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </div>
 </div>
 <script>
-const ws = new WebSocket(`ws://${location.host}/ws`);
+let ws = null;
+let activeWorkspace = "";
 const log = document.getElementById("log");
 const main = document.getElementById("main");
 const input = document.getElementById("input");
@@ -224,6 +227,14 @@ let pendingTool = null;
 let inputHistory = [];
 let histIndex = -1;
 let tokenUsed = 0;
+
+function connectWS(path){
+  if (ws) { ws.onclose = null; ws.close(); }
+  activeWorkspace = path || "";
+  ws = new WebSocket(`ws://${location.host}/ws${activeWorkspace ? "?w=" + encodeURIComponent(activeWorkspace) : ""}`);
+  ws.onopen = () => ws.send(JSON.stringify({ type: "list" }));
+  ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
+}
 
 function setBusy(b){ busy = b; sendBtn.disabled = b; document.getElementById("stopBtn").style.display = b ? "inline-block" : "none"; }
 function updateTok(){
@@ -314,9 +325,7 @@ function toolCard(name, args){
 function resetStream(){ streamEl = null; mdBuf = ""; }
 
 /* ---------- websocket ---------- */
-ws.onopen = () => ws.send(JSON.stringify({ type: "list" }));
-ws.onmessage = (e) => {
-  const m = JSON.parse(e.data);
+function handleWSMessage(m) {
   if (m.type === "sessions") renderSessions(m.sessions);
   else if (m.type === "session") { currentSession = m.session.id; tokenUsed = 0; updateTok(); }
   else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; }
@@ -399,7 +408,16 @@ ws.onmessage = (e) => {
     resetStream(); setBusy(false);
     appendMd("error", "错误: " + m.message);
   }
-};
+}
+
+function switchWorkspace(value){
+  if (busy) return;
+  currentSession = null;
+  log.innerHTML = "";
+  thinkingEl = null; resetStream(); pendingTool = null;
+  tokenUsed = 0; updateTok();
+  connectWS(value);
+}
 
 function renderSessions(sessions) {
   const prev = currentSession;
@@ -500,6 +518,32 @@ function saveSettings(){
       res.ok ? "已保存到 .env，新会话将使用新配置。" : ("保存失败: " + (res.message || ""));
   });
 }
+
+/* ---------- workspaces + export ---------- */
+function exportSession() {
+  if (!currentSession) return;
+  fetch(`/api/session/${currentSession}/export?format=markdown&workspace=${encodeURIComponent(activeWorkspace)}`)
+    .then(r => { if (!r.ok) throw new Error("导出失败"); return r.blob(); })
+    .then(blob => {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "session-" + currentSession + ".md";
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    })
+    .catch(e => appendMd("error", "导出失败: " + e.message));
+}
+fetch("/api/workspaces").then(r => r.json()).then(data => {
+  const wsSel = document.getElementById("wsSel");
+  data.workspaces.forEach(ws_ => {
+    const opt = document.createElement("option");
+    opt.value = ws_.path;
+    opt.textContent = ws_.name;
+    wsSel.appendChild(opt);
+  });
+  wsSel.value = data.default;
+  connectWS(data.default);
+});
 </script>
 </body>
 </html>"""
@@ -551,25 +595,84 @@ class WsHooks:
         )
 
 
-def create_app(settings: Settings, workspace: Path) -> FastAPI:
+def create_app(
+    settings: Settings,
+    workspace: Path,
+    workspaces: list[Path] | None = None,
+) -> FastAPI:
     app = FastAPI(title="LuminaCoder")
     workspace = Path(workspace).resolve()
-    store = SessionStore(default_db_path(workspace))
-    app.state.workspace = workspace
+    configured = [str(Path(p).resolve()) for p in (workspaces or [])]
+    if str(workspace) not in configured:
+        configured.insert(0, str(workspace))
+    ws_paths: list[Path] = [Path(p) for p in dict.fromkeys(configured)]
+    app.state.workspaces = ws_paths
     app.state.settings = settings
+    app.state.stores: dict[str, SessionStore] = {}
 
-    def session_payload(sid: int) -> dict:
+    def get_store(path: Path) -> SessionStore:
+        key = str(path)
+        if key not in app.state.stores:
+            app.state.stores[key] = SessionStore(default_db_path(path))
+        return app.state.stores[key]
+
+    def resolve_workspace(requested: str) -> Path:
+        if not requested:
+            return workspace
+        for p in ws_paths:
+            if requested in (str(p), p.name):
+                return p
+        return workspace
+
+    def session_payload(store: SessionStore, sid: int) -> dict:
         s = store.get_session(sid)
         return {"id": sid, "title": s.title if s else "", "messages": s.message_count if s else 0}
 
-    async def push_sessions(ws: WebSocket) -> None:
+    async def push_sessions(ws: WebSocket, store: SessionStore, path: Path) -> None:
         await ws.send_json(
-            {"type": "sessions", "sessions": [session_payload(s.id) for s in store.list_sessions(workspace)]}
+            {"type": "sessions", "sessions": [session_payload(store, s.id) for s in store.list_sessions(path)]}
         )
 
     @app.get("/", response_class=HTMLResponse)
     async def index() -> str:
         return _INDEX_HTML
+
+    @app.get("/api/workspaces")
+    async def list_workspaces() -> dict:
+        return {
+            "workspaces": [{"path": str(p), "name": p.name or str(p)} for p in ws_paths],
+            "default": str(workspace),
+        }
+
+    @app.get("/api/session/{sid}/export")
+    async def export_session(sid: int, format: str = "markdown", workspace: str = "") -> Any:
+        store = get_store(resolve_workspace(workspace))
+        session = store.get_session(sid)
+        if session is None:
+            return JSONResponse({"error": f"会话 {sid} 不存在"}, status_code=404)
+        msgs = store.get_messages(sid)
+        if format == "json":
+            return JSONResponse(
+                {
+                    "session": {"id": sid, "title": session.title, "messages": session.message_count},
+                    "messages": [
+                        {"role": m.role, "content": m.content or "", "tool": m.name or ""} for m in msgs
+                    ],
+                }
+            )
+        parts: list[str] = []
+        for m in msgs:
+            if m.role == "user" and m.content:
+                parts.append(f"## User\n\n{m.content}")
+            elif m.role == "assistant" and m.content:
+                parts.append(f"## Assistant\n\n{m.content}")
+        body = "\n\n---\n\n".join(parts) or "(empty session)"
+        filename = f"session-{sid}.md"
+        return Response(
+            content=body,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @app.get("/api/config")
     async def get_config() -> dict:
@@ -587,7 +690,7 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
         if not updates:
             return {"ok": False, "message": "no valid configuration fields"}
         try:
-            write_env(app.state.workspace / ".env", updates)
+            write_env(app.state.workspaces[0] / ".env", updates)
         except OSError as exc:
             return {"ok": False, "message": str(exc)}
         get_settings.cache_clear()
@@ -595,10 +698,12 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
         return {"ok": True}
 
     @app.websocket("/ws")
-    async def ws_endpoint(ws: WebSocket) -> None:
+    async def ws_endpoint(ws: WebSocket, w: str = "") -> None:
         await ws.accept()
+        ws_path = resolve_workspace(w)
+        store = get_store(ws_path)
         approver = WsApprover(ws)
-        agent = build_agent(app.state.workspace, app.state.settings, approver, WsHooks(ws))
+        agent = build_agent(ws_path, app.state.settings, approver, WsHooks(ws))
         current_session: int | None = None
         running: asyncio.Task | None = None
 
@@ -630,29 +735,29 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
                 await ws.send_json({"type": "error", "message": str(exc)})
             finally:
                 try:
-                    await push_sessions(ws)
+                    await push_sessions(ws, store, ws_path)
                 except asyncio.CancelledError:
                     pass
                 except Exception:  # noqa: BLE001, S110
                     pass
 
         try:
-            await push_sessions(ws)
+            await push_sessions(ws, store, ws_path)
             while True:
                 raw = await ws.receive_text()
                 msg = json.loads(raw)
                 mtype = msg.get("type")
 
                 if mtype == "list":
-                    await push_sessions(ws)
+                    await push_sessions(ws, store, ws_path)
 
                 elif mtype == "new_session":
                     if running and not running.done():
                         await ws.send_json({"type": "error", "message": "任务运行中，请先等待完成"})
                         continue
-                    current_session = store.create_session(workspace, "新会话")
-                    await ws.send_json({"type": "session", "session": session_payload(current_session)})
-                    await push_sessions(ws)
+                    current_session = store.create_session(ws_path, "新会话")
+                    await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
+                    await push_sessions(ws, store, ws_path)
 
                 elif mtype == "delete_session":
                     if running and not running.done():
@@ -666,7 +771,7 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
                     if current_session == sid:
                         current_session = None
                         await ws.send_json({"type": "session_cleared"})
-                    await push_sessions(ws)
+                    await push_sessions(ws, store, ws_path)
 
                 elif mtype == "rename_session":
                     sid = int(msg.get("session_id", 0))
@@ -675,7 +780,7 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
                         await ws.send_json({"type": "error", "message": f"会话 {sid} 不存在"})
                         continue
                     store.set_title(sid, title or "新会话")
-                    await push_sessions(ws)
+                    await push_sessions(ws, store, ws_path)
 
                 elif mtype == "resume":
                     if running and not running.done():
@@ -686,7 +791,7 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
                         await ws.send_json({"type": "error", "message": f"会话 {sid} 不存在"})
                         continue
                     current_session = sid
-                    await ws.send_json({"type": "session", "session": session_payload(sid)})
+                    await ws.send_json({"type": "session", "session": session_payload(store, sid)})
                     msgs = [
                         {"role": m.role, "content": m.content or ""}
                         for m in store.get_messages(sid)
@@ -699,8 +804,8 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
                         await ws.send_json({"type": "error", "message": "任务运行中，请先等待完成"})
                         continue
                     if current_session is None:
-                        current_session = store.create_session(workspace, "新会话")
-                        await ws.send_json({"type": "session", "session": session_payload(current_session)})
+                        current_session = store.create_session(ws_path, "新会话")
+                        await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     content = msg.get("content", "")
                     history = store.get_messages(current_session)
                     store.append_message(current_session, Message(role="user", content=content))
@@ -730,6 +835,7 @@ def create_app(settings: Settings, workspace: Path) -> FastAPI:
 
     @app.on_event("shutdown")
     async def _close_store() -> None:
-        store.close()
+        for s in app.state.stores.values():
+            s.close()
 
     return app

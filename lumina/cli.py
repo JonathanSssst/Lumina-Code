@@ -279,7 +279,8 @@ def web(
     settings = _load_settings()
     workspace = workdir.resolve()
     setup_logging(workspace)
-    app_ = create_app(settings=settings, workspace=workspace)
+    extra_workspaces = [Path(p.strip()) for p in settings.workspaces.split(",") if p.strip()]
+    app_ = create_app(settings=settings, workspace=workspace, workspaces=extra_workspaces)
 
     chosen = _find_free_port(host, port, port_range)
     if chosen is None:

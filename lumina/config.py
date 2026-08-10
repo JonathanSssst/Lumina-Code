@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # --- Self-review: verify the final answer, continue if gaps are found ---
     self_review: bool = Field(default=True, alias="LUMINA_SELF_REVIEW")
 
+    # --- Web: extra workspace directories (comma-separated absolute paths) ---
+    workspaces: str = Field(default="", alias="LUMINA_WORKSPACES")
+
     # --- Security ---
     danger_commands: str = Field(
         default="rm -rf,git push,git push --force,git reset --hard,git clean,drop database",

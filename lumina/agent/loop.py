@@ -81,6 +81,25 @@ class Agent:
         if web is not None:
             await web.aclose()
 
+    def _project_instructions(self) -> str:
+        """Load AGENTS.md from the workspace to seed project-specific rules."""
+        for name in ("AGENTS.md", "agents.md"):
+            path = self.workspace / name
+            if not path.exists():
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace").strip()
+            except OSError:
+                return ""
+            if not text:
+                return ""
+            return (
+                "===== PROJECT INSTRUCTIONS (AGENTS.md) =====\n"
+                + text[:4000]
+                + "\n===== END PROJECT INSTRUCTIONS ====="
+            )
+        return ""
+
     async def run(
         self,
         user_input: str,
@@ -98,6 +117,9 @@ class Agent:
         messages: list[Message] = [
             Message(role="system", content=SYSTEM_PROMPT),
         ]
+        project_instructions = self._project_instructions()
+        if project_instructions:
+            messages.append(Message(role="system", content=project_instructions))
         if self.settings.enable_planner:
             plan = await self._generate_plan(user_input)
             if plan:

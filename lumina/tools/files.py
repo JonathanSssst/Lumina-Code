@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import json
 import os
+import time
 from pathlib import Path
 
 from lumina.tools.registry import ToolRegistry
 from lumina.types import ToolResult
+
+_IGNORED = {".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build", ".mypy_cache", ".pytest_cache"}
+_UNDO_LIMIT = 50
 
 
 class FileTools:
@@ -13,6 +18,8 @@ class FileTools:
     def __init__(self, workspace: Path, registry: ToolRegistry) -> None:
         self.workspace = Path(workspace).resolve()
         self.registry = registry
+        self.undo_dir = self.workspace / ".lumina" / "undo"
+        self._counter = 0
         self._setup()
 
     def _resolve(self, path: str) -> Path:
@@ -20,6 +27,26 @@ class FileTools:
         if not resolved.is_relative_to(self.workspace):
             raise PermissionError(f"Path escapes workspace: {path}")
         return resolved
+
+    def _snapshot(self, target: Path) -> None:
+        """Record the current file state before a write so undo_file can revert it."""
+        try:
+            content = target.read_text(encoding="utf-8", errors="replace") if target.is_file() else None
+        except OSError:
+            return
+        try:
+            self.undo_dir.mkdir(parents=True, exist_ok=True)
+            self._counter += 1
+            rel = target.relative_to(self.workspace).as_posix()
+            name = f"{int(time.time() * 1000)}_{self._counter}.json"
+            (self.undo_dir / name).write_text(
+                json.dumps({"path": rel, "content": content}), encoding="utf-8"
+            )
+        except OSError:
+            return
+        files = sorted(self.undo_dir.glob("*.json"), key=lambda p: p.stat().st_mtime)
+        for old in files[:-_UNDO_LIMIT]:
+            old.unlink(missing_ok=True)
 
     def _setup(self) -> None:
 
@@ -66,6 +93,7 @@ class FileTools:
             try:
                 target = self._resolve(path)
                 target.parent.mkdir(parents=True, exist_ok=True)
+                self._snapshot(target)
                 target.write_text(content, encoding="utf-8")
                 return ToolResult(
                     tool_call_id="",
@@ -110,6 +138,7 @@ class FileTools:
                         content=f"old_string matches {count} times in {path}; provide more context",
                         is_error=True,
                     )
+                self._snapshot(target)
                 target.write_text(text.replace(old_string, new_string), encoding="utf-8")
                 diff = _simple_diff(old_string, new_string)
                 return ToolResult(
@@ -216,6 +245,7 @@ class FileTools:
                     return ToolResult(
                         tool_call_id="", name="replace_all", content=f"'{old}' not found in {path}", is_error=True
                     )
+                self._snapshot(target)
                 target.write_text(text.replace(old, new), encoding="utf-8")
                 return ToolResult(
                     tool_call_id="",
@@ -226,6 +256,59 @@ class FileTools:
                 return ToolResult(tool_call_id="", name="replace_all", content=str(exc), is_error=True)
             except Exception as exc:  # noqa: BLE001
                 return ToolResult(tool_call_id="", name="replace_all", content=f"replace_all failed: {exc}", is_error=True)
+
+        @self.registry.register(
+            description="Revert a file to its state before the most recent write/edit. Only works for "
+                        "files changed during this run that have an undo snapshot.",
+            parameters={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Relative path inside workspace"},
+                },
+                "required": ["path"],
+            },
+        )
+        async def undo_file(path: str) -> ToolResult:
+            try:
+                target = self._resolve(path)
+                rel = target.relative_to(self.workspace).as_posix()
+
+                def snap_order(snap_path: Path) -> tuple[int, int]:
+                    try:
+                        ms, _, counter = snap_path.stem.partition("_")
+                        return (int(ms), int(counter))
+                    except ValueError:
+                        return (0, 0)
+
+                best: tuple[Path, dict] | None = None
+                best_order = (-1, -1)
+                for snap in self.undo_dir.glob("*.json"):
+                    try:
+                        data = json.loads(snap.read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        continue
+                    if data.get("path") == rel and snap_order(snap) > best_order:
+                        best_order = snap_order(snap)
+                        best = (snap, data)
+                if best is None:
+                    return ToolResult(
+                        tool_call_id="", name="undo_file", content=f"No undo snapshot for {path}", is_error=True
+                    )
+                snap, data = best
+                if data.get("content") is None:
+                    if target.exists():
+                        target.unlink()
+                    result = f"Reverted: removed {path}"
+                else:
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_text(data["content"], encoding="utf-8")
+                    result = f"Reverted {path} to its previous state"
+                snap.unlink(missing_ok=True)
+                return ToolResult(tool_call_id="", name="undo_file", content=result)
+            except PermissionError as exc:
+                return ToolResult(tool_call_id="", name="undo_file", content=str(exc), is_error=True)
+            except Exception as exc:  # noqa: BLE001
+                return ToolResult(tool_call_id="", name="undo_file", content=f"undo_file failed: {exc}", is_error=True)
 
 
 def _simple_diff(old_string: str, new_string: str) -> str:

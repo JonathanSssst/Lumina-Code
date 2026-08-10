@@ -35,3 +35,6 @@ lumina.db-journal
 .lumina/sessions.db-wal
 *.db-shm
 *.db-wal
+
+# Undo snapshots
+.lumina/undo/

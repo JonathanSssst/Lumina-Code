@@ -278,3 +278,34 @@ async def test_self_review_finds_gaps_and_continues(workspace, settings):
     assert any(
         m.role == "user" and "Self-review found gaps" in (m.content or "") for m in client.calls[2]
     )
+
+
+async def test_agent_seeds_agents_md(workspace, settings):
+    (workspace / "AGENTS.md").write_text("Never use tabs. Keep files ASCII-only.\n", encoding="utf-8")
+    client = FakeClient([_resp(content="done")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    await agent.run("hello")
+    first_call = client.calls[0]
+    assert any(
+        m.role == "system" and "Never use tabs" in (m.content or "") for m in first_call
+    )
+
+
+async def test_run_parallel_subagents(workspace, settings):
+    from lumina.tools.parallel import ParallelRunner
+    from lumina.tools.registry import validate_arguments
+
+    registry = build_registry(workspace, settings)
+    client = FakeClient([_resp(content="Report A"), _resp(content="Report B")])
+    ParallelRunner(registry, client, settings).install()
+    spec = registry.get_spec("run_parallel")
+    assert spec is not None
+    args = validate_arguments(
+        spec,
+        {"tasks": [{"id": "a", "goal": "explore x"}, {"id": "b", "goal": "explore y"}]},
+    )
+    result = await registry.handler("run_parallel")(**args)
+    assert not result.is_error
+    assert "Report A" in result.content
+    assert "Report B" in result.content
+    assert len(client.calls) == 2

@@ -27,6 +27,20 @@ async def test_git_status_degrades_outside_repo(registry):
     assert "not a git repository" in result.content
 
 
+async def test_undo_file_reverts_last_write(registry, workspace):
+    spec = registry.get_spec("write_file")
+    await registry.handler("write_file")(**validate_arguments(spec, {"path": "a.txt", "content": "v1"}))
+    await registry.handler("write_file")(**validate_arguments(spec, {"path": "a.txt", "content": "v2"}))
+    undo_spec = registry.get_spec("undo_file")
+    result = await registry.handler("undo_file")(**validate_arguments(undo_spec, {"path": "a.txt"}))
+    assert not result.is_error
+    assert (workspace / "a.txt").read_text(encoding="utf-8") == "v1"
+    # second undo walks back to "before the file existed" and removes it
+    again = await registry.handler("undo_file")(**validate_arguments(undo_spec, {"path": "a.txt"}))
+    assert not again.is_error
+    assert not (workspace / "a.txt").exists()
+
+
 async def test_read_file(registry, workspace):
     spec = registry.get_spec("read_file")
     assert spec is not None

@@ -9,6 +9,7 @@ from lumina.context.project import ProjectScanner
 from lumina.llm.client import DeepSeekClient
 from lumina.tools.files import FileTools
 from lumina.tools.git import GitTools
+from lumina.tools.parallel import ParallelRunner
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.search import SearchTools
 from lumina.tools.shell import ShellTools
@@ -55,7 +56,7 @@ def build_agent(
             skills = SkillLoader(workspace)
         except ImportError:  # pragma: no cover
             skills = None
-    return Agent(
+    agent = Agent(
         settings=settings,
         client=client,
         registry=registry,
@@ -66,3 +67,5 @@ def build_agent(
         skills=skills,
         mcp_bridge=mcp_bridge,
     )
+    ParallelRunner(registry, client, settings).install()
+    return agent
