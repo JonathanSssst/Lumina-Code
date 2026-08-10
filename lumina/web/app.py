@@ -99,21 +99,11 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
          transition: background-color .35s ease, color .35s ease; }
   ::selection { background: var(--accent-soft); color: var(--text); }
 
-  /* ---------- header ---------- */
-  header { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 22px;
-           background: var(--header-bg); backdrop-filter: blur(14px) saturate(140%);
-           -webkit-backdrop-filter: blur(14px) saturate(140%);
-           border-bottom: 1px solid var(--border); z-index: 10; }
-  .brand { display: flex; align-items: center; gap: 10px; flex: none; }
+  /* ---------- brand mark ---------- */
   .brand-mark { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
     background: linear-gradient(135deg, var(--accent-2), var(--accent));
     box-shadow: 0 0 0 1px rgba(245,177,61,.28), 0 6px 18px rgba(245,177,61,.22); }
   .brand-mark svg { width: 15px; height: 15px; }
-  header strong { font-size: 15px; font-weight: 650; letter-spacing: .2px; }
-  .sel-group { display: flex; gap: 8px; align-items: center; }
-  .btn-group { display: flex; gap: 2px; align-items: center; padding: 3px;
-    border: 1px solid var(--border); border-radius: 10px; background: rgba(127,127,127,.05); }
-  header .spacer { flex: 1; }
 
   select, button, input { font-family: var(--sans); color: var(--text);
     background: var(--panel2); border: 1px solid var(--border); border-radius: 9px;
@@ -194,11 +184,6 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   .side-foot-btns { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .foot-icns { display: flex; gap: 4px; align-items: center; }
 
-  /* collapse toggle icons */
-  #collapseBtn .i-right { display: none; }
-  #sidebar.collapsed #collapseBtn .i-left { display: none; }
-  #sidebar.collapsed #collapseBtn .i-right { display: block; }
-
   /* ---------- sidebar collapsed ---------- */
   #sidebar.collapsed { width: 56px; }
   #sidebar.collapsed .side-brand-txt,
@@ -233,10 +218,19 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   #log { max-width: 820px; margin: 0 auto; padding: 28px 22px 44px; }
 
   /* ---------- right conversation navigation ---------- */
-  #toc { width: 210px; flex: none; border-left: 1px solid var(--border); overflow-y: auto;
-    background: var(--panel); }
+  #toc { width: 210px; flex: none; border-left: 1px solid var(--border); overflow: hidden;
+    background: var(--panel); display: flex; flex-direction: column; transition: width .2s ease; }
+  .toc-head { display: flex; align-items: center; justify-content: space-between; gap: 4px;
+    padding: 8px 8px 4px 14px; flex: none; }
   .toc-label { font-size: 11px; font-weight: 650; letter-spacing: .8px; text-transform: uppercase;
-    color: var(--muted); padding: 14px 14px 8px; white-space: nowrap; }
+    color: var(--muted); white-space: nowrap; }
+  #tocToggle .i-left { display: none; }
+  #toc.collapsed #tocToggle .i-right { display: none; }
+  #toc.collapsed #tocToggle .i-left { display: block; }
+  #toc.collapsed { width: 38px; }
+  #toc.collapsed .toc-label, #toc.collapsed #tocList { display: none; }
+  #toc.collapsed .toc-head { justify-content: center; padding: 8px 0 0; }
+  #tocList { flex: 1; min-height: 0; overflow-y: auto; padding-bottom: 10px; }
   .toc-item { padding: 7px 14px; font-size: 12px; color: var(--muted); cursor: pointer;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     border-left: 2px solid transparent; transition: background .15s ease, color .15s ease; }
@@ -410,11 +404,12 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="app">
 <aside id="sidebar">
   <div class="side-head">
-    <button class="icon-btn" id="collapseBtn" onclick="toggleSidebar()" title="收起侧边栏">
-      <svg class="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-      <svg class="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
+      <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+      <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
     </button>
-    <span class="side-brand-txt">工作台</span>
+    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
+    <span class="side-brand-txt">LuminaCoder</span>
   </div>
   <div class="side-section">
     <div class="side-label">工作区</div>
@@ -449,20 +444,18 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </div>
 </aside>
 <div id="right">
-<header>
-  <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
-    <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
-    <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
-  </button>
-  <div class="brand">
-    <span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32" fill="#1a1208"><path d="M16 5l2.6 7.2L26 15l-7.4 2.8L16 25l-2.6-7.2L6 15l7.4-2.8L16 5z"/></svg></span>
-    <strong>LuminaCoder</strong>
-  </div>
-  <span class="spacer"></span>
-</header>
 <div id="work">
   <div id="main"><div id="log"></div></div>
-  <aside id="toc"><div class="toc-label">对话导航</div><div id="tocList"></div></aside>
+  <aside id="toc">
+    <div class="toc-head">
+      <span class="toc-label">对话导航</span>
+      <button class="icon-btn" id="tocToggle" onclick="toggleToc()" title="折叠 / 展开对话导航">
+        <svg class="i-right" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        <svg class="i-left" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+    </div>
+    <div id="tocList"></div>
+  </aside>
 </div>
 <div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
 <div id="inputbar"><div id="inputwrap">
@@ -1054,6 +1047,15 @@ function toggleSidebar(){
     sb.classList.add("collapsed");
     document.body.classList.add("sidebar-hidden");
   }
+})();
+function toggleToc(){
+  const toc = document.getElementById("toc");
+  const collapsed = toc.classList.toggle("collapsed");
+  try { localStorage.setItem("lumina-toc", collapsed ? "1" : "0"); } catch (e) {}
+}
+(function initToc(){
+  const toc = document.getElementById("toc");
+  if (toc && localStorage.getItem("lumina-toc") === "1") toc.classList.add("collapsed");
 })();
 
 /* ---------- settings panel ---------- */
