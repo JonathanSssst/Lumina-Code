@@ -40,6 +40,7 @@ python -m PyInstaller `
     --name LuminaCode `
     --icon assets\icon.ico `
     --add-data "assets\icon.ico;assets" `
+    --add-data "lumina\web\static;lumina\web\static" `
     --hidden-import webview.platforms.winforms `
     --hidden-import webview.platforms.win32 `
     --hidden-import webview.platforms.edgechromium `

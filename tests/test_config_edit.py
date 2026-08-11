@@ -254,3 +254,24 @@ def test_servers_endpoints(tmp_path):
         assert r.json()["servers"] == []
 
         assert json.loads(state.read_text(encoding="utf-8"))["servers"] == []
+
+
+def test_index_serves_static_ui(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    app = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test"), workspace=tmp_path)
+    with TestClient(app) as c:
+        r = c.get("/")
+        assert r.status_code == 200
+        assert "text/html" in r.headers["content-type"]
+        assert "<!doctype html>" in r.text[:200].lower()
+        assert "/static/app.js" in r.text
+
+        for path, ctype in (("/static/style.css", "css"), ("/static/app.js", "javascript")):
+            rs = c.get(path)
+            assert rs.status_code == 200, path
+            assert ctype in rs.headers["content-type"], path
+            assert len(rs.text) > 1000, path

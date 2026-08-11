@@ -144,7 +144,7 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 
 ```bash
 pip install pyinstaller
-pyinstaller --noconfirm --clean --onefile --windowed --name LuminaCode --icon assets\icon.ico --add-data "assets\icon.ico;assets" --hidden-import webview.platforms.winforms --hidden-import webview.platforms.win32 --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.mshtml --exclude-module PyQt5 --exclude-module PyQt6 --exclude-module matplotlib --exclude-module PIL --exclude-module tkinter app.py
+pyinstaller --noconfirm --clean --onefile --windowed --name LuminaCode --icon assets\icon.ico --add-data "assets\icon.ico;assets" --add-data "lumina\web\static;lumina\web\static" --hidden-import webview.platforms.winforms --hidden-import webview.platforms.win32 --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.mshtml --exclude-module PyQt5 --exclude-module PyQt6 --exclude-module matplotlib --exclude-module PIL --exclude-module tkinter app.py
 ```
 
 打包后运行 `LuminaCode.exe` 即为桌面软件；配置、工作区列表与运行状态
