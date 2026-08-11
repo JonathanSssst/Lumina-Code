@@ -86,7 +86,7 @@ def test_cli_hooks_fold_reasoning(monkeypatch):
     text = " ".join(str(a) for a, _ in printed)
     assert "secret internal thoughts" not in text
     assert "已思考" in text
-    assert "the answer" in text
+    assert "the answer" not in text
 
 
 def test_cli_hooks_show_reasoning_when_quiet(monkeypatch):
@@ -105,3 +105,53 @@ def test_cli_hooks_finish_flushes_reasoning(monkeypatch):
     hooks.finish()
     text = " ".join(str(a) for a, _ in printed)
     assert "已思考" in text
+
+
+def _tool(name, **args):
+    from types import SimpleNamespace
+
+    return SimpleNamespace(name=name, arguments=args)
+
+
+def test_cli_hooks_suppresses_successful_tool_result(monkeypatch):
+    from types import SimpleNamespace
+
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_tool_call(_tool("read_file", path="a")))
+    asyncio.run(
+        hooks.on_tool_result(SimpleNamespace(name="read_file", is_error=False, content="FILE CONTENT..."))
+    )
+    text = " ".join(str(a) for a, _ in printed)
+    assert "FILE CONTENT" not in text
+    assert "已思考" in text
+    assert "read_file" in text
+
+
+def test_cli_hooks_shows_tool_error(monkeypatch):
+    from types import SimpleNamespace
+
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_tool_call(_tool("run_command", command="x")))
+    asyncio.run(
+        hooks.on_tool_result(SimpleNamespace(name="run_command", is_error=True, content="boom"))
+    )
+    text = " ".join(str(a) for a, _ in printed)
+    assert "boom" in text
+    assert "✗" in text
+
+
+def test_cli_hooks_tool_calls_grouped_in_batch(monkeypatch):
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_tool_call(_tool("read_file", path="a")))
+    asyncio.run(hooks.on_tool_call(_tool("list_files", path="b")))
+    lines = [str(a[0]) if a else "" for a, _ in printed]
+    assert "已思考" in lines[0]
+    assert lines[1] == ""
+    assert "read_file" in lines[2]
+    assert "list_files" in lines[3]

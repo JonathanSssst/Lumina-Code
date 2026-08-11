@@ -122,11 +122,13 @@ class CliApprover:
 
 
 class CliHooks:
-    """CLI hooks. 思考过程折叠：不打印原始思考文本，结束时显示「已思考 n 秒」."""
+    """CLI hooks. 思考折叠为「已思考 n 秒」；工具调用紧凑展示、结果不刷屏；答案只在 Result 面板输出一次."""
 
     def __init__(self, quiet_stream: bool = False) -> None:
         self.quiet_stream = quiet_stream
         self._think_start: float | None = None
+        self._any_output = False
+        self._last_was_label = False
 
     def _begin_thinking(self) -> None:
         if self._think_start is None:
@@ -137,8 +139,13 @@ class CliHooks:
             return
         seconds = int(time.monotonic() - self._think_start)
         self._think_start = None
-        if not self.quiet_stream:
-            console.print(f"  [dim]已思考 {seconds} 秒[/]")
+        if self.quiet_stream:
+            return
+        if self._any_output:
+            console.print()
+        console.print(f"  已思考 {seconds} 秒")
+        self._any_output = True
+        self._last_was_label = True
 
     def finish(self) -> None:
         """Flush the thinking label if the run ends mid-reasoning."""
@@ -146,20 +153,24 @@ class CliHooks:
 
     async def on_tool_call(self, call) -> None:
         self._end_thinking()
-        console.print()
-        console.print(
-            f"  [cyan][tool][/] [bold]{call.name}[/] {json.dumps(call.arguments, ensure_ascii=False)[:400]}"
-        )
+        if self.quiet_stream:
+            return
+        if self._last_was_label:
+            console.print()
+            self._last_was_label = False
+        args = json.dumps(call.arguments, ensure_ascii=False)
+        console.print(f"  [bold]{call.name}[/] {args[:400]}")
+        self._any_output = True
 
     async def on_tool_result(self, result) -> None:
-        status = "ok" if not result.is_error else "error"
-        color = "green" if not result.is_error else "red"
-        console.print(f"  [{color}][{status}][/] {result.content[:300].replace(chr(10), ' ')}")
+        # 成功的工具结果不刷屏（避免文件全文/搜索命中淹没终端）；错误给出紧凑提示
+        if result.is_error and not self.quiet_stream:
+            msg = result.content[:200].replace(chr(10), " ")
+            console.print(f"  [red]✗ {result.name}: {msg}[/]")
 
     async def on_assistant_message(self, chunk: str) -> None:
+        # 答案不在生成时流式重复打印，最终在 Result 面板统一渲染一次
         self._end_thinking()
-        if not self.quiet_stream:
-            console.print(chunk, end="")
 
     async def on_reasoning(self, chunk: str) -> None:
         # 折叠思考：丢弃原始文本，仅记录耗时
