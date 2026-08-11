@@ -17,7 +17,7 @@ class GitTools:
 
     @staticmethod
     def _not_repo(out: str) -> bool:
-        return "not a git repository" in out
+        return "not a git repository" in out.lower()
 
     async def _git(self, *args: str, timeout: int = 30) -> tuple[int, str]:
         try:
@@ -47,7 +47,8 @@ class GitTools:
             },
         )
         async def git_status(short: bool = False) -> ToolResult:
-            code, out = await self._git("status", "--short" if short else "")
+            args = ["status", "--short"] if short else ["status"]
+            code, out = await self._git(*args)
             if self._not_repo(out):
                 return ToolResult(
                     tool_call_id="", name="git_status",

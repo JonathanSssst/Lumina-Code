@@ -92,8 +92,15 @@ def _schema_from_signature(sig: inspect.Signature) -> dict[str, Any]:
 
 
 def _type_name(annotation: Any) -> str:
+    """Best-effort JSON-Schema type for a Python annotation.
+
+    Works with real types and with string annotations produced by
+    ``from __future__ import annotations``.
+    """
     from typing import get_args, get_origin
 
+    if isinstance(annotation, str):
+        return _type_name(_string_annotation(annotation))
     origin = get_origin(annotation)
     args = get_args(annotation)
     if origin is not None:
@@ -115,7 +122,57 @@ def _type_name(annotation: Any) -> str:
         return "boolean"
     if annotation is list:
         return "array"
+    if annotation is dict:
+        return "object"
     return "string"
+
+
+def _string_annotation(text: str) -> Any:
+    """Resolve a string annotation back to a type when possible."""
+    text = text.strip()
+    if text in ("None", "NoneType"):
+        return type(None)
+    if "|" in text:
+        left, _, right = text.partition("|")
+        left = _string_annotation(left)
+        right = _string_annotation(right)
+        try:
+            return left | right
+        except TypeError:
+            return str
+    if text.endswith("]"):
+        head, _, tail = text.partition("[")
+        head = head.strip()
+        tail = tail.strip().rstrip("]")
+        origin = {
+            "list": list,
+            "dict": dict,
+            "typing.List": list,
+            "typing.Dict": dict,
+            "typing.Optional": "optional",
+            "Optional": "optional",
+        }.get(head)
+        if origin == "optional":
+            return _string_annotation(tail) | None
+        if origin is not None:
+            inner = _string_annotation(tail)
+            if origin is list:
+                return list[inner]
+            return dict
+    return {
+        "str": str,
+        "string": str,
+        "int": int,
+        "integer": int,
+        "float": float,
+        "number": float,
+        "bool": bool,
+        "boolean": bool,
+        "list": list,
+        "dict": dict,
+        "object": dict,
+        "Any": str,
+    }.get(text, str)
 
 
 def validate_arguments(spec: ToolSpec, arguments: dict[str, Any]) -> dict[str, Any]:

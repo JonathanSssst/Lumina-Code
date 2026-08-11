@@ -133,6 +133,14 @@ Web UI 特性：
 
 ## 打包为桌面程序（PyInstaller）
 
+一键构建（安装依赖 → 运行测试 → PyInstaller 打包 → 启动冒烟测试）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1
+```
+
+手动等价命令：
+
 ```bash
 pip install pyinstaller
 pyinstaller --noconfirm --clean --onefile --windowed --name LuminaCode --icon assets\icon.ico --add-data "assets\icon.ico;assets" --hidden-import webview.platforms.winforms --hidden-import webview.platforms.win32 --hidden-import webview.platforms.edgechromium --hidden-import webview.platforms.mshtml --exclude-module PyQt5 --exclude-module PyQt6 --exclude-module matplotlib --exclude-module PIL --exclude-module tkinter app.py
@@ -140,6 +148,9 @@ pyinstaller --noconfirm --clean --onefile --windowed --name LuminaCode --icon as
 
 打包后运行 `LuminaCode.exe` 即为桌面软件；配置、工作区列表与运行状态
 保存在 `%APPDATA%\LuminaCode`（可用环境变量 `LUMINA_HOME` 覆盖）。
+
+GitHub 上推送 `v*` 标签会自动触发 CI（`.github/workflows/build-release.yml`）：
+在 Windows runner 上运行测试 + 打包，并把 `LuminaCode.exe` 上传到对应 Release。
 
 ## 架构
 

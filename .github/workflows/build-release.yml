@@ -1,0 +1,89 @@
+name: build-release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\pip\Cache
+          key: pip-${{ runner.os }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,webview]"
+          pip install pyinstaller
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Lint
+        run: ruff check lumina tests app.py
+
+      - name: Build exe
+        shell: pwsh
+        run: |
+          python -m PyInstaller --noconfirm --clean --onefile --windowed `
+            --name LuminaCode `
+            --icon assets\icon.ico `
+            --add-data "assets\icon.ico;assets" `
+            --hidden-import webview.platforms.winforms `
+            --hidden-import webview.platforms.win32 `
+            --hidden-import webview.platforms.edgechromium `
+            --hidden-import webview.platforms.mshtml `
+            --exclude-module PyQt5 `
+            --exclude-module PyQt6 `
+            --exclude-module matplotlib `
+            --exclude-module PIL `
+            --exclude-module tkinter `
+            app.py
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist\LuminaCode.exe" -PassThru
+          $ok = $false
+          try {
+            for ($i = 0; $i -lt 15; $i++) {
+              Start-Sleep -Seconds 2
+              try {
+                $resp = Invoke-WebRequest -Uri "http://127.0.0.1:1200/" -UseBasicParsing -TimeoutSec 5
+                if ($resp.StatusCode -eq 200 -and $resp.Content -match "LuminaCode") {
+                  $ok = $true
+                  break
+                }
+              } catch { }
+            }
+            if (-not $ok) { throw "smoke test: server did not respond on 127.0.0.1:1200" }
+            Write-Host "Smoke test OK (HTTP $($resp.StatusCode))"
+          } finally {
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Publish to GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: dist/LuminaCode.exe
+          generate_release_notes: true
