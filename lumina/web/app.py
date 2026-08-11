@@ -11,6 +11,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
+from lumina.agent.authorize import Hooks
 from lumina.config import Settings, get_settings
 from lumina.config_edit import write_env
 from lumina.factory import build_agent
@@ -79,7 +80,7 @@ class WsApprover:
         self.queue.put_nowait(approved)
 
 
-class WsHooks:
+class WsHooks(Hooks):
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
 
