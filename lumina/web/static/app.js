@@ -68,25 +68,25 @@ function isTableSep(line){
   return cells.length > 0 && cells.every(c => /^:?-+:?$/.test(c));
 }
 function renderMarkdown(src){
-  let s = esc(String(src || "").replace(/\\r\\n/g, "\\n"));
+  let s = esc(String(src || "").replace(/\r\n/g, "\n"));
   const stash = [];
-  const key = () => "\\u0000" + stash.length + "\\u0000";
-  s = s.replace(/```([\\w+-]*)\\n([\\s\\S]*?)```/g, (m, lang, code) => { const k = key(); stash.push("<pre><code>"+code+"</code></pre>"); return k; });
-  s = s.replace(/`([^`\\n]+)`/g, (m, c) => { const k = key(); stash.push("<code>"+c+"</code>"); return k; });
-  s = s.replace(/\\*\\*([^*]+)\\*\\*/g, (m, t) => "<strong>"+t+"</strong>");
-  s = s.replace(/\\[([^\\]]+)\\]\\((https?:\\/\\/[^)\\s]+)\\)/g, (m, t, u) => '<a href="'+u+'" target="_blank" rel="noopener noreferrer">'+t+"</a>");
-  const lines = s.split("\\n");
+  const key = () => "\u0000" + stash.length + "\u0000";
+  s = s.replace(/```([\w+-]*)\n([\s\S]*?)```/g, (m, lang, code) => { const k = key(); stash.push("<pre><code>"+code+"</code></pre>"); return k; });
+  s = s.replace(/`([^`\n]+)`/g, (m, c) => { const k = key(); stash.push("<code>"+c+"</code>"); return k; });
+  s = s.replace(/\*\*([^*]+)\*\*/g, (m, t) => "<strong>"+t+"</strong>");
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (m, t, u) => '<a href="'+u+'" target="_blank" rel="noopener noreferrer">'+t+"</a>");
+  const lines = s.split("\n");
   let out = "";
   let i = 0;
   while (i < lines.length) {
     const line = lines[i];
-    const h = line.match(/^(#{1,3})\\s+(.*)$/);
+    const h = line.match(/^(#{1,3})\s+(.*)$/);
     if (h) { out += "<h"+h[1].length+">"+h[2]+"</h"+h[1].length+">"; i++; continue; }
-    if (/^\\u0000\\d+\\u0000$/.test(line.trim())) { out += stash[+line.trim().replace(/\\u0000/g,"")] || ""; i++; continue; }
+    if (/^\u0000\d+\u0000$/.test(line.trim())) { out += stash[+line.trim().replace(/\u0000/g,"")] || ""; i++; continue; }
     if (/^&gt; /.test(line)) { const q=[]; while (i<lines.length && /^&gt; /.test(lines[i])) { q.push(lines[i].replace(/^&gt; /,"")); i++; } out += "<blockquote>"+q.join("<br>")+"</blockquote>"; continue; }
-    if (/^\\s*(?:-{3,}|\\*{3,}|_{3,})\\s*$/.test(line)) { out += "<hr/>"; i++; continue; }
+    if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(line)) { out += "<hr/>"; i++; continue; }
     if (/^[-*] /.test(line)) { const it=[]; while (i<lines.length && /^[-*] /.test(lines[i])) { it.push(lines[i].replace(/^[-*] /,"")); i++; } out += "<ul>"+it.map(x=>"<li>"+x+"</li>").join("")+"</ul>"; continue; }
-    if (/^\\d+\\. /.test(line)) { const it=[]; while (i<lines.length && /^\\d+\\. /.test(lines[i])) { it.push(lines[i].replace(/^\\d+\\. /,"")); i++; } out += "<ol>"+it.map(x=>"<li>"+x+"</li>").join("")+"</ol>"; continue; }
+    if (/^\d+\. /.test(line)) { const it=[]; while (i<lines.length && /^\d+\. /.test(lines[i])) { it.push(lines[i].replace(/^\d+\. /,"")); i++; } out += "<ol>"+it.map(x=>"<li>"+x+"</li>").join("")+"</ol>"; continue; }
     if (line.indexOf("|") !== -1 && i + 1 < lines.length && isTableSep(lines[i + 1])) {
       const rows = [parseTableRow(line)];
       let j = i + 2;
@@ -108,7 +108,7 @@ function renderMarkdown(src){
     if (para.length) out += "<p>"+para.join("<br>")+"</p>";
     i++;
   }
-  out = out.replace(/\\u0000(\\d+)\\u0000/g, (m, n) => stash[+n] || "");
+  out = out.replace(/\u0000(\d+)\u0000/g, (m, n) => stash[+n] || "");
   return out;
 }
 
@@ -356,8 +356,8 @@ function renderOpsHead(){
   let text = parts.join(" · ");
   if (paths.length) {
     const lines = paths.map(p => "已编辑 " + p + " +" + opsEdits[p].added + " -" + opsEdits[p].removed);
-    if (text) text += "\\n";
-    text += lines.join("\\n");
+    if (text) text += "\n";
+    text += lines.join("\n");
   }
   opsHead.textContent = text || "工具操作";
 }
@@ -460,7 +460,7 @@ function handleWSMessage(m) {
     if (opsPending) {
       if (m.is_error) opsPending.classList.add("err");
       const line = document.createElement("pre");
-      line.textContent = "\\n[" + (m.is_error ? "error" : "ok") + "]\\n" + (m.content || "");
+      line.textContent = "\n[" + (m.is_error ? "error" : "ok") + "]\n" + (m.content || "");
       opsPending.appendChild(line);
       opsPending = null;
     }
