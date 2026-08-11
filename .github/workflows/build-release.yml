@@ -36,7 +36,7 @@ jobs:
           pip install pyinstaller
 
       - name: Run tests
-        run: python -m pytest -q
+        run: python -m pytest -q --cov=lumina --cov-fail-under=75
 
       - name: Lint
         run: ruff check lumina tests app.py

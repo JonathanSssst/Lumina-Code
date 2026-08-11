@@ -20,7 +20,7 @@ dependencies = [
 web = ["fastapi>=0.111", "uvicorn>=0.30"]
 webview = ["pywebview>=4.0"]
 mcp = ["mcp>=1.2"]
-dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "ruff>=0.4"]
+dev = ["pytest>=8.2", "pytest-asyncio>=0.23", "pytest-cov>=5", "ruff>=0.4"]
 
 [project.scripts]
 lumina = "lumina.cli:app"
