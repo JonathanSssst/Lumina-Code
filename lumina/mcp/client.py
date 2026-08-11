@@ -36,6 +36,7 @@ class McpBridge:
         self.workspace = Path(workspace).resolve()
         self.config = self._load_config()
         self._servers: dict[str, tuple[Any, ClientSession]] = {}
+        self._contexts: dict[str, tuple[Any, Any]] = {}
         self._mcp_names: dict[str, str] = {}
 
     def _load_config(self) -> dict:
@@ -72,15 +73,35 @@ class McpBridge:
             args=spec.get("args", []),
             env=spec.get("env"),
         )
-        read_stream, write_stream = await stdio_client(params).__aenter__()
-        session = await ClientSession(read_stream, write_stream).__aenter__()
-        await session.initialize()
-        self._servers[name] = (spec, session)
-        tools = await session.list_tools()
-        for tool in tools.tools:
-            mcp_key = f"{name}_{tool.name}"
-            self._mcp_names[mcp_key] = name
-            self._register_proxy(mcp_key, tool.name, spec, tool.description, tool.inputSchema)
+        # Keep the context managers alive for the whole lifetime of the server:
+        # dropping the temporary returned by __aenter__() lets GC close the
+        # async generator, which shuts the pipes down mid-handshake.
+        stdio_cm = stdio_client(params)
+        session_cm: Any = None
+        try:
+            read_stream, write_stream = await stdio_cm.__aenter__()
+            session_cm = ClientSession(read_stream, write_stream)
+            session = await session_cm.__aenter__()
+            await session.initialize()
+            self._servers[name] = (spec, session)
+            self._contexts[name] = (stdio_cm, session_cm)
+            tools = await session.list_tools()
+            for tool in tools.tools:
+                mcp_key = f"{name}_{tool.name}"
+                self._mcp_names[mcp_key] = name
+                # mcp 2.x renamed Tool.inputSchema -> Tool.input_schema
+                input_schema = getattr(tool, "input_schema", None) or getattr(
+                    tool, "inputSchema", {}
+                )
+                self._register_proxy(mcp_key, tool.name, spec, tool.description, input_schema)
+        except BaseException:
+            for cm in (session_cm, stdio_cm):
+                if cm is not None:
+                    try:
+                        await cm.__aexit__(None, None, None)
+                    except Exception:  # noqa: BLE001, S110
+                        pass
+            raise
 
     def _register_proxy(
         self, mcp_key: str, tool_name: str, spec: dict, description: str, input_schema: dict
@@ -106,9 +127,17 @@ class McpBridge:
         self.registry.register(description=description, parameters=params)(proxy)
 
     async def close_all(self) -> None:
-        for _spec, session in self._servers.values():
-            try:
-                await session.__aexit__(None, None, None)
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("Error closing MCP session: %s", exc)
+        for name in list(self._servers):
+            session = self._servers[name][1]
+            if name in self._contexts:
+                for cm in self._contexts.pop(name):
+                    try:
+                        await cm.__aexit__(None, None, None)
+                    except Exception as exc:  # noqa: BLE001
+                        logger.warning("Error closing MCP session: %s", exc)
+            else:
+                try:
+                    await session.__aexit__(None, None, None)
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Error closing MCP session: %s", exc)
         self._servers.clear()

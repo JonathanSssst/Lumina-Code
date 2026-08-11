@@ -342,8 +342,6 @@ def test_cli_hooks_second_thinking_adds_blank_line(monkeypatch):
 
 
 # --- web missing deps ---
-
-
 def test_web_missing_deps_exits(monkeypatch, tmp_path):
     monkeypatch.setattr("lumina.cli._load_settings", lambda: _settings())
     monkeypatch.setitem(sys.modules, "uvicorn", None)
@@ -365,3 +363,56 @@ def test_python_m_dash_m_lumina_runs():
     )
     assert result.returncode == 0
     assert "LuminaCode version" in result.stdout
+
+
+# --- end-to-end: real agent, scripted LLM ---
+
+
+def test_run_once_end_to_end_with_fake_llm(monkeypatch, tmp_path, capsys):
+    from lumina import cli
+    from lumina.types import LLMResponse, ToolCall, Usage
+
+    script = [
+        LLMResponse(
+            content="",
+            tool_calls=[ToolCall(id="c1", name="read_file", arguments={"path": "src/calc.py"})],
+            usage=Usage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+        ),
+        LLMResponse(
+            content="All good",
+            tool_calls=[],
+            usage=Usage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+        ),
+        LLMResponse(
+            content="APPROVED: all requirements met",
+            tool_calls=[],
+            usage=Usage(prompt_tokens=5, completion_tokens=5, total_tokens=10),
+        ),
+    ]
+
+    class FakeClient:
+        def __init__(self, settings):
+            self.script = list(script)
+
+        async def chat(
+            self,
+            messages,
+            tools=None,
+            stream_callback=None,
+            reasoning_callback=None,
+            temperature=None,
+            max_tokens=None,
+            model=None,
+        ):
+            return self.script.pop(0)
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("lumina.factory.DeepSeekClient", FakeClient)
+    settings = _settings()
+
+    asyncio.run(cli._run_once(settings, tmp_path, "inspect the project", yes=True))
+    out = capsys.readouterr().out
+    assert "All good" in out
+    assert "read_file" in out  # tool call surfaced by CliHooks
