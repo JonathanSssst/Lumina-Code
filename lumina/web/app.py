@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -108,7 +109,13 @@ def create_app(
     config_env: Path | None = None,
     state_file: Path | None = None,
 ) -> FastAPI:
-    app = FastAPI(title="LuminaCode")
+    @asynccontextmanager
+    async def _lifespan(_app: FastAPI):
+        yield
+        for s in _app.state.stores.values():
+            s.close()
+
+    app = FastAPI(title="LuminaCode", lifespan=_lifespan)
     workspace = Path(workspace).resolve()
     configured = [str(Path(p).resolve()) for p in (workspaces or [])]
     if str(workspace) not in configured:
@@ -541,10 +548,5 @@ def create_app(
             if running is not None:
                 running.cancel()
             await agent.aclose()
-
-    @app.on_event("shutdown")
-    async def _close_store() -> None:
-        for s in app.state.stores.values():
-            s.close()
 
     return app
