@@ -19,6 +19,7 @@
 - **撤销与导出**：文件写入前自动快照，`undo_file` 一键回滚；会话可导出 Markdown / JSON
 - **会话持久化**：SQLite 存储，CLI/Web 均可随时恢复
 - **MCP 与技能**：支持 MCP 服务器接入与本地技能库
+- **待办列表跟踪**：大型任务自动拆分步骤，`update_todo` / `todo_list` 工具维护进度并随结果回显
 - **版本自检**：启动时检测 GitHub 最新发布版，发现新版本可一键跳转下载
 
 ## 安装
@@ -208,7 +209,8 @@ lumina/
 
 `read_file` / `write_file` / `edit_file` / `replace_all` / `undo_file` / `list_files` / `list_tree` /
 `glob` / `grep` / `run_command` / `run_tests` / `git_status` / `git_diff` / `git_log` /
-`web_search` / `web_fetch` / `run_parallel`（并行子 agent，仅读写工具）
+`web_search` / `web_fetch` / `run_parallel`（并行子 agent，仅读写工具）/
+`update_todo` / `todo_list`（大型任务待办列表跟踪）
 
 ## 开发
 

@@ -13,6 +13,7 @@ from lumina.tools.parallel import ParallelRunner
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.search import SearchTools
 from lumina.tools.shell import ShellTools
+from lumina.tools.todo import TodoTools
 from lumina.tools.web import WebTools
 
 
@@ -22,6 +23,7 @@ def build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
     SearchTools(workspace, registry)
     ShellTools(workspace, registry, settings)
     GitTools(workspace, registry)
+    TodoTools(registry)
     web = WebTools(registry)
     registry.web_tools = web  # closed together with the agent
     return registry
