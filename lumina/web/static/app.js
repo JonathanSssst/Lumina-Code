@@ -885,7 +885,7 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 /* ---------- theme ---------- */
 let settings = {};
 let settingsReady = false;
-const APP_VERSION = "1.0.2";
+const APP_VERSION = "1.0.3";
 const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
 (function initThemeFast(){
   document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");
