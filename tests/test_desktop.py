@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import app as desktop
 
@@ -43,3 +44,43 @@ def test_state_roundtrip(tmp_path):
     desktop.save_state(f, {"last_workspace": "C:\\x"})
     assert desktop.load_state(f)["last_workspace"] == "C:\\x"
     assert desktop.load_state(tmp_path / "missing.json") == {}
+
+
+def test_resolve_workspaces_skips_meipass_when_frozen(tmp_path, monkeypatch):
+    project = tmp_path / "proj"
+    project.mkdir()
+    other = tmp_path / "other"
+    other.mkdir()
+    monkeypatch.setattr(desktop, "_PROJECT_ROOT", project)
+
+    # frozen: _PROJECT_ROOT is the PyInstaller extraction dir, never a workspace
+    result = desktop._resolve_workspaces(other, frozen=True, extra="")
+    assert project not in result
+    assert result == []
+
+    # frozen: configured extras still respected
+    result = desktop._resolve_workspaces(other, frozen=True, extra=str(project))
+    assert result == [project]
+
+    # source mode: project root auto-added when workspace differs
+    result = desktop._resolve_workspaces(other, frozen=False, extra="")
+    assert result == [project]
+
+    # source mode: not duplicated when already configured
+    result = desktop._resolve_workspaces(project, frozen=False, extra="")
+    assert result == []
+
+
+def test_wait_for_server_returns_true_when_started():
+    server = SimpleNamespace(started=True, should_exit=False)
+    assert desktop._wait_for_server(server, timeout=0.1) is True
+
+
+def test_wait_for_server_times_out():
+    server = SimpleNamespace(started=False, should_exit=False)
+    assert desktop._wait_for_server(server, timeout=0.1) is False
+
+
+def test_wait_for_server_detects_shutdown():
+    server = SimpleNamespace(started=False, should_exit=True)
+    assert desktop._wait_for_server(server, timeout=1.0) is False

@@ -122,6 +122,30 @@ def _default_workspace(state: dict[str, Any], frozen: bool) -> Path:
     return Path.home()
 
 
+def _resolve_workspaces(workspace: Path, frozen: bool, extra: str) -> list[Path]:
+    """Workspaces shown in the UI: configured extras + the project root (source mode only).
+
+    In frozen builds the project root is the temporary PyInstaller extraction
+    directory (_MEIPASS), so it must never be added as a workspace.
+    """
+    extras = [Path(p.strip()) for p in extra.split(",") if p.strip()]
+    if not frozen and workspace != _PROJECT_ROOT and _PROJECT_ROOT not in extras:
+        extras.append(_PROJECT_ROOT)
+    return extras
+
+
+def _wait_for_server(server: Any, timeout: float = 20.0) -> bool:
+    """Wait until uvicorn reports `started`, or give up on timeout / shutdown."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if server.started:
+            return True
+        if server.should_exit:
+            return False
+        time.sleep(0.05)
+    return False
+
+
 def _icon_path() -> Path | None:
     """Resolve the bundled app icon (.ico) in source or frozen builds."""
     if getattr(sys, "frozen", False):
@@ -176,9 +200,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
     workspace = _default_workspace(state, frozen)
     workspace.mkdir(parents=True, exist_ok=True)
 
-    extras = [Path(p.strip()) for p in settings.workspaces.split(",") if p.strip()]
-    if workspace != _PROJECT_ROOT and _PROJECT_ROOT not in extras:
-        extras.append(_PROJECT_ROOT)
+    extras = _resolve_workspaces(workspace, frozen, settings.workspaces)
 
     setup_logging(workspace)
     app_ = create_app(
@@ -194,8 +216,13 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
     server = uvicorn.Server(server_config)
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
-    while not server.started:
-        time.sleep(0.05)
+    if not _wait_for_server(server):
+        server.should_exit = True
+        thread.join(timeout=5)
+        raise RuntimeError(
+            f"LuminaCode server failed to start on 127.0.0.1:{chosen} "
+            "(port busy or a startup error; check lumina.log)."
+        )
     url = f"http://127.0.0.1:{chosen}"
 
     bridge = DesktopBridge(state_file)
