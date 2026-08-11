@@ -48,42 +48,62 @@ const lines = fs.readFileSync(file, "utf8").split("\n");
 const s = lines.findIndex(l => l.startsWith("const TODO_ICON"));
 let e = -1;
 for (let i = s + 1; i < lines.length; i++) {
-  if (/^function /.test(lines[i]) && !lines[i].includes("renderTodos")) { e = i; break; }
+  if (lines[i].startsWith("function switchWorkspace")) { e = i; break; }
 }
 function mkEl() {
-  return { className: "", textContent: "", innerHTML: "", children: [], hidden: false,
+  return { className: "", textContent: "", innerHTML: "", children: [], hidden: false, style: {},
     classList: { _s: new Set(),
       add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
       toggle(c) { this._s.has(c) ? this._s.delete(c) : this._s.add(c); },
       contains(c) { return this._s.has(c); } },
-    appendChild(c) { this.children.push(c); return c; } };
+    appendChild(c) { this.children.push(c); return c; },
+    addEventListener() {}, offsetWidth: 0 };
 }
 const bar = mkEl();
-const ctx = { document: { getElementById: id => (id === "todobar" ? bar : null), createElement: () => mkEl() } };
+bar.hidden = true; // matches the `hidden` attribute in index.html
+const ctx = { document: { getElementById: id => (id === "todobar" ? bar : null), createElement: () => mkEl() },
+  setTimeout, clearTimeout };
 vm.createContext(ctx);
 vm.runInContext(lines.slice(s, e).join("\n"), ctx);
 let failed = 0;
 function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
-ctx.renderTodos([]);
-check("empty hides", bar.hidden === true);
-ctx.renderTodos([
-  { content: "step one", status: "in_progress" },
-  { content: "step two", status: "completed" },
-  { content: "step three" }
-]);
-check("shown", bar.hidden === false);
-check("head row", bar.children[0] && bar.children[0].className === "todo-head");
-const count = bar.children[0].children.find(c => c.className === "todo-count");
-check("progress count", count && count.textContent === "1 / 3 已完成");
-const body = bar.children[1];
-check("one row per todo", body && body.children.length === 3);
-check("numbered text", body.children[0].children[1].textContent === "1. step one");
-check("completed styling", body.children[1].className.indexOf("completed") !== -1);
-check("collapsed by default", !bar.classList.contains("open"));
-bar.classList.add("open");
-ctx.renderTodos([{ content: "x", status: "pending" }, { content: "y", status: "completed" }]);
-check("keeps open state", bar.classList.contains("open"));
-process.exit(failed ? 1 : 0);
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+(async () => {
+  ctx.renderTodos([]);
+  check("empty hides", bar.hidden === true);
+  ctx.renderTodos([
+    { content: "step one", status: "in_progress" },
+    { content: "step two", status: "completed" },
+    { content: "step three" }
+  ]);
+  check("shown", bar.hidden === false);
+  const card = bar.children[0];
+  check("card built", card && card.className === "todo-card");
+  const head = card.children[0], body = card.children[1];
+  check("head has spinner + label + chevron", head.children.length === 4 &&
+    head.children[1].className === "todo-label");
+  const count = head.children[1].children[0];
+  check("count format (done/total)", count.textContent === "（1/3）：");
+  await sleep(250);
+  check("current todo text", head.children[2].textContent === "step one");
+  check("one row per todo", body.children.length === 3);
+  check("numbered text", body.children[0].children[1].textContent === "1. step one");
+  check("completed styling", body.children[1].className.indexOf("completed") !== -1);
+  check("collapsed by default", !bar.classList.contains("open"));
+  bar.classList.add("open");
+  ctx.renderTodos([
+    { content: "next task", status: "in_progress" },
+    { content: "last", status: "completed" }
+  ]);
+  check("keeps open state", bar.classList.contains("open"));
+  check("count updates", count.textContent === "（1/2）：");
+  await sleep(250);
+  check("smooth switch to next todo", head.children[2].textContent === "next task");
+  ctx.renderTodos([]);
+  await sleep(300);
+  check("smoothly hides when last todo done", bar.hidden === true && bar.innerHTML === "");
+  process.exit(failed ? 1 : 0);
+})();
 """
 
 

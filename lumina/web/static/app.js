@@ -504,38 +504,96 @@ function handleWSMessage(m) {
   }
 }
 
-/* ---------- todo list (above the input bar) ---------- */
+/* ---------- todo list (a bar attached above the input box) ---------- */
 const TODO_ICON = {
   pending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>',
   in_progress: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 1-9 9"/><circle cx="12" cy="12" r="2.2"/></svg>',
   completed: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M8.2 12.4l2.6 2.6 5.2-6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   cancelled: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>'
 };
-function renderTodos(todos){
-  const bar = document.getElementById("todobar");
-  if (!bar) return;
-  if (!todos || !todos.length) { bar.hidden = true; bar.innerHTML = ""; return; }
-  const wasOpen = bar.classList.contains("open");
-  const done = todos.filter(t => t.status === "completed").length;
-  bar.hidden = false;
-  bar.classList.remove("open");
-  bar.innerHTML = "";
+const TODO_SPIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 1-9 9"/></svg>';
+let todoCard = null, todoCurEl = null, todoCountEl = null, todoBodyEl = null;
+let todoCurText = "", todoHideTimer = null;
+
+function currentTodo(todos){
+  const ip = todos.find(t => t.status === "in_progress");
+  return ip || todos.find(t => t.status === "pending") || null;
+}
+function ensureTodoCard(bar){
+  if (todoCard) return;
+  todoCard = document.createElement("div");
+  todoCard.className = "todo-card";
   const head = document.createElement("button");
   head.type = "button";
   head.className = "todo-head";
   head.onclick = () => bar.classList.toggle("open");
-  head.innerHTML = '<svg class="todo-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
-  const title = document.createElement("span");
-  title.className = "todo-title";
-  title.textContent = "待办";
-  head.appendChild(title);
-  const count = document.createElement("span");
-  count.className = "todo-count";
-  count.textContent = done + " / " + todos.length + " 已完成";
-  head.appendChild(count);
-  bar.appendChild(head);
-  const body = document.createElement("div");
-  body.className = "todo-body";
+  const spin = document.createElement("span");
+  spin.className = "todo-spin";
+  spin.innerHTML = TODO_SPIN;
+  const label = document.createElement("span");
+  label.className = "todo-label";
+  label.textContent = "当前待办";
+  todoCountEl = document.createElement("span");
+  todoCountEl.className = "todo-count";
+  label.appendChild(todoCountEl);
+  todoCurEl = document.createElement("span");
+  todoCurEl.className = "todo-cur";
+  const chev = document.createElement("span");
+  chev.className = "todo-chev";
+  chev.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
+  head.appendChild(spin); head.appendChild(label); head.appendChild(todoCurEl); head.appendChild(chev);
+  todoBodyEl = document.createElement("div");
+  todoBodyEl.className = "todo-body";
+  todoCard.appendChild(head); todoCard.appendChild(todoBodyEl);
+  bar.appendChild(todoCard);
+}
+function setCurTodo(text){
+  if (todoCurText === text) return;
+  todoCurText = text;
+  clearTimeout(todoCurEl._t);
+  todoCurEl.style.transition = "opacity .18s ease, transform .18s ease";
+  todoCurEl.style.opacity = "0";
+  todoCurEl.style.transform = "translateY(4px)";
+  todoCurEl._t = setTimeout(() => {
+    todoCurEl.textContent = text;
+    todoCurEl.style.opacity = "1";
+    todoCurEl.style.transform = "translateY(0)";
+  }, 180);
+}
+function showTodoBar(bar){
+  clearTimeout(todoHideTimer);
+  bar.classList.remove("hide-anim");
+  if (!bar.hidden) return;
+  bar.hidden = false;
+  bar.classList.remove("show-anim");
+  void bar.offsetWidth;
+  bar.classList.add("show-anim");
+}
+function hideTodoBar(bar){
+  if (bar.hidden) return;
+  bar.classList.remove("show-anim");
+  bar.classList.add("hide-anim");
+  clearTimeout(todoHideTimer);
+  todoHideTimer = setTimeout(() => {
+    bar.classList.remove("hide-anim", "show-anim");
+    bar.hidden = true;
+    bar.innerHTML = "";
+    todoCard = null; todoCurEl = null; todoCountEl = null; todoBodyEl = null;
+    todoCurText = "";
+  }, 220);
+}
+function renderTodos(todos){
+  const bar = document.getElementById("todobar");
+  if (!bar) return;
+  if (!todos || !todos.length) { hideTodoBar(bar); return; }
+  const cur = currentTodo(todos);
+  if (!cur) { hideTodoBar(bar); return; }
+  ensureTodoCard(bar);
+  showTodoBar(bar);
+  const done = todos.filter(t => t.status === "completed").length;
+  todoCountEl.textContent = "（" + done + "/" + todos.length + "）：";
+  setCurTodo(cur.content);
+  todoBodyEl.innerHTML = "";
   todos.forEach((t, i) => {
     const st = t.status || "pending";
     const row = document.createElement("div");
@@ -547,10 +605,8 @@ function renderTodos(todos){
     txt.className = "todo-txt";
     txt.textContent = (i + 1) + ". " + (t.content || "");
     row.appendChild(box); row.appendChild(txt);
-    body.appendChild(row);
+    todoBodyEl.appendChild(row);
   });
-  bar.appendChild(body);
-  if (wasOpen) bar.classList.add("open");
 }
 
 function switchWorkspace(value){
