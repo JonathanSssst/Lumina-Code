@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -121,10 +122,30 @@ class CliApprover:
 
 
 class CliHooks:
+    """CLI hooks. 思考过程折叠：不打印原始思考文本，结束时显示「已思考 n 秒」."""
+
     def __init__(self, quiet_stream: bool = False) -> None:
         self.quiet_stream = quiet_stream
+        self._think_start: float | None = None
+
+    def _begin_thinking(self) -> None:
+        if self._think_start is None:
+            self._think_start = time.monotonic()
+
+    def _end_thinking(self) -> None:
+        if self._think_start is None:
+            return
+        seconds = int(time.monotonic() - self._think_start)
+        self._think_start = None
+        if not self.quiet_stream:
+            console.print(f"  [dim]已思考 {seconds} 秒[/]")
+
+    def finish(self) -> None:
+        """Flush the thinking label if the run ends mid-reasoning."""
+        self._end_thinking()
 
     async def on_tool_call(self, call) -> None:
+        self._end_thinking()
         console.print()
         console.print(
             f"  [cyan][tool][/] [bold]{call.name}[/] {json.dumps(call.arguments, ensure_ascii=False)[:400]}"
@@ -136,12 +157,13 @@ class CliHooks:
         console.print(f"  [{color}][{status}][/] {result.content[:300].replace(chr(10), ' ')}")
 
     async def on_assistant_message(self, chunk: str) -> None:
+        self._end_thinking()
         if not self.quiet_stream:
             console.print(chunk, end="")
 
     async def on_reasoning(self, chunk: str) -> None:
-        if not self.quiet_stream:
-            console.print(f"[dim]{chunk}[/]", end="")
+        # 折叠思考：丢弃原始文本，仅记录耗时
+        self._begin_thinking()
 
 
 def _print_result(result) -> None:
@@ -179,9 +201,11 @@ def run(
 async def _run_once(settings, workdir: Path, task: str, yes: bool = False, quiet: bool = False) -> None:
     workspace = workdir.resolve()
     setup_logging(workspace)
-    agent = build_agent(workspace, settings, CliApprover(auto_yes=yes), CliHooks(quiet_stream=quiet))
+    hooks = CliHooks(quiet_stream=quiet)
+    agent = build_agent(workspace, settings, CliApprover(auto_yes=yes), hooks)
     try:
         result = await agent.run(task)
+        hooks.finish()
         _print_result(result)
     finally:
         await agent.client.aclose()
@@ -276,13 +300,15 @@ async def _chat(settings, workspace: Path, yes: bool, store, session_id: int) ->
             if session and session.message_count <= 1:
                 store.set_title(session_id, prompt.strip()[:40])
 
-            agent = build_agent(workspace, settings, CliApprover(auto_yes=yes), CliHooks())
+            hooks = CliHooks()
+            agent = build_agent(workspace, settings, CliApprover(auto_yes=yes), hooks)
             try:
                 result = await agent.run(
                     prompt.strip(),
                     history=history,
                     persist=lambda m, sid=session_id: store.append_message(sid, m),
                 )
+                hooks.finish()
                 _print_result(result)
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[red]Error:[/] {exc}")

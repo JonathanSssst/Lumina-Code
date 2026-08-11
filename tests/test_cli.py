@@ -1,9 +1,11 @@
 ﻿from __future__ import annotations
 
+import asyncio
+
 from typer.testing import CliRunner
 
 from lumina import __version__
-from lumina.cli import app
+from lumina.cli import CliHooks, app
 
 runner = CliRunner()
 
@@ -63,3 +65,43 @@ def test_version_latest_ignores_non_version_tag(monkeypatch):
     result = runner.invoke(app, ["-version", "-latest"])
     assert result.exit_code == 0
     assert "You are up to date" in result.stdout
+
+
+def _fake_console(monkeypatch):
+    printed = []
+
+    class FakeConsole:
+        def print(self, *args, **kwargs):
+            printed.append((args, kwargs))
+
+    monkeypatch.setattr("lumina.cli.console", FakeConsole())
+    return printed
+
+
+def test_cli_hooks_fold_reasoning(monkeypatch):
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_reasoning("secret internal thoughts"))
+    asyncio.run(hooks.on_assistant_message("the answer"))
+    text = " ".join(str(a) for a, _ in printed)
+    assert "secret internal thoughts" not in text
+    assert "已思考" in text
+    assert "the answer" in text
+
+
+def test_cli_hooks_show_reasoning_when_quiet(monkeypatch):
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks(quiet_stream=True)
+    asyncio.run(hooks.on_reasoning("thinking"))
+    hooks.finish()
+    text = " ".join(str(a) for a, _ in printed)
+    assert "已思考" not in text
+
+
+def test_cli_hooks_finish_flushes_reasoning(monkeypatch):
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_reasoning("thinking"))
+    hooks.finish()
+    text = " ".join(str(a) for a, _ in printed)
+    assert "已思考" in text

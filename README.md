@@ -82,6 +82,7 @@ lumina run "重构 main.py" --yes
 # 交互式多会话聊天
 lumina chat
 # 会话内命令：/new /list /resume <id> /delete <id> /exit
+# 思考过程自动折叠：不打印原始思考文本，结束时显示「已思考 N 秒」
 
 # 环境诊断（查看生效配置、API 连通性等）
 lumina doctor
