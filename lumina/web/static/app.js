@@ -506,41 +506,51 @@ function handleWSMessage(m) {
 
 /* ---------- todo list (above the input bar) ---------- */
 const TODO_ICON = {
-  pending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>',
-  in_progress: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3Z"/></svg>',
-  completed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
-  cancelled: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>'
+  pending: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/></svg>',
+  in_progress: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 1-9 9"/><circle cx="12" cy="12" r="2.2"/></svg>',
+  completed: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor"/><path d="M8.2 12.4l2.6 2.6 5.2-6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  cancelled: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg>'
 };
 function renderTodos(todos){
   const bar = document.getElementById("todobar");
   if (!bar) return;
   if (!todos || !todos.length) { bar.hidden = true; bar.innerHTML = ""; return; }
+  const wasOpen = bar.classList.contains("open");
   const done = todos.filter(t => t.status === "completed").length;
-  const head = document.createElement("span");
-  head.className = "todo-count";
-  head.textContent = "待办 " + done + "/" + todos.length;
+  bar.hidden = false;
+  bar.classList.remove("open");
   bar.innerHTML = "";
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "todo-head";
+  head.onclick = () => bar.classList.toggle("open");
+  head.innerHTML = '<svg class="todo-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+  const title = document.createElement("span");
+  title.className = "todo-title";
+  title.textContent = "待办";
+  head.appendChild(title);
+  const count = document.createElement("span");
+  count.className = "todo-count";
+  count.textContent = done + " / " + todos.length + " 已完成";
+  head.appendChild(count);
   bar.appendChild(head);
+  const body = document.createElement("div");
+  body.className = "todo-body";
   todos.forEach((t, i) => {
     const st = t.status || "pending";
-    const el = document.createElement("button");
-    el.type = "button";
-    el.className = "todo-item " + st;
-    el.title = "点击切换 完成 / 待办";
+    const row = document.createElement("div");
+    row.className = "todo-item " + st;
     const box = document.createElement("span");
     box.className = "todo-box";
     box.innerHTML = TODO_ICON[st] || TODO_ICON.pending;
     const txt = document.createElement("span");
     txt.className = "todo-txt";
-    txt.textContent = t.content || "";
-    el.appendChild(box); el.appendChild(txt);
-    el.onclick = () => sendTodoToggle(i, st === "completed" ? "pending" : "completed");
-    bar.appendChild(el);
+    txt.textContent = (i + 1) + ". " + (t.content || "");
+    row.appendChild(box); row.appendChild(txt);
+    body.appendChild(row);
   });
-}
-function sendTodoToggle(index, status){
-  if (ws && ws.readyState === WebSocket.OPEN)
-    ws.send(JSON.stringify({ type: "todo_toggle", index: index, status: status }));
+  bar.appendChild(body);
+  if (wasOpen) bar.classList.add("open");
 }
 
 function switchWorkspace(value){
