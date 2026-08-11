@@ -107,7 +107,6 @@ function usageHeroRing(st){
   bar.setAttribute("class", "usage-ring-bar");
   bar.setAttribute("cx", "22"); bar.setAttribute("cy", "22"); bar.setAttribute("r", "19");
   bar.setAttribute("style", "stroke-dashoffset:" + (USAGE_RING_C * (1 - frac)));
-  const val = document.createElementNS(ns, "foreignObject");
   svg.appendChild(track); svg.appendChild(bar);
   return { svg, frac };
 }
@@ -124,23 +123,9 @@ function renderUsagePop(){
   const { total, limit, frac } = usageFraction(st);
   const hero = document.createElement("div");
   hero.className = "usage-hero";
-  const ring = usageHeroRing(st);
   const ringWrap = document.createElement("span");
-  ringWrap.style.position = "relative";
-  ringWrap.style.display = "inline-flex";
-  ringWrap.appendChild(ring.svg);
-  const ringVal = document.createElement("span");
-  ringVal.id = "usageRingVal";
-  ringVal.style.position = "absolute";
-  ringVal.style.inset = "0";
-  ringVal.style.display = "grid";
-  ringVal.style.placeItems = "center";
-  ringVal.style.fontFamily = "var(--font-code)";
-  ringVal.style.fontSize = "12px";
-  ringVal.style.fontWeight = "650";
-  ringVal.style.color = "var(--text)";
-  ringVal.textContent = total > 0 ? fmtNum(total) : "0";
-  ringWrap.appendChild(ringVal);
+  ringWrap.className = "usage-ring-wrap";
+  ringWrap.appendChild(usageHeroRing(st).svg);
   const info = document.createElement("div");
   info.className = "usage-hero-info";
   const t = document.createElement("div");
@@ -148,13 +133,25 @@ function renderUsagePop(){
   t.textContent = st.title || ("会话 #" + st.id);
   const sub = document.createElement("div");
   sub.className = "usage-hero-sub";
-  sub.textContent = "上下文 " + (limit ? fmtNum(limit) + " tokens" : "不限") +
-    (frac > 0 ? " · 已用 " + Math.round(frac * 100) + "%" : "");
-  info.appendChild(t); info.appendChild(sub);
+  sub.textContent = fmtNum(total) + " / " + (limit ? fmtNum(limit) + " tokens" : "∞ tokens") +
+    (frac > 0 ? " · " + Math.round(frac * 100) + "%" : "");
+  const bar = document.createElement("div");
+  bar.className = "usage-bar";
+  const fill = document.createElement("div");
+  fill.className = "usage-bar-fill";
+  fill.style.width = Math.round(frac * 100) + "%";
+  bar.appendChild(fill);
+  info.appendChild(t); info.appendChild(sub); info.appendChild(bar);
   hero.appendChild(ringWrap); hero.appendChild(info);
   body.appendChild(hero);
   const rows = document.createElement("div");
   rows.className = "usage-rows";
+  const mkSec = (label) => {
+    const s = document.createElement("div");
+    s.className = "usage-sec";
+    s.textContent = label;
+    rows.appendChild(s);
+  };
   const mk = (label, value, opts) => {
     const r = document.createElement("div");
     r.className = "usage-row";
@@ -175,17 +172,21 @@ function renderUsagePop(){
     r.appendChild(l); r.appendChild(v);
     rows.appendChild(r);
   };
+  mkSec("令牌");
   mk("总 tokens", fmtNum(u.total || 0), {
     hl: true, value: fmtNum(u.total || 0), dim: limit ? " / " + fmtNum(limit) : "",
   });
   mk("输入 / 输出", fmtNum(u.prompt || 0) + " / " + fmtNum(u.completion || 0));
   mk("推理 / 缓存", fmtNum(u.reasoning || 0) + " / " + fmtNum(u.cached || 0));
+  mkSec("活动");
   mk("消息数", (st.messages || 0) + "（用户 " + (st.counts ? st.counts.user : 0) +
     " · 助手 " + (st.counts ? st.counts.assistant : 0) + " · 工具 " + (st.counts ? st.counts.tool : 0) + "）");
   mk("迭代 / 工具调用", (st.iterations || 0) + " / " + (st.tool_calls || 0));
+  mkSec("费用");
   mk("费用估算", "¥" + (st.cost ? st.cost.value.toFixed(4) : "0.0000") + "（¥" +
     (st.cost ? st.cost.rate_per_m : 2) + "/1M tokens）");
   if (st.created_at || st.updated_at) {
+    mkSec("时间");
     mk("创建 / 更新", (st.created_at || "–") + " / " + (st.updated_at || "–"));
   }
   body.appendChild(rows);
@@ -195,7 +196,9 @@ function renderUsagePop(){
   body.appendChild(hint);
 }
 
-function scrollBottom(){ main.scrollTop = main.scrollHeight; }
+function scrollBottom(smooth){
+  main.scrollTo({ top: main.scrollHeight, behavior: smooth === false ? "instant" : "smooth" });
+}
 
 /* ---------- markdown (minimal, safe) ---------- */
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
@@ -255,7 +258,8 @@ function renderMarkdown(src){
 }
 
 /* ---------- DOM helpers ---------- */
-function appendMd(cls, text){
+let bulkLoading = false;
+function appendMd(cls, text, smooth){
   const div = document.createElement("div");
   div.className = "msg " + cls;
   if (cls === "user") { div.dataset.uindex = userCounter++; div.dataset.text = text; }
@@ -264,10 +268,10 @@ function appendMd(cls, text){
   inner.className = "bubble markdown";
   inner.innerHTML = renderMarkdown(text);
   div.appendChild(inner);
-  if (cls === "user" || cls === "assistant") div.appendChild(buildMsgActions(div, cls));
   log.appendChild(div);
-  scrollBottom();
+  scrollBottom(smooth);
   if (cls === "user") rebuildToc();
+  if ((cls === "user" || cls === "assistant") && !bulkLoading) refreshMsgActions();
   return inner;
 }
 /* ---------- message actions: copy / edit / resend / regenerate ---------- */
@@ -288,6 +292,13 @@ function buildMsgActions(div, cls){
     box.appendChild(actionBtn("重新生成", () => regenerateAt(div)));
   }
   return box;
+}
+function refreshMsgActions(){
+  document.querySelectorAll(".msg-actions").forEach(b => b.remove());
+  if (busy) return;
+  const msgs = document.querySelectorAll("#log .msg.user, #log .msg.assistant");
+  const last = msgs[msgs.length - 1];
+  if (last) last.appendChild(buildMsgActions(last, last.classList.contains("user") ? "user" : "assistant"));
 }
 function flashNote(text){
   const div = document.createElement("div");
@@ -538,10 +549,16 @@ function handleWSMessage(m) {
   else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); usageStats = null; updateUsageRing(null); usagePopOpen = false; const up = document.getElementById("usagePop"); if (up) up.hidden = true; log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); rebuildToc(); }
   else if (m.type === "history") {
     userCounter = 0;
+    bulkLoading = true;
+    log.classList.add("settle");
     m.messages.forEach(msg => {
-      if (msg.role === "user") appendMd("user", msg.content);
-      else if (msg.role === "assistant") appendMd("assistant", msg.content);
+      if (msg.role === "user") appendMd("user", msg.content, false);
+      else if (msg.role === "assistant") appendMd("assistant", msg.content, false);
     });
+    log.classList.remove("settle");
+    bulkLoading = false;
+    refreshMsgActions();
+    scrollBottom(false);
   } else if (m.type === "reasoning") {
     if (!settings.show_reasoning) return;
     if (!thinkingEl) {
@@ -571,8 +588,8 @@ function handleWSMessage(m) {
       const inner = document.createElement("div");
       inner.className = "bubble markdown";
       div.appendChild(inner);
-      div.appendChild(buildMsgActions(div, "assistant"));
       log.appendChild(div);
+      refreshMsgActions();
       streamEl = inner;
       mdBuf = "";
     }
@@ -648,6 +665,7 @@ function handleWSMessage(m) {
     finalizeStreamText();
     resetStream();
     setBusy(false);
+    refreshMsgActions();
     tokenUsed += m.total_tokens || 0;
     updateTok();
     let hint = "";
@@ -655,10 +673,10 @@ function handleWSMessage(m) {
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
     fetchSessionStats();
   } else if (m.type === "cancelled") {
-    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false);
+    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
     appendStat("[stopped] 任务已手动停止");
   } else if (m.type === "error") {
-    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false);
+    stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
     appendMd("error", "错误: " + m.message);
   }
 }

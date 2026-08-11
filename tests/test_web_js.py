@@ -159,10 +159,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check("popup body rendered", body.children.length === 3);
   const hero = body.children[0], rows = body.children[1], hint = body.children[2];
   check("hero built", hero && hero.className === "usage-hero");
+  check("ring wrap has no center number", hero.children[0].children.length === 1);
   const svg = hero.children[0].children[0];
   check("svg ring built", svg && svg.className === "usage-ring-svg");
-  check("one row per stat", rows && rows.children.length === 7);
-  const totalRow = rows.children[0];
+  const info = hero.children[1];
+  check("hero info has title+sub+bar", info.children.length === 3);
+  check("hero sub text", info.children[1].textContent === "400 / 1.0k tokens · 40%");
+  const fill = info.children[2].children[0];
+  check("progress bar fill width", fill.style.width === "40%");
+  const dataRows = rows.children.filter(c => c.className === "usage-row");
+  check("one row per stat", dataRows.length === 7);
+  check("section labels present", rows.children.some(c => c.className === "usage-sec" && c.textContent === "令牌"));
+  const totalRow = dataRows[0];
   check("total label", totalRow.children[0].textContent === "总 tokens");
   check("total hl value", totalRow.children[1].className.indexOf("hl") !== -1);
   check("dim suffix separate", totalRow.children[1].children[0].className === "dim" &&
@@ -179,6 +187,45 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   check("closes again", pop.hidden === true);
   process.exit(failed ? 1 : 0);
 })();
+"""
+
+
+_ACTIONS_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const s = lines.findIndex(l => l.includes("function actionBtn"));
+const e = lines.findIndex(l => l.includes("function flashNote"));
+let attached = [];
+function mkEl(cls) {
+  const el = { className: cls || "", textContent: "", children: [], onclick: null, parent: null,
+    classList: { _s: new Set((cls || "").split(" ")), contains(c) { return this._s.has(c); } },
+    appendChild(c) { c.parent = el; el.children.push(c); if (c.className === "msg-actions") attached.push(c); return c; },
+    remove() { attached = attached.filter(x => x !== el);
+      if (el.parent) el.parent.children = el.parent.children.filter(x => x !== el); } };
+  return el;
+}
+const msgs = [mkEl("msg user"), mkEl("msg assistant"), mkEl("msg user")];
+const ctx = { document: {
+    createElement: () => mkEl(),
+    querySelectorAll: sel => (sel.indexOf(".msg-actions") !== -1 ? attached.slice() : msgs) },
+  busy: false };
+vm.createContext(ctx);
+vm.runInContext(lines.slice(s, e).join("\n"), ctx);
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+ctx.refreshMsgActions();
+check("actions only on last message",
+  msgs[2].children.length === 1 && msgs[0].children.length === 0 && msgs[1].children.length === 0);
+check("action class", msgs[2].children[0].className === "msg-actions");
+check("user actions: copy+edit+resend", msgs[2].children[0].children.length === 3);
+ctx.busy = true;
+ctx.refreshMsgActions();
+check("busy clears all actions", msgs.every(m => m.children.length === 0));
+ctx.busy = false;
+ctx.refreshMsgActions();
+check("re-attached on last", msgs[2].children.length === 1);
+process.exit(failed ? 1 : 0);
 """
 
 
@@ -199,4 +246,9 @@ def test_render_todos_collapsible_read_only():
 
 def test_usage_ring_and_stats_popup():
     r = subprocess.run(["node", "-e", _USAGE_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout
+
+
+def test_msg_actions_only_on_last_message():
+    r = subprocess.run(["node", "-e", _ACTIONS_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout
