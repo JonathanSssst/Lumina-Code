@@ -92,8 +92,67 @@ def test_registry_integration(workspace, settings):
     assert spec is not None
     assert "todos" in spec.parameters["required"]
     assert registry.get_spec("todo_list") is not None
+    assert registry.todo_tools is not None
     args = validate_arguments(spec, {"todos": [{"content": "step", "status": "pending"}]})
     assert args["todos"][0]["content"] == "step"
+
+
+async def _collector(collected):
+    async def cb(todos):
+        collected.append(todos)
+
+    return cb
+
+
+def test_update_todo_emits_on_change():
+    registry = ToolRegistry()
+    TodoTools(registry)
+    collected = []
+    registry.todo_tools.on_change = asyncio_run(_collector(collected))
+    asyncio_run(_update(registry, [{"content": "a", "status": "in_progress"}, {"content": "b"}]))
+    assert collected == [
+        [
+            {"content": "a", "status": "in_progress"},
+            {"content": "b", "status": "pending"},
+        ]
+    ]
+    asyncio_run(_update(registry, [{"content": "c"}]))
+    assert collected[-1] == [{"content": "c", "status": "pending"}]
+
+
+def test_update_todo_does_not_emit_on_error():
+    registry = ToolRegistry()
+    TodoTools(registry)
+    collected = []
+    registry.todo_tools.on_change = asyncio_run(_collector(collected))
+    asyncio_run(_update(registry, [{"content": "bad", "status": "nope"}]))
+    assert collected == []
+
+
+def test_set_status_toggles_and_emits():
+    registry = ToolRegistry()
+    TodoTools(registry)
+    asyncio_run(_update(registry, [{"content": "a"}, {"content": "b"}]))
+    collected = []
+    registry.todo_tools.on_change = asyncio_run(_collector(collected))
+    result = asyncio_run(registry.todo_tools.set_status(0, "completed"))
+    assert not result.is_error
+    assert "[x] 1. a" in result.content
+    assert collected == [[{"content": "a", "status": "completed"}, {"content": "b", "status": "pending"}]]
+    render = asyncio_run(registry.handler("todo_list")())
+    assert "[x] 1. a" in render.content
+
+
+def test_set_status_rejects_bad_index_or_status():
+    registry = ToolRegistry()
+    TodoTools(registry)
+    asyncio_run(_update(registry, [{"content": "a"}]))
+    result = asyncio_run(registry.todo_tools.set_status(5, "completed"))
+    assert result.is_error
+    assert "index out of range" in result.content
+    result = asyncio_run(registry.todo_tools.set_status(0, "banana"))
+    assert result.is_error
+    assert "invalid status" in result.content
 
 
 class _Deny(AsyncApprover):

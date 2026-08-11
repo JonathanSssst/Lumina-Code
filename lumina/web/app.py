@@ -84,6 +84,9 @@ class WsHooks(Hooks):
     def __init__(self, ws: WebSocket) -> None:
         self.ws = ws
 
+    async def on_todo(self, todos: list[dict[str, str]]) -> None:
+        await self.ws.send_json({"type": "todo", "todos": todos})
+
     async def on_assistant_message(self, chunk: str) -> None:
         await self.ws.send_json({"type": "stream", "chunk": chunk})
 
@@ -410,7 +413,11 @@ def create_app(
         ws_path = resolve_workspace(w)
         store = get_store(ws_path)
         approver = WsApprover(ws)
-        agent = build_agent(ws_path, app.state.settings, approver, WsHooks(ws))
+        hooks = WsHooks(ws)
+        agent = build_agent(ws_path, app.state.settings, approver, hooks)
+        todo_tools = getattr(getattr(agent, "registry", None), "todo_tools", None)
+        if todo_tools is not None:
+            todo_tools.on_change = hooks.on_todo
         current_session: int | None = None
         running: asyncio.Task | None = None
 
@@ -540,6 +547,16 @@ def create_app(
 
                 elif mtype == "approval_response":
                     approver.submit(bool(msg.get("approved")))
+
+                elif mtype == "todo_toggle":
+                    if todo_tools is not None:
+                        index = int(msg.get("index", -1))
+                        status = str(msg.get("status", ""))
+                        res = await todo_tools.set_status(index, status)
+                        if res.is_error:
+                            await ws.send_json({"type": "error", "message": res.content})
+                    else:
+                        await ws.send_json({"type": "error", "message": "待办列表不可用"})
 
                 elif mtype == "cancel":
                     if running and not running.done():

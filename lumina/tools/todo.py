@@ -9,6 +9,7 @@ agents.
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from lumina.tools.registry import ToolRegistry
@@ -54,12 +55,41 @@ _ICON = {
 
 
 class TodoTools:
-    """Registers `update_todo` and `todo_list` tools bound to one agent run."""
+    """Registers `update_todo` and `todo_list` tools bound to one agent run.
+
+    ``on_change`` is invoked (awaitable) with a fresh copy of the list after
+    every mutation so UIs can mirror the checklist; the web backend wires it to
+    a WebSocket ``todo`` message and reads the instance back via
+    ``registry.todo_tools``.
+    """
 
     def __init__(self, registry: ToolRegistry) -> None:
         self.registry = registry
+        self.on_change: Callable[[list[dict[str, str]]], Awaitable[None]] | None = None
         self._todos: list[dict[str, str]] = []
+        registry.todo_tools = self
         self._setup()
+
+    async def _emit(self) -> None:
+        if self.on_change is not None:
+            await self.on_change([dict(t) for t in self._todos])
+
+    async def set_status(self, index: int, status: str) -> ToolResult:
+        """Mutate one item (used by the web UI to toggle a checkbox)."""
+        if not (0 <= index < len(self._todos)):
+            return ToolResult(
+                tool_call_id="", name="todo_toggle", content="todo_toggle failed: index out of range", is_error=True
+            )
+        if status not in _VALID_STATUS:
+            return ToolResult(
+                tool_call_id="",
+                name="todo_toggle",
+                content=f"todo_toggle failed: invalid status {status!r} (use {', '.join(_VALID_STATUS)})",
+                is_error=True,
+            )
+        self._todos[index]["status"] = status
+        await self._emit()
+        return ToolResult(tool_call_id="", name="todo_toggle", content=self._render())
 
     def _render(self) -> str:
         counts = {s: 0 for s in _VALID_STATUS}
@@ -93,6 +123,7 @@ class TodoTools:
                         raise ValueError(f"invalid todo status {status!r} (use {', '.join(_VALID_STATUS)})")
                     cleaned.append({"content": str(raw["content"]).strip(), "status": status})
                 self._todos = cleaned
+                await self._emit()
                 return ToolResult(tool_call_id="", name="update_todo", content=self._render())
             except ValueError as exc:
                 return ToolResult(

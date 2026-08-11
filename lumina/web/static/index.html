@@ -64,6 +64,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   <div id="tocTip" class="toc-tip"></div>
 </div>
 <div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
+<div id="todobar" class="todobar" hidden></div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>

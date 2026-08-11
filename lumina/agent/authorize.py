@@ -29,6 +29,7 @@ class Hooks:
     on_assistant_message: Callable[[str], Awaitable[None]] | None = None
     on_reasoning: Callable[[str], Awaitable[None]] | None = None
     on_thinking_done: Callable[[float], Awaitable[None]] | None = None
+    on_todo: Callable[[list[dict[str, str]]], Awaitable[None]] | None = None
     on_finish: Callable[[dict[str, Any]], Awaitable[None]] | None = None
 
 
