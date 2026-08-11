@@ -87,7 +87,6 @@ class McpBridge:
     ) -> None:
         params = input_schema or {"type": "object", "properties": {}}
 
-        @self.registry.register(description=description, parameters=params)
         async def proxy(**arguments: Any) -> ToolResult:
             session = self._servers.get(self._mcp_names.get(mcp_key, ""))
             if session is None:
@@ -102,6 +101,9 @@ class McpBridge:
                 content=text,
                 is_error=result.isError if hasattr(result, "isError") else False,
             )
+
+        proxy.__name__ = mcp_key
+        self.registry.register(description=description, parameters=params)(proxy)
 
     async def close_all(self) -> None:
         for _spec, session in self._servers.values():

@@ -275,3 +275,108 @@ def test_index_serves_static_ui(tmp_path):
             assert rs.status_code == 200, path
             assert ctype in rs.headers["content-type"], path
             assert len(rs.text) > 1000, path
+
+
+def test_session_export_formats(tmp_path):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.store import SessionStore, default_db_path
+    from lumina.types import Message
+    from lumina.web.app import create_app
+
+    store = SessionStore(default_db_path(tmp_path))
+    sid = store.create_session(tmp_path, "测试会话")
+    store.append_message(sid, Message(role="user", content="你好"))
+    store.append_message(sid, Message(role="assistant", content="你好！有什么可以帮你？"))
+    store.close()
+
+    app = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test"), workspace=tmp_path)
+    with TestClient(app) as c:
+        md = c.get(f"/api/session/{sid}/export")
+        assert md.status_code == 200
+        assert md.headers["content-type"].startswith("text/markdown")
+        assert "## User" in md.text and "你好" in md.text
+        assert "## Assistant" in md.text
+
+        js = c.get(f"/api/session/{sid}/export", params={"format": "json"})
+        assert js.status_code == 200
+        data = js.json()
+        assert data["session"]["title"] == "测试会话"
+        assert data["messages"][0] == {"role": "user", "content": "你好", "tool": ""}
+
+        miss = c.get("/api/session/9999/export")
+        assert miss.status_code == 404
+
+
+def test_websocket_chat_roundtrip(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from lumina.agent.authorize import AgentResult
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    class FakeAgent:
+        async def run(self, content, history=None, persist=None):
+            return AgentResult(
+                final_content="fake answer",
+                iterations=1,
+                tool_calls_made=0,
+                total_tokens=10,
+                stopped_reason="completed",
+            )
+
+        def reset_budget(self) -> None:
+            pass
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: FakeAgent())
+
+    app = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test"), workspace=tmp_path)
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        first = ws.receive_json()
+        assert first["type"] == "sessions"
+
+        ws.send_json({"type": "message", "content": "你好"})
+        done = None
+        while done is None:
+            msg = ws.receive_json()
+            if msg["type"] == "done":
+                done = msg
+        assert done["final_content"] == "fake answer"
+        assert done["stopped_reason"] == "completed"
+
+
+def test_websocket_new_and_rename_session(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from lumina.config import Settings
+    from lumina.web.app import create_app
+
+    class FakeAgent:
+        def reset_budget(self) -> None:
+            pass
+
+        async def aclose(self) -> None:
+            pass
+
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: FakeAgent())
+
+    app = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test"), workspace=tmp_path)
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()  # sessions
+        ws.send_json({"type": "new_session"})
+        payload = ws.receive_json()
+        assert payload["type"] == "session"
+        sid = payload["session"]["id"]
+        ws.receive_json()  # sessions refresh
+
+        ws.send_json({"type": "rename_session", "session_id": sid, "title": "项目调研"})
+        ws.receive_json()  # sessions refresh
+
+        ws.send_json({"type": "resume", "session_id": sid})
+        got = ws.receive_json()
+        assert got["type"] == "session"
+        assert got["session"]["title"] == "项目调研"
