@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
-import time
 from pathlib import Path
 from typing import Any
 
@@ -126,19 +125,15 @@ class CliHooks:
 
     def __init__(self, quiet_stream: bool = False) -> None:
         self.quiet_stream = quiet_stream
-        self._think_start: float | None = None
+        self._pending_thinking: float | None = None
         self._any_output = False
         self._last_was_label = False
 
-    def _begin_thinking(self) -> None:
-        if self._think_start is None:
-            self._think_start = time.monotonic()
-
-    def _end_thinking(self) -> None:
-        if self._think_start is None:
+    def _flush_thinking(self) -> None:
+        if self._pending_thinking is None:
             return
-        seconds = int(time.monotonic() - self._think_start)
-        self._think_start = None
+        seconds = int(self._pending_thinking)
+        self._pending_thinking = None
         if self.quiet_stream:
             return
         if self._any_output:
@@ -149,10 +144,16 @@ class CliHooks:
 
     def finish(self) -> None:
         """Flush the thinking label if the run ends mid-reasoning."""
-        self._end_thinking()
+        self._flush_thinking()
+
+    async def on_thinking_done(self, seconds: float) -> None:
+        # 思考耗时以整次 LLM 请求为准（该模型思考内容是响应末尾爆发返回，
+        # 若按思考流计时窗口恒为 0）
+        self._pending_thinking = seconds
+        self._flush_thinking()
 
     async def on_tool_call(self, call) -> None:
-        self._end_thinking()
+        self._flush_thinking()
         if self.quiet_stream:
             return
         if self._last_was_label:
@@ -170,11 +171,11 @@ class CliHooks:
 
     async def on_assistant_message(self, chunk: str) -> None:
         # 答案不在生成时流式重复打印，最终在 Result 面板统一渲染一次
-        self._end_thinking()
+        self._flush_thinking()
 
     async def on_reasoning(self, chunk: str) -> None:
-        # 折叠思考：丢弃原始文本，仅记录耗时
-        self._begin_thinking()
+        # 折叠思考：丢弃原始文本；耗时由 on_thinking_done 按请求时长计算
+        pass
 
 
 def _print_result(result) -> None:

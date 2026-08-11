@@ -82,6 +82,7 @@ def test_cli_hooks_fold_reasoning(monkeypatch):
     printed = _fake_console(monkeypatch)
     hooks = CliHooks()
     asyncio.run(hooks.on_reasoning("secret internal thoughts"))
+    asyncio.run(hooks.on_thinking_done(3.2))
     asyncio.run(hooks.on_assistant_message("the answer"))
     text = " ".join(str(a) for a, _ in printed)
     assert "secret internal thoughts" not in text
@@ -92,7 +93,7 @@ def test_cli_hooks_fold_reasoning(monkeypatch):
 def test_cli_hooks_show_reasoning_when_quiet(monkeypatch):
     printed = _fake_console(monkeypatch)
     hooks = CliHooks(quiet_stream=True)
-    asyncio.run(hooks.on_reasoning("thinking"))
+    asyncio.run(hooks.on_thinking_done(3.2))
     hooks.finish()
     text = " ".join(str(a) for a, _ in printed)
     assert "已思考" not in text
@@ -104,7 +105,15 @@ def test_cli_hooks_finish_flushes_reasoning(monkeypatch):
     asyncio.run(hooks.on_reasoning("thinking"))
     hooks.finish()
     text = " ".join(str(a) for a, _ in printed)
-    assert "已思考" in text
+    assert "已思考" not in text
+
+
+def test_cli_hooks_thinking_seconds_rounded(monkeypatch):
+    printed = _fake_console(monkeypatch)
+    hooks = CliHooks()
+    asyncio.run(hooks.on_thinking_done(8.9))
+    text = " ".join(str(a) for a, _ in printed)
+    assert "已思考 8 秒" in text
 
 
 def _tool(name, **args):
@@ -118,7 +127,7 @@ def test_cli_hooks_suppresses_successful_tool_result(monkeypatch):
 
     printed = _fake_console(monkeypatch)
     hooks = CliHooks()
-    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_thinking_done(3.2))
     asyncio.run(hooks.on_tool_call(_tool("read_file", path="a")))
     asyncio.run(
         hooks.on_tool_result(SimpleNamespace(name="read_file", is_error=False, content="FILE CONTENT..."))
@@ -134,7 +143,7 @@ def test_cli_hooks_shows_tool_error(monkeypatch):
 
     printed = _fake_console(monkeypatch)
     hooks = CliHooks()
-    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_thinking_done(3.2))
     asyncio.run(hooks.on_tool_call(_tool("run_command", command="x")))
     asyncio.run(
         hooks.on_tool_result(SimpleNamespace(name="run_command", is_error=True, content="boom"))
@@ -147,7 +156,7 @@ def test_cli_hooks_shows_tool_error(monkeypatch):
 def test_cli_hooks_tool_calls_grouped_in_batch(monkeypatch):
     printed = _fake_console(monkeypatch)
     hooks = CliHooks()
-    asyncio.run(hooks.on_reasoning("think"))
+    asyncio.run(hooks.on_thinking_done(3.2))
     asyncio.run(hooks.on_tool_call(_tool("read_file", path="a")))
     asyncio.run(hooks.on_tool_call(_tool("list_files", path="b")))
     lines = [str(a[0]) if a else "" for a, _ in printed]

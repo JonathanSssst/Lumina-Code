@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
 
@@ -130,6 +131,7 @@ class Agent:
         if project_instructions:
             messages.append(Message(role="system", content=project_instructions))
         if self.settings.enable_planner:
+            t_plan = time.monotonic()
             plan = await self._generate_plan(user_input)
             if plan:
                 messages.append(
@@ -142,6 +144,8 @@ class Agent:
                     await self.hooks.on_reasoning(
                         "### Planning\n\n" + plan.strip() + "\n"
                     )
+                if self.hooks.on_thinking_done:
+                    await self.hooks.on_thinking_done(time.monotonic() - t_plan)
         messages.append(self._context_message(user_input))
         if history:
             sanitized = _sanitize_history(list(history))
@@ -154,6 +158,7 @@ class Agent:
         while not self.budget.exhausted:
             await self._maybe_compress(messages)
             content_hook, reasoning_hook = self._make_stream_hook()
+            t_start = time.monotonic()
             response = await self.client.chat(
                 messages,
                 tools=self.registry.specs(),
@@ -161,6 +166,8 @@ class Agent:
                 reasoning_callback=reasoning_hook,
                 max_tokens=self.settings.max_tokens,
             )
+            if self.hooks.on_thinking_done:
+                await self.hooks.on_thinking_done(time.monotonic() - t_start)
             self.budget.record(response.usage, tool_calls=len(response.tool_calls))
 
             assistant_msg = Message(
