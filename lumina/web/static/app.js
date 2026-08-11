@@ -541,6 +541,23 @@ function stopThinkTimer(){
   thinkTimer = null;
   updateThinkLabel();
 }
+function ensureThinking(){
+  if (thinkingEl) return thinkingEl;
+  const det = document.createElement("details");
+  det.className = "thinking";
+  det.open = false;
+  const sum = document.createElement("summary");
+  sum.innerHTML = '<svg class="think-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14Z"/></svg><span>已思考 0 秒</span>';
+  const tb = document.createElement("div");
+  tb.className = "think-body";
+  det.appendChild(sum); det.appendChild(tb);
+  log.appendChild(det);
+  thinkingEl = tb;
+  thinkBuf = "";
+  thinkSpan = sum.querySelector("span");
+  startThinkTimer();
+  return thinkingEl;
+}
 
 /* ---------- websocket ---------- */
 function handleWSMessage(m) {
@@ -561,21 +578,7 @@ function handleWSMessage(m) {
     scrollBottom(false);
   } else if (m.type === "reasoning") {
     if (!settings.show_reasoning) return;
-    if (!thinkingEl) {
-      const det = document.createElement("details");
-      det.className = "thinking";
-      det.open = false;
-      const sum = document.createElement("summary");
-      sum.innerHTML = '<svg class="think-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14Z"/></svg><span>已思考 0 秒</span>';
-      const tb = document.createElement("div");
-      tb.className = "think-body";
-      det.appendChild(sum); det.appendChild(tb);
-      log.appendChild(det);
-      thinkingEl = tb;
-      thinkBuf = "";
-      thinkSpan = sum.querySelector("span");
-      startThinkTimer();
-    }
+    thinkingEl = ensureThinking();
     thinkBuf += m.chunk;
     thinkingEl.innerHTML = renderMarkdown(thinkBuf);
     scrollBottom();

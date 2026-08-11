@@ -228,6 +228,55 @@ check("re-attached on last", msgs[2].children.length === 1);
 process.exit(failed ? 1 : 0);
 """
 
+_THINK_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const s = lines.findIndex(l => l.includes("function ensureThinking"));
+const e = lines.findIndex(l => l.includes("/* ---------- websocket"));
+function mkEl() {
+  const el = {
+    className: "", innerHTML: "", open: true, children: [],
+    appendChild(c) { el.children.push(c); return c; },
+    querySelector(sel) { return el._q && el._q[sel] ? el._q[sel] : null; }
+  };
+  return el;
+}
+const logEl = mkEl();
+const spanMock = mkEl();
+let created = [], call = 0;
+const ctx = {
+  document: { createElement: () => {
+    const el = mkEl();
+    call++;
+    if (call === 2) el._q = { span: spanMock };
+    created.push(el);
+    return el;
+  } },
+  log: logEl,
+  thinkingEl: null, thinkBuf: null, thinkSpan: null,
+  startThinkTimer() { ctx.thinkTimerStarted = true; }
+};
+vm.createContext(ctx);
+vm.runInContext(lines.slice(s, e).join("\n"), ctx);
+let failed = 0;
+function check(name, cond) {
+  if (!cond) { failed++; console.log("FAIL " + name); }
+  else console.log("ok " + name);
+}
+const tb = ctx.ensureThinking();
+const det = logEl.children[0];
+check("block appended once", logEl.children.length === 1);
+check("details collapsed thinking", det.className === "thinking" && det.open === false);
+check("summary has timer span", det.children[0].innerHTML.includes("已思考 0 秒"));
+check("body el created", tb === det.children[1] && tb.className === "think-body");
+check("timer span captured", ctx.thinkSpan === spanMock);
+check("timer started", ctx.thinkTimerStarted === true);
+check("buf reset", ctx.thinkBuf === "");
+check("reuse same block", ctx.ensureThinking() === tb && logEl.children.length === 1);
+process.exit(failed ? 1 : 0);
+"""
+
 
 def test_app_js_has_valid_syntax():
     r = subprocess.run(["node", "--check", str(APP_JS)], capture_output=True, text=True, check=False)
@@ -251,4 +300,9 @@ def test_usage_ring_and_stats_popup():
 
 def test_msg_actions_only_on_last_message():
     r = subprocess.run(["node", "-e", _ACTIONS_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout
+
+
+def test_thinking_block_collapsible():
+    r = subprocess.run(["node", "-e", _THINK_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout
