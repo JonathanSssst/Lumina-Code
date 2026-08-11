@@ -60,11 +60,27 @@ async def test_config_endpoints(tmp_path):
 
         r2 = c.post(
             "/api/config",
-            json={"LUMINA_TOKEN_BUDGET": "50000", "DEEPSEEK_MODEL": "deepseek-v4-flash"},
+            json={
+                "LUMINA_TOKEN_BUDGET": "50000",
+                "DEEPSEEK_MODEL": "deepseek-v4-flash",
+                "LUMINA_LLM_PROVIDER": "openai",
+                "OPENAI_API_KEY": "sk-openai",
+                "OPENAI_BASE_URL": "http://localhost:11434/v1",
+            },
         )
         assert r2.status_code == 200
         assert r2.json()["ok"]
-        assert "LUMINA_TOKEN_BUDGET=50000" in (tmp_path / ".env").read_text(encoding="utf-8")
+        env_text = (tmp_path / ".env").read_text(encoding="utf-8")
+        assert "LUMINA_TOKEN_BUDGET=50000" in env_text
+        assert "LUMINA_LLM_PROVIDER=openai" in env_text
+        assert "OPENAI_API_KEY=sk-openai" in env_text
+        assert "OPENAI_BASE_URL=http://localhost:11434/v1" in env_text
+
+        r3 = c.get("/api/config")
+        data3 = r3.json()
+        assert "LUMINA_LLM_PROVIDER" in data3
+        assert "OPENAI_MODEL" in data3
+        assert "OPENAI_BASE_URL" in data3
 
 
 def test_workspaces_and_session_export(tmp_path):

@@ -417,7 +417,7 @@ class Agent:
         )
         resp = await self.client.chat(
             [Message(role="system", content=system), Message(role="user", content=user)],
-            model=self.settings.deepseek_planner_model,
+            model=self.settings.planner_model,
             max_tokens=self.settings.planner_max_tokens,
         )
         self.budget.record(resp.usage)

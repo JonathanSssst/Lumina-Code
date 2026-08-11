@@ -841,14 +841,20 @@ function renderModels(cfg){
     row.className = "model-row";
     const ic = document.createElement("span");
     ic.className = "m-ic";
-    ic.textContent = "DS";
+    ic.textContent = m.id === "deepseek-v4-flash" ? "DS" : "AI";
     const name = document.createElement("span");
     name.className = "m-name";
-    name.textContent = m.name;
+    const useOpenAI = (() => {
+      const provider = (cfg && cfg.LUMINA_LLM_PROVIDER) || "auto";
+      return provider === "openai" || (provider === "auto" && cfg && cfg.OPENAI_API_KEY);
+    })();
+    name.textContent = useOpenAI ? ((cfg && cfg.OPENAI_MODEL) || "OpenAI 兼容模型") : m.name;
     const status = document.createElement("span");
-    const hasKey = cfg && cfg.DEEPSEEK_API_KEY;
+    const hasKey = useOpenAI ? (cfg && cfg.OPENAI_API_KEY) : (cfg && cfg.DEEPSEEK_API_KEY);
     status.className = "m-status" + (hasKey ? "" : " err");
-    status.textContent = hasKey ? "已配置 API Key" : "未配置 API Key，点击 ··· 配置";
+    status.textContent = hasKey
+      ? (useOpenAI ? "已配置 OpenAI 兼容 Key" : "已配置 DeepSeek API Key")
+      : "未配置 API Key，点击 ··· 配置";
     const menu = document.createElement("button");
     menu.className = "icon-btn";
     menu.textContent = "···";
@@ -871,7 +877,7 @@ function openModelDialog(){
 function closeModelDialog(){ document.getElementById("modelOverlay").classList.remove("open"); }
 function saveModelConfig(){
   const fields = {};
-  document.querySelectorAll("#modelOverlay input").forEach(el => {
+  document.querySelectorAll("#modelOverlay input, #modelOverlay select").forEach(el => {
     const key = el.id.replace("cfg_", "");
     fields[key] = el.type === "checkbox" ? el.checked : el.value.trim();
   });

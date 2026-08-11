@@ -335,8 +335,9 @@ def doctor() -> None:
     """Check configuration and environment health."""
     settings = _load_settings(validate_key=False)
     env_file = resolve_env_file(Path.cwd())
-    console.print(f"  base_url:    {settings.deepseek_base_url}")
-    console.print(f"  model:       {settings.deepseek_model}")
+    console.print(f"  provider:    {settings.provider}")
+    console.print(f"  base_url:    {settings.base_url}")
+    console.print(f"  model:       {settings.model}")
     console.print(f"  api_key:     {'[green]set[/]' if settings.api_key else '[red]MISSING[/]'}")
     console.print(f"  .env file:   {env_file or '[yellow]not found[/] (see .env.example)'}")
     console.print(f"  max_iter:    {settings.max_iterations}")
@@ -348,11 +349,14 @@ def doctor() -> None:
     )
     console.print(f"  self_review: {'on' if settings.self_review else 'off'}")
     console.print(f"  auto_fix:    {settings.max_auto_fix_rounds}")
-    console.print(f"  planner:     {'[green]ON[/] (' + settings.deepseek_planner_model + ')' if settings.enable_planner else '[yellow]OFF[/] (reasoner 规划器，LUMINA_ENABLE_PLANNER=true 开启)'}")
+    console.print(f"  planner:     {'[green]ON[/] (' + settings.planner_model + ')' if settings.enable_planner else '[yellow]OFF[/] (reasoner 规划器，LUMINA_ENABLE_PLANNER=true 开启)'}")
     console.print(f"  safe cmds:   {', '.join(settings.safe_command_list)}")
     console.print(f"  danger cmds: {', '.join(settings.danger_command_list)}")
     if not settings.api_key:
-        console.print("[red]Set DEEPSEEK_API_KEY in your environment or .env file.[/]")
+        console.print(
+            f"[red]Set {settings.key_env_var} (current provider: {settings.provider}) "
+            "in your environment or .env file.[/]"
+        )
 
 
 @app.command()

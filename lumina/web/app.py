@@ -18,10 +18,15 @@ from lumina.store import SessionStore, default_db_path
 from lumina.types import Message
 
 _EDITABLE_KEYS = (
+    "LUMINA_LLM_PROVIDER",
     "DEEPSEEK_API_KEY",
     "DEEPSEEK_BASE_URL",
     "DEEPSEEK_MODEL",
     "DEEPSEEK_PLANNER_MODEL",
+    "OPENAI_API_KEY",
+    "OPENAI_BASE_URL",
+    "OPENAI_MODEL",
+    "OPENAI_PLANNER_MODEL",
     "LUMINA_MAX_TOKENS",
     "LUMINA_TOKEN_BUDGET",
     "LUMINA_MAX_ITERATIONS",

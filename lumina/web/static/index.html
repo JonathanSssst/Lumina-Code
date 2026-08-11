@@ -232,7 +232,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
         <div class="pane" id="pane-models">
           <div class="sec">
             <h4>模型列表</h4>
-            <p class="hint" style="margin-bottom:12px">DeepSeek V4 Flash 是当前默认模型。初次使用请点击 ··· 配置 API Key。</p>
+            <p class="hint" style="margin-bottom:12px">默认使用 DeepSeek V4 Flash。可切换到任意 OpenAI 兼容服务（OpenAI / Ollama / vLLM …）。初次使用请点击 ··· 配置 API Key。</p>
             <div class="set-list" id="modelList"></div>
           </div>
         </div>
@@ -263,16 +263,31 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 </div>
 <div id="modelOverlay" class="modal-overlay" onclick="if(event.target===this)closeModelDialog()">
   <div class="modal">
-    <h3>配置 DeepSeek V4 Flash</h3>
+    <h3>配置模型</h3>
     <p class="hint">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
+    <div class="field"><label>提供商 (LUMINA_LLM_PROVIDER)</label>
+      <select id="cfg_LUMINA_LLM_PROVIDER" style="width:100%">
+        <option value="auto">auto — 有 OPENAI_API_KEY 用 OpenAI，否则 DeepSeek</option>
+        <option value="deepseek">deepseek</option>
+        <option value="openai">openai（任意 OpenAI 兼容服务：OpenAI / Ollama / vLLM …）</option>
+      </select>
+    </div>
     <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
     <details style="margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:10px 14px">
       <summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">高级参数</summary>
       <div style="margin-top:12px">
-        <div class="field"><label>Base URL</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
+        <div class="field"><label>Base URL (DEEPSEEK_BASE_URL)</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
         <div class="row">
           <div class="field"><label>模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
           <div class="field"><label>规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>OpenAI API Key (OPENAI_API_KEY)</label><input id="cfg_OPENAI_API_KEY" type="password" autocomplete="off"/></div>
+          <div class="field"><label>OpenAI Base URL (OPENAI_BASE_URL)</label><input id="cfg_OPENAI_BASE_URL" type="text"/></div>
+        </div>
+        <div class="row">
+          <div class="field"><label>OpenAI 模型 (OPENAI_MODEL)</label><input id="cfg_OPENAI_MODEL" type="text"/></div>
+          <div class="field"><label>OpenAI 规划模型 (OPENAI_PLANNER_MODEL)</label><input id="cfg_OPENAI_PLANNER_MODEL" type="text"/></div>
         </div>
         <div class="row">
           <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>

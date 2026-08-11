@@ -1,4 +1,8 @@
-"""DeepSeek LLM client (OpenAI-compatible protocol, streaming)."""
+"""LLM client (OpenAI-compatible chat/completions protocol, streaming).
+
+LuminaCode talks to any OpenAI-compatible vendor (DeepSeek, OpenAI, Ollama,
+vLLM, ...); the active provider is selected by `Settings.provider`.
+"""
 
 from __future__ import annotations
 
@@ -19,14 +23,18 @@ StreamCallback = Callable[[str], object]
 
 
 class DeepSeekClient:
-    """Async client for the DeepSeek chat/completions API."""
+    """Async client for any OpenAI-compatible chat/completions API.
+
+    The class name is kept for backward compatibility; the provider is driven
+    entirely by `Settings` (base_url / model / api_key).
+    """
 
     MAX_REQUEST_TOKENS = 8192  # safe per-request output cap; larger values are rejected by the API
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
-        self.base_url = settings.deepseek_base_url.rstrip("/")
-        self.model = settings.deepseek_model
+        self.base_url = settings.base_url.rstrip("/")
+        self.model = settings.model
         self.api_key = settings.api_key
         self._client = httpx.AsyncClient(
             base_url=self.base_url,
@@ -76,7 +84,8 @@ class DeepSeekClient:
 
         if not self.api_key:
             raise RuntimeError(
-                "未配置 DeepSeek API Key。请打开 设置 > 模型，填写 API 密钥（DEEPSEEK_API_KEY）后重试。"
+                f"未配置 API Key（当前提供商 {self.settings.provider}）。"
+                f"请在 设置 > 模型 填写 {self.settings.key_env_var} 后重试。"
             )
 
         last_error: Exception | None = None

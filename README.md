@@ -46,6 +46,32 @@ DEEPSEEK_BASE_URL=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-v4-flash
 ```
 
+### 多模型 / OpenAI 兼容供应商
+
+LuminaCode 使用 OpenAI chat/completions 协议，因此任何兼容供应商都可用
+（DeepSeek、OpenAI、Ollama、vLLM、通义等）。`LUMINA_LLM_PROVIDER` 选择当前提供商：
+
+- `auto`（默认）：设置了 `OPENAI_API_KEY` 就使用 OpenAI，否则使用 DeepSeek
+- `deepseek`：强制 DeepSeek（`DEEPSEEK_*` 配置）
+- `openai`：强制 OpenAI 兼容服务（`OPENAI_*` 配置）
+
+```bash
+LUMINA_LLM_PROVIDER=auto
+
+# DeepSeek
+DEEPSEEK_API_KEY=sk-xxxx
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-chat
+
+# OpenAI / 任意 OpenAI 兼容服务（provider 为 openai 时生效）
+OPENAI_API_KEY=sk-xxxx
+OPENAI_BASE_URL=https://api.openai.com/v1     # 例如 Ollama: http://localhost:11434/v1
+OPENAI_MODEL=gpt-4o-mini
+OPENAI_PLANNER_MODEL=gpt-4o
+```
+
+`lumina doctor` 会显示当前生效的提供商与模型。
+
 常用配置（全部可选）：
 
 | 变量 | 默认 | 说明 |
@@ -54,6 +80,7 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 | `LUMINA_MAX_TOKENS` | `8192` | 单次请求输出上限（API 上限内自动收敛） |
 | `LUMINA_MAX_ITERATIONS` | `20` | 最大循环轮数 |
 | `LUMINA_ENABLE_PLANNER` | `false` | 开启 Reasoner 分层规划 |
+| `LUMINA_LLM_PROVIDER` | `auto` | 模型提供商：`deepseek` / `openai` / `auto`（有 `OPENAI_API_KEY` 时自动切到 openai） |
 | `LUMINA_DEEPSEEK_PLANNER_MODEL` | `deepseek-reasoner` | 规划模型 |
 | `LUMINA_COMPRESSION` | `true` | 上下文压缩开关 |
 | `LUMINA_SELF_REVIEW` | `true` | 完成时自我审查 |

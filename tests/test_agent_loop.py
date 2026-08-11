@@ -197,7 +197,7 @@ async def test_agent_planner_injects_plan(workspace, settings):
     )
     agent = _build_agent(workspace, settings, client, DenyApprover())
     result = await agent.run("修复 bug")
-    assert client.models[0] == settings.deepseek_planner_model
+    assert client.models[0] == settings.planner_model
     executor_call = client.calls[1]
     assert any(
         m.role == "system" and "EXECUTOR PLAN" in (m.content or "") for m in executor_call
