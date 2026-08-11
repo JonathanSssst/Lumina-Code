@@ -12,7 +12,8 @@ def read_env(path: Path) -> dict[str, str]:
     if not env_path.exists():
         return {}
     result: dict[str, str] = {}
-    for line in env_path.read_text(encoding="utf-8", errors="replace").splitlines():
+    # utf-8-sig strips a UTF-8 BOM, otherwise the first KEY=VALUE is misread
+    for line in env_path.read_text(encoding="utf-8-sig", errors="replace").splitlines():
         m = _ENV_LINE.match(line)
         if m:
             key = m.group(1)
@@ -25,7 +26,11 @@ def write_env(path: Path, updates: dict[str, str]) -> None:
     """Update or append KEY=VALUE entries, preserving comments and unknown keys."""
     env_path = Path(path)
     env_path.parent.mkdir(parents=True, exist_ok=True)
-    lines = env_path.read_text(encoding="utf-8", errors="replace").splitlines() if env_path.exists() else []
+    lines = (
+        env_path.read_text(encoding="utf-8-sig", errors="replace").splitlines()
+        if env_path.exists()
+        else []
+    )
     updated: set[str] = set()
     out: list[str] = []
     for line in lines:

@@ -25,6 +25,24 @@ def test_write_env_creates_missing_file(tmp_path):
     assert env.read_text(encoding="utf-8").strip() == "DEEPSEEK_API_KEY=sk-x"
 
 
+def test_read_env_tolerates_utf8_bom(tmp_path):
+    env = tmp_path / ".env"
+    env.write_bytes(b"\xef\xbb\xbfDEEPSEEK_API_KEY=sk-bom\nOTHER=1\n")
+    parsed = read_env(env)
+    assert parsed["DEEPSEEK_API_KEY"] == "sk-bom"
+    assert parsed["OTHER"] == "1"
+
+
+def test_settings_tolerates_utf8_bom(tmp_path, monkeypatch):
+    from lumina.config import Settings
+
+    (tmp_path / ".env").write_bytes(b"\xef\xbb\xbfDEEPSEEK_API_KEY=sk-bom-settings\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DEEPSEEK_API_KEY", raising=False)
+    s = Settings()
+    assert s.api_key == "sk-bom-settings"
+
+
 async def test_config_endpoints(tmp_path):
     from fastapi.testclient import TestClient
 
