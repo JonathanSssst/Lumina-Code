@@ -29,6 +29,8 @@ from lumina.factory import build_agent
 from lumina.logging_setup import setup_logging
 from lumina.types import Message
 
+GITHUB_REPO = "JonathanSssst/Lumina-Code"
+
 app = typer.Typer(
     name="lumina",
     help="LuminaCode - a local MCP-driven coding agent powered by DeepSeek V4 Flash.",
@@ -40,15 +42,61 @@ console = Console()
 @app.callback(invoke_without_command=True)
 def main(
     version: bool = typer.Option(False, "-version", "--version", help="Show version and exit."),
+    latest: bool = typer.Option(False, "-latest", "--latest", help="With -version: check the latest GitHub release."),
 ) -> None:
     """LuminaCode 命令行入口。
 
     `lumina -version` / `lumina --version` 输出当前版本号后退出；
+    加 `-latest` 时同时查询 GitHub 上的最新发布版本。
     不带参数时显示帮助信息。
     """
     if version:
-        console.print(f"LuminaCode version {__version__}")
+        _print_version(latest)
         raise typer.Exit()
+
+
+def _fetch_latest_release_tag() -> str | None:
+    """Return the tag name of the latest GitHub release, or None on failure."""
+    import httpx
+
+    try:
+        resp = httpx.get(
+            f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest",
+            timeout=10,
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+        tag = resp.json().get("tag_name")
+        return tag if isinstance(tag, str) and tag else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _parse_semver(text: str) -> tuple[int, ...]:
+    """Best-effort parse of 'v1.2.3'-style versions into a comparable tuple."""
+    digits = "".join(ch for ch in text if ch.isdigit() or ch == ".").strip(".")
+    try:
+        return tuple(int(part) for part in digits.split(".")[:3])
+    except ValueError:
+        return ()
+
+
+def _print_version(latest: bool) -> None:
+    console.print(f"LuminaCode version {__version__}")
+    if not latest:
+        return
+    tag = _fetch_latest_release_tag()
+    if tag is None:
+        console.print("[yellow]Could not check the latest release (GitHub unreachable).[/]")
+        return
+    remote = _parse_semver(tag)
+    current = _parse_semver(__version__)
+    if current and remote and remote > current:
+        console.print(
+            f"[yellow]A newer release is available: [bold]{tag}[/] — upgrade recommended.[/]"
+        )
+    else:
+        console.print(f"[green]You are up to date (latest: {tag}).[/]")
 
 
 class CliApprover:
