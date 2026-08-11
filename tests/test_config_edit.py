@@ -384,6 +384,7 @@ def test_websocket_new_and_rename_session(tmp_path, monkeypatch):
     with TestClient(app) as c, c.websocket_connect("/ws") as ws:
         ws.receive_json()  # sessions
         ws.send_json({"type": "new_session"})
+        assert ws.receive_json()["type"] == "todo"  # empty per-session todo push
         payload = ws.receive_json()
         assert payload["type"] == "session"
         sid = payload["session"]["id"]

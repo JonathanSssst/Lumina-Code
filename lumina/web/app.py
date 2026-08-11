@@ -30,6 +30,7 @@ _EDITABLE_KEYS = (
     "OPENAI_PLANNER_MODEL",
     "LUMINA_MAX_TOKENS",
     "LUMINA_TOKEN_BUDGET",
+    "LUMINA_CONTEXT_LIMIT",
     "LUMINA_MAX_ITERATIONS",
     "LUMINA_TEMPERATURE",
     "LUMINA_ENABLE_PLANNER",
@@ -69,7 +70,13 @@ class WsApprover:
             return True
         self._counter += 1
         await self.ws.send_json(
-            {"type": "approval_request", "request_id": self._counter, "name": name, "reason": reason}
+            {
+                "type": "approval_request",
+                "request_id": self._counter,
+                "name": name,
+                "reason": reason,
+                "arguments": arguments or {},
+            }
         )
         try:
             return await asyncio.wait_for(self.queue.get(), timeout=300)
@@ -135,6 +142,9 @@ def create_app(
     app.state.stores: dict[str, SessionStore] = {}
     app.state.config_env = Path(config_env).resolve() if config_env else None
     app.state.state_file = Path(state_file).resolve() if state_file else None
+    # Per-session todo lists, keyed by "<workspace>|<session_id>", so that
+    # switching sessions (or workspaces) never leaks the previous task's list.
+    app.state.session_todos: dict[str, list[dict[str, str]]] = {}
 
     def env_target() -> Path:
         return app.state.config_env or (app.state.workspaces[0] / ".env")
@@ -180,7 +190,13 @@ def create_app(
 
     def session_payload(store: SessionStore, sid: int) -> dict:
         s = store.get_session(sid)
-        return {"id": sid, "title": s.title if s else "", "messages": s.message_count if s else 0}
+        usage = store.get_session_usage(sid) if s else None
+        return {
+            "id": sid,
+            "title": s.title if s else "",
+            "messages": s.message_count if s else 0,
+            "tokens": usage.total_tokens if usage else 0,
+        }
 
     async def push_sessions(ws: WebSocket, store: SessionStore, path: Path) -> None:
         await ws.send_json(
@@ -261,7 +277,7 @@ def create_app(
             "language": "zh-CN",
             "auto_approve": False,
             "shell": "auto",
-            "show_reasoning": False,
+            "show_reasoning": True,
             "expand_shell": False,
             "expand_edit": False,
             "color_scheme": "system",
@@ -384,6 +400,22 @@ def create_app(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
+    @app.get("/api/session/{sid}/stats")
+    async def session_stats(sid: int, workspace: str = "") -> Any:
+        """Per-session usage/cost breakdown for the ring indicator popup."""
+        store = get_store(resolve_workspace(workspace))
+        session = store.get_session(sid)
+        if session is None:
+            return JSONResponse({"error": f"会话 {sid} 不存在"}, status_code=404)
+        stats = store.get_session_stats(sid)
+        total = int(stats["usage"]["total"])
+        stats["context_limit"] = int(app.state.settings.context_limit)
+        stats["cost"] = {
+            "rate_per_m": 2,
+            "value": round(total * 2 / 1_000_000, 4),
+        }
+        return stats
+
     @app.get("/api/config")
     async def get_config() -> dict:
         return _config_payload(app.state.settings)
@@ -416,19 +448,38 @@ def create_app(
         hooks = WsHooks(ws)
         agent = build_agent(ws_path, app.state.settings, approver, hooks)
         todo_tools = getattr(getattr(agent, "registry", None), "todo_tools", None)
-        if todo_tools is not None:
-            todo_tools.on_change = hooks.on_todo
         current_session: int | None = None
         running: asyncio.Task | None = None
 
+        def _todo_key(sid: int | None) -> str | None:
+            return f"{ws_path}|{sid}" if sid is not None else None
+
+        async def _on_todo_change(todos: list[dict[str, str]]) -> None:
+            """Snapshot the list onto the current session, then push it to the UI."""
+            key = _todo_key(current_session)
+            if key is not None:
+                app.state.session_todos[key] = [dict(t) for t in todos]
+            await hooks.on_todo(todos)
+
+        if todo_tools is not None:
+            todo_tools.on_change = _on_todo_change
+
+        async def _push_session_todos(sid: int) -> None:
+            key = _todo_key(sid)
+            await ws.send_json(
+                {"type": "todo", "todos": list(app.state.session_todos.get(key, []))}
+            )
+
         async def run_in_background(content: str, sid: int, history: list[Message]) -> None:
             """Runs the agent in a background task so approvals stay responsive."""
+            budget = getattr(agent, "budget", None)
             try:
                 result = await agent.run(
                     content,
                     history=history,
                     persist=lambda m, sid_=sid: store.append_message(sid_, m),
                 )
+                usage = budget.usage if budget is not None else None
                 await ws.send_json(
                     {
                         "type": "done",
@@ -437,6 +488,13 @@ def create_app(
                         "total_tokens": result.total_tokens,
                         "stopped_reason": result.stopped_reason,
                         "final_content": result.final_content,
+                        "usage": {
+                            "prompt": usage.prompt_tokens if usage else 0,
+                            "completion": usage.completion_tokens if usage else 0,
+                            "reasoning": usage.reasoning_tokens if usage else 0,
+                            "cached": usage.cached_tokens if usage else 0,
+                            "total": result.total_tokens,
+                        },
                     }
                 )
             except asyncio.CancelledError:
@@ -448,6 +506,16 @@ def create_app(
             except Exception as exc:  # noqa: BLE001
                 await ws.send_json({"type": "error", "message": str(exc)})
             finally:
+                try:
+                    if budget is not None:
+                        store.record_usage(
+                            sid,
+                            budget.usage,
+                            iterations=budget.iterations,
+                            tool_calls=budget.tool_calls,
+                        )
+                except Exception:  # noqa: BLE001, S110
+                    pass
                 try:
                     await push_sessions(ws, store, ws_path)
                 except asyncio.CancelledError:
@@ -471,6 +539,7 @@ def create_app(
                         continue
                     current_session = store.create_session(ws_path, "新会话")
                     agent.reset_budget()
+                    await _push_session_todos(current_session)
                     await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     await push_sessions(ws, store, ws_path)
 
@@ -483,6 +552,7 @@ def create_app(
                         await ws.send_json({"type": "error", "message": f"会话 {sid} 不存在"})
                         continue
                     store.delete_session(sid)
+                    app.state.session_todos.pop(_todo_key(sid), None)
                     if current_session == sid:
                         current_session = None
                         await ws.send_json({"type": "session_cleared"})
@@ -509,6 +579,7 @@ def create_app(
                         agent.reset_budget()
                     current_session = sid
                     await ws.send_json({"type": "session", "session": session_payload(store, sid)})
+                    await _push_session_todos(sid)
                     msgs = [
                         {"role": m.role, "content": m.content or ""}
                         for m in store.get_messages(sid)
@@ -523,6 +594,7 @@ def create_app(
                     if current_session is None:
                         current_session = store.create_session(ws_path, "新会话")
                         agent.reset_budget()
+                        await _push_session_todos(current_session)
                         await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     content = msg.get("content", "")
                     history = store.get_messages(current_session)

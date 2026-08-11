@@ -67,17 +67,26 @@ class ToolSpec(BaseModel):
 
 
 class Usage(BaseModel):
-    """Token accounting for a single LLM round-trip."""
+    """Token accounting for a single LLM round-trip.
+
+    ``reasoning_tokens`` / ``cached_tokens`` are optional; providers expose
+    them under different keys (or not at all), so they default to 0 and the
+    client normalizes them before constructing this object.
+    """
 
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
+    reasoning_tokens: int = 0
+    cached_tokens: int = 0
 
     def __add__(self, other: Usage) -> Usage:
         return Usage(
             prompt_tokens=self.prompt_tokens + other.prompt_tokens,
             completion_tokens=self.completion_tokens + other.completion_tokens,
             total_tokens=self.total_tokens + other.total_tokens,
+            reasoning_tokens=self.reasoning_tokens + other.reasoning_tokens,
+            cached_tokens=self.cached_tokens + other.cached_tokens,
         )
 
 

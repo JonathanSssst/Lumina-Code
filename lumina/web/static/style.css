@@ -278,6 +278,11 @@
   .approval { margin: 12px 0; padding: 12px 15px; border: 1px solid var(--accent-line);
     border-radius: 12px; background: linear-gradient(180deg, var(--accent-soft), transparent);
     font-size: 13px; display: flex; flex-direction: column; gap: 10px; animation: rise .3s ease both; }
+  .approval-title { font-weight: 650; color: var(--text); }
+  .approval-reason { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .approval-cmd { margin: 0; padding: 9px 12px; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 9px; font-family: var(--font-code);
+    font-size: 12px; color: var(--code-text); white-space: pre-wrap; word-break: break-all; }
   .approval .approval-actions { display: flex; gap: 8px; }
   .approval .approval-actions button { padding: 6px 16px; font-size: 13px; font-weight: 550; }
   .approval .approval-actions button.ok { background: var(--ok); border-color: var(--ok); color: #04130d; }
@@ -463,3 +468,46 @@
   pre, code, .markdown pre code, .tool-card .tool-body pre,
   details.thinking .think-body pre, details.thinking .think-body code { font-family: var(--font-code); }
   .stat, .si-meta, .ops-head, .tname { font-family: var(--font-code); }
+
+  /* ---------- usage ring button (top-right) + session stats popup ---------- */
+  #usageRingBtn { position: fixed; top: 14px; right: 20px; z-index: 46; width: 48px; height: 48px;
+    border: none; background: transparent; cursor: pointer; padding: 0;
+    border-radius: 50%; transition: transform .15s ease; }
+  #usageRingBtn:hover { transform: scale(1.06); }
+  #usageRingBtn:active { transform: scale(.96); }
+  .usage-ring-svg { width: 48px; height: 48px; display: block; }
+  .usage-ring-track { fill: none; stroke: var(--border-strong); stroke-width: 5; }
+  .usage-ring-bar { fill: none; stroke: var(--accent); stroke-width: 5; stroke-linecap: round;
+    stroke-dasharray: 119.38; stroke-dashoffset: 119.38;
+    transform: rotate(-90deg); transform-origin: 50% 50%;
+    transition: stroke-dashoffset .5s ease; }
+  #usageRingBtn.none .usage-ring-bar { stroke: var(--faint); }
+  #usageRingVal { position: absolute; inset: 0; display: grid; place-items: center;
+    font-family: var(--font-code); font-size: 10.5px; color: var(--muted); pointer-events: none; }
+
+  .usage-pop { position: fixed; top: 70px; right: 20px; z-index: 47; width: 300px;
+    background: var(--panel); border: 1px solid var(--border-strong); border-radius: 14px;
+    box-shadow: var(--shadow); animation: rise .2s ease both; overflow: hidden; }
+  .usage-pop-head { display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .usage-pop-title { font-size: 12.5px; font-weight: 650; color: var(--text); }
+  .usage-pop-head .icon-btn { width: 26px; height: 26px; }
+  .usage-pop-body { padding: 12px 14px 14px; max-height: 60vh; overflow-y: auto; }
+  .usage-hero { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+  .usage-hero .usage-ring-svg { width: 76px; height: 76px; }
+  .usage-hero .usage-ring-track, .usage-hero .usage-ring-bar { stroke-width: 6; }
+  .usage-hero .usage-ring-bar { stroke-dasharray: 119.38; }
+  .usage-hero #usageRingVal { font-size: 13px; font-weight: 650; color: var(--text); }
+  .usage-hero-info { min-width: 0; }
+  .usage-hero-title { font-size: 13.5px; font-weight: 650; color: var(--text); white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; }
+  .usage-hero-sub { font-size: 11.5px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
+  .usage-rows { display: flex; flex-direction: column; gap: 6px; }
+  .usage-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    font-size: 12.5px; padding: 7px 10px; background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 9px; }
+  .usage-row .u-label { color: var(--muted); }
+  .usage-row .u-value { font-family: var(--font-code); font-size: 12px; color: var(--text); }
+  .usage-row .u-value.hl { color: var(--accent); font-weight: 650; }
+  .usage-row .u-value .dim { color: var(--faint); font-size: 10.5px; }
+  .usage-hint { font-size: 11px; color: var(--faint); margin-top: 10px; line-height: 1.55; }

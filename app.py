@@ -179,6 +179,32 @@ def _apply_window_icon(window: Any) -> None:
         logger.debug("could not set window icon", exc_info=True)
 
 
+def _maximize_window(window: Any) -> None:
+    """Best-effort: start the desktop window maximized.
+
+    pywebview 6 has no `maximize=` kwarg, so use the Window API when available
+    and fall back to the WinForms Form WindowState on Windows.
+    """
+    try:
+        if window is not None and callable(getattr(window, "maximize", None)):
+            window.maximize()
+            return
+    except Exception:
+        logger.debug("window.maximize() failed", exc_info=True)
+    if sys.platform != "win32":
+        return
+    try:
+        import clr  # type: ignore[import-not-found]  # pythonnet
+
+        clr.AddReference("System.Windows.Forms")
+        from System.Windows.Forms import FormWindowState  # type: ignore[import-not-found]
+
+        if window is not None and getattr(window, "native", None) is not None:
+            window.native.WindowState = FormWindowState.Maximized
+    except Exception:
+        logger.debug("could not maximize window", exc_info=True)
+
+
 def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False) -> None:
     import uvicorn
 
@@ -242,7 +268,7 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
                     js_api=bridge,
                 )
                 _apply_window_icon(_window)
-                webview.start()
+                webview.start(func=lambda: _maximize_window(_window))
                 server.should_exit = True
                 thread.join(timeout=10)
                 return

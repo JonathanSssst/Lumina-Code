@@ -43,7 +43,11 @@ class Settings(BaseSettings):
     # --- Agent behavior ---
     max_iterations: int = Field(default=20, alias="LUMINA_MAX_ITERATIONS")
     max_tokens: int = Field(default=8192, alias="LUMINA_MAX_TOKENS")
-    token_budget: int = Field(default=30000, alias="LUMINA_TOKEN_BUDGET")
+    # 0 = unlimited (no cumulative-token cap). Set a positive value to stop
+    # long tasks once the conversation consumes that many tokens.
+    token_budget: int = Field(default=0, alias="LUMINA_TOKEN_BUDGET")
+    # Context window the UI uses to display per-session usage (tokens/context).
+    context_limit: int = Field(default=131072, alias="LUMINA_CONTEXT_LIMIT")
     temperature: float = Field(default=0.3, alias="LUMINA_TEMPERATURE")
     max_auto_fix_rounds: int = Field(default=3, alias="LUMINA_MAX_AUTO_FIX_ROUNDS")
 

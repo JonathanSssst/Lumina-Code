@@ -421,10 +421,10 @@ def web(
             while not server.started:
                 time.sleep(0.05)
             try:
-                webview.create_window(
+                _window = webview.create_window(
                     "LuminaCode", url, width=1200, height=820, min_size=(900, 620)
                 )
-                webview.start()
+                webview.start(func=lambda: _maximize_window(_window))
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[yellow]WebView failed to start ({exc}); opening the browser instead.[/]")
                 webbrowser.open(url)
@@ -451,6 +451,28 @@ def _find_free_port(host: str, start: int, range_size: int) -> int | None:
             except OSError:
                 continue
     return None
+
+
+def _maximize_window(window: Any) -> None:
+    """Best-effort: start the desktop window maximized (Window API or WinForms)."""
+    try:
+        if window is not None and callable(getattr(window, "maximize", None)):
+            window.maximize()
+            return
+    except Exception:  # noqa: BLE001, S110
+        pass
+    if sys.platform != "win32":
+        return
+    try:
+        import clr  # type: ignore[import-not-found]  # pythonnet
+
+        clr.AddReference("System.Windows.Forms")
+        from System.Windows.Forms import FormWindowState  # type: ignore[import-not-found]
+
+        if window is not None and getattr(window, "native", None) is not None:
+            window.native.WindowState = FormWindowState.Maximized
+    except Exception:  # noqa: BLE001, S110
+        pass
 
 
 def _load_settings(validate_key: bool = True) -> Any:

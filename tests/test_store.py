@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from lumina.store import SessionStore
-from lumina.types import Message, ToolCall
+from lumina.types import Message, ToolCall, Usage
 
 
 def _make_store(tmp_path):
@@ -97,4 +97,58 @@ def test_truncate_after_user_invalid_index(tmp_path):
     assert store.truncate_after_user(sid, 5) is False
     assert store.truncate_after_user(sid, -1) is False
     assert len(store.get_messages(sid)) == 1
+    store.close()
+
+
+def test_record_usage_accumulates_across_runs(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+
+    store.record_usage(
+        sid,
+        Usage(prompt_tokens=100, completion_tokens=50, total_tokens=150, reasoning_tokens=20, cached_tokens=10),
+        iterations=2,
+        tool_calls=1,
+    )
+    store.record_usage(
+        sid,
+        Usage(prompt_tokens=200, completion_tokens=100, total_tokens=300, reasoning_tokens=0, cached_tokens=0),
+        iterations=1,
+        tool_calls=0,
+    )
+
+    usage = store.get_session_usage(sid)
+    assert usage.total_tokens == 450
+    assert usage.prompt_tokens == 300
+    assert usage.completion_tokens == 150
+    assert usage.reasoning_tokens == 20
+    assert usage.cached_tokens == 10
+    assert store.get_session_usage(sid + 999) is None
+    store.close()
+
+
+def test_get_session_stats_counts_and_usage(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path, "统计会话")
+    store.append_message(sid, Message(role="user", content="q"))
+    store.append_message(sid, Message(role="assistant", content="a"))
+    store.append_message(sid, Message(role="tool", tool_call_id="t1", name="x", content="r"))
+    store.record_usage(sid, Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15), iterations=1, tool_calls=1)
+
+    stats = store.get_session_stats(sid)
+    assert stats["title"] == "统计会话"
+    assert stats["messages"] == 3
+    assert stats["counts"] == {"user": 1, "assistant": 1, "tool": 1, "system": 0}
+    assert stats["usage"]["total"] == 15
+    assert stats["iterations"] == 1
+    assert stats["tool_calls"] == 1
+    store.close()
+
+
+def test_delete_session_clears_usage(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+    store.record_usage(sid, Usage(total_tokens=5))
+    store.delete_session(sid)
+    assert store.get_session_usage(sid) is None
     store.close()

@@ -280,6 +280,8 @@ class Agent:
         """
         if not self.settings.compression_enabled or self._compressed:
             return
+        if self.compress_threshold <= 0:
+            return
         if self.budget.total_tokens < self.compress_threshold:
             return
         if len(messages) < 6:

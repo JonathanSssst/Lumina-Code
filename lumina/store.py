@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from lumina.types import Message, ToolCall
+from lumina.types import Message, ToolCall, Usage
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
@@ -28,6 +28,18 @@ CREATE TABLE IF NOT EXISTS messages (
     seq INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
+CREATE TABLE IF NOT EXISTS usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
+    prompt_tokens INTEGER NOT NULL DEFAULT 0,
+    completion_tokens INTEGER NOT NULL DEFAULT 0,
+    total_tokens INTEGER NOT NULL DEFAULT 0,
+    reasoning_tokens INTEGER NOT NULL DEFAULT 0,
+    cached_tokens INTEGER NOT NULL DEFAULT 0,
+    iterations INTEGER NOT NULL DEFAULT 0,
+    tool_calls INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -122,6 +134,7 @@ class SessionStore:
         with self._lock:
             self._conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             self._conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            self._conn.execute("DELETE FROM usage WHERE session_id = ?", (session_id,))
             self._conn.commit()
 
     def touch(self, session_id: int) -> None:
@@ -202,6 +215,114 @@ class SessionStore:
             )
             self._conn.commit()
         return True
+
+    # --- usage / stats ---
+
+    def record_usage(
+        self,
+        session_id: int,
+        usage: Usage,
+        *,
+        iterations: int = 0,
+        tool_calls: int = 0,
+    ) -> None:
+        """Accumulate one agent run's token usage onto the session (upsert)."""
+        now = _now()
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE usage SET "
+                "prompt_tokens = prompt_tokens + ?, completion_tokens = completion_tokens + ?, "
+                "total_tokens = total_tokens + ?, reasoning_tokens = reasoning_tokens + ?, "
+                "cached_tokens = cached_tokens + ?, iterations = iterations + ?, "
+                "tool_calls = tool_calls + ?, updated_at = ? WHERE session_id = ?",
+                (
+                    usage.prompt_tokens,
+                    usage.completion_tokens,
+                    usage.total_tokens,
+                    usage.reasoning_tokens,
+                    usage.cached_tokens,
+                    iterations,
+                    tool_calls,
+                    now,
+                    session_id,
+                ),
+            )
+            if cur.rowcount == 0:
+                self._conn.execute(
+                    "INSERT INTO usage("
+                    "session_id, prompt_tokens, completion_tokens, total_tokens, "
+                    "reasoning_tokens, cached_tokens, iterations, tool_calls, updated_at"
+                    ") VALUES(?,?,?,?,?,?,?,?,?)",
+                    (
+                        session_id,
+                        usage.prompt_tokens,
+                        usage.completion_tokens,
+                        usage.total_tokens,
+                        usage.reasoning_tokens,
+                        usage.cached_tokens,
+                        iterations,
+                        tool_calls,
+                        now,
+                    ),
+                )
+            self._conn.commit()
+
+    def get_session_usage(self, session_id: int) -> Usage | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT prompt_tokens, completion_tokens, total_tokens, "
+                "reasoning_tokens, cached_tokens FROM usage WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+        if row is None:
+            return None
+        return Usage(
+            prompt_tokens=int(row["prompt_tokens"]),
+            completion_tokens=int(row["completion_tokens"]),
+            total_tokens=int(row["total_tokens"]),
+            reasoning_tokens=int(row["reasoning_tokens"]),
+            cached_tokens=int(row["cached_tokens"]),
+        )
+
+    def get_session_stats(self, session_id: int) -> dict:
+        """Aggregate stats for one session (usage + message counts + meta)."""
+        session = self.get_session(session_id)
+        usage = self.get_session_usage(session_id)
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COALESCE(MAX(iterations), 0) AS iterations, "
+                "COALESCE(MAX(tool_calls), 0) AS tool_calls FROM usage WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+            counts = {
+                r["role"]: int(r["n"])
+                for r in self._conn.execute(
+                    "SELECT role, COUNT(*) AS n FROM messages WHERE session_id = ? GROUP BY role",
+                    (session_id,),
+                ).fetchall()
+            }
+        return {
+            "id": session_id,
+            "title": session.title if session else "新会话",
+            "created_at": session.created_at if session else "",
+            "updated_at": session.updated_at if session else "",
+            "messages": session.message_count if session else 0,
+            "counts": {
+                "user": counts.get("user", 0),
+                "assistant": counts.get("assistant", 0),
+                "tool": counts.get("tool", 0),
+                "system": counts.get("system", 0),
+            },
+            "usage": {
+                "prompt": usage.prompt_tokens if usage else 0,
+                "completion": usage.completion_tokens if usage else 0,
+                "total": usage.total_tokens if usage else 0,
+                "reasoning": usage.reasoning_tokens if usage else 0,
+                "cached": usage.cached_tokens if usage else 0,
+            },
+            "iterations": int(row["iterations"]),
+            "tool_calls": int(row["tool_calls"]),
+        }
 
     def _next_seq(self, session_id: int) -> int:
         with self._lock:

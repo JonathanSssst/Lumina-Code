@@ -69,6 +69,20 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
 </div></div>
+<button id="usageRingBtn" onclick="toggleUsagePop()" title="会话用量" aria-label="会话用量">
+  <svg class="usage-ring-svg" viewBox="0 0 44 44">
+    <circle class="usage-ring-track" cx="22" cy="22" r="19"/>
+    <circle class="usage-ring-bar" cx="22" cy="22" r="19"/>
+  </svg>
+  <span id="usageRingVal">–</span>
+</button>
+<div id="usagePop" class="usage-pop" hidden>
+  <div class="usage-pop-head">
+    <span class="usage-pop-title">会话用量</span>
+    <button class="icon-btn" onclick="toggleUsagePop()" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="usage-pop-body" id="usagePopBody"></div>
+</div>
 </div>
 </div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">

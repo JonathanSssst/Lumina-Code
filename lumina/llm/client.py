@@ -22,6 +22,28 @@ logger = logging.getLogger(__name__)
 StreamCallback = Callable[[str], object]
 
 
+def _parse_usage(data: dict) -> Usage:
+    """Build a Usage from a provider `usage` payload, tolerating vendor quirks.
+
+    Providers report reasoning/cache tokens under different keys (e.g. DeepSeek
+    ``prompt_cache_hit_tokens``, OpenAI ``completion_tokens_details``), so they
+    are normalized defensively; unknown keys are simply ignored.
+    """
+    details = data.get("completion_tokens_details") or {}
+    return Usage(
+        prompt_tokens=int(data.get("prompt_tokens") or 0),
+        completion_tokens=int(data.get("completion_tokens") or 0),
+        total_tokens=int(data.get("total_tokens") or 0),
+        reasoning_tokens=int(details.get("reasoning_tokens") or data.get("reasoning_tokens") or 0),
+        cached_tokens=int(
+            data.get("prompt_cache_hit_tokens")
+            or data.get("cached_tokens")
+            or details.get("cached_tokens")
+            or 0
+        ),
+    )
+
+
 class DeepSeekClient:
     """Async client for any OpenAI-compatible chat/completions API.
 
@@ -156,7 +178,7 @@ class DeepSeekClient:
                     if fn.get("arguments"):
                         slot["arguments"] += fn["arguments"]
             if data.get("usage"):
-                usage = Usage(**data["usage"])
+                usage = _parse_usage(data["usage"])
 
         async for line in response.aiter_lines():
             if not line.startswith("data:"):

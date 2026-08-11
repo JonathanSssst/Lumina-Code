@@ -14,7 +14,7 @@ from lumina.agent.authorize import AgentResult
 from lumina.config import Settings
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.todo import TodoTools
-from lumina.web.app import WsHooks, create_app
+from lumina.web.app import WsApprover, WsHooks, create_app
 
 
 @pytest.fixture
@@ -122,3 +122,43 @@ def test_ws_todo_toggle_without_todo_tools_errors(app, tmp_path, monkeypatch):
         err = ws.receive_json()
         assert err["type"] == "error"
         assert "待办列表不可用" in err["message"]
+
+
+def test_ws_approver_sends_arguments_in_request():
+    ws = _FakeWs()
+    approver = WsApprover(ws)
+
+    async def go():
+        task = asyncio.create_task(
+            approver.approve("run_command", {"command": "git push origin main"}, "危险命令")
+        )
+        while not ws.sent:
+            await asyncio.sleep(0.001)
+        approver.submit(True)
+        await task
+
+    asyncio.run(go())
+    msg = ws.sent[0]
+    assert msg["type"] == "approval_request"
+    assert msg["name"] == "run_command"
+    assert msg["arguments"] == {"command": "git push origin main"}
+    assert msg["reason"] == "危险命令"
+
+
+def test_default_settings_show_reasoning_enabled(app):
+    with TestClient(app) as c:
+        settings = c.get("/api/settings").json()
+        assert settings["show_reasoning"] is True
+
+
+def test_config_exposes_context_limit_and_zero_budget(app):
+    with TestClient(app) as c:
+        cfg = c.get("/api/config").json()
+        assert "LUMINA_CONTEXT_LIMIT" in cfg
+        assert isinstance(cfg["LUMINA_TOKEN_BUDGET"], int)
+
+
+def test_settings_default_budget_disabled_and_context_limit():
+    s = Settings(_env_file=None)
+    assert s.token_budget == 0
+    assert s.context_limit == 131072

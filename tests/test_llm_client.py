@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from lumina.config import Settings
-from lumina.llm.client import DeepSeekClient
+from lumina.llm.client import DeepSeekClient, _parse_usage
 from lumina.types import Message
 
 
@@ -146,6 +146,45 @@ async def test_chat_ignores_garbage_and_usage_late(monkeypatch):
     assert resp.content == "ok"
     assert resp.usage.total_tokens == 8
     await client.aclose()
+
+
+def test_parse_usage_normalizes_provider_fields():
+    deepseek = _parse_usage(
+        {
+            "prompt_tokens": 10,
+            "completion_tokens": 5,
+            "total_tokens": 15,
+            "prompt_cache_hit_tokens": 4,
+            "prompt_cache_miss_tokens": 6,
+            "extra_unknown": "ignored",
+        }
+    )
+    assert deepseek.total_tokens == 15
+    assert deepseek.cached_tokens == 4
+    assert deepseek.reasoning_tokens == 0
+
+    openai = _parse_usage(
+        {
+            "prompt_tokens": 3,
+            "completion_tokens": 2,
+            "total_tokens": 5,
+            "completion_tokens_details": {"reasoning_tokens": 1},
+        }
+    )
+    assert openai.reasoning_tokens == 1
+    assert openai.total_tokens == 5
+
+    bare = _parse_usage({})
+    assert bare.total_tokens == 0
+
+
+def test_usage_add_carries_reasoning_and_cache():
+    a = _parse_usage({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2, "reasoning_tokens": 1})
+    b = _parse_usage({"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2, "prompt_cache_hit_tokens": 1})
+    s = a + b
+    assert s.reasoning_tokens == 1
+    assert s.cached_tokens == 1
+    assert s.total_tokens == 4
 
 
 async def test_chat_retries_transient_http_error(monkeypatch):

@@ -54,6 +54,147 @@ function updateTok(){
   else el.style.display = "none";
 }
 
+/* ---------- session usage ring (top-right) + stats popup ---------- */
+const USAGE_RING_C = 119.38;
+let usageStats = null;
+let usagePopOpen = false;
+function fmtNum(n){
+  const v = Number(n) || 0;
+  if (v >= 1e6) return (v / 1e6).toFixed(2) + "M";
+  if (v >= 1e3) return (v / 1e3).toFixed(1) + "k";
+  return String(v);
+}
+function usageFraction(st){
+  const total = st && st.usage ? (st.usage.total || 0) : 0;
+  const limit = st && st.context_limit ? st.context_limit : 0;
+  return { total, limit, frac: limit && total ? Math.min(1, total / limit) : 0 };
+}
+function updateUsageRing(st){
+  const btn = document.getElementById("usageRingBtn");
+  const val = document.getElementById("usageRingVal");
+  if (!btn || !val) return;
+  const bar = btn.querySelector(".usage-ring-bar");
+  const { total, limit, frac } = usageFraction(st);
+  if (bar) bar.style.strokeDashoffset = String(USAGE_RING_C * (1 - frac));
+  btn.classList.toggle("none", !frac);
+  val.textContent = !st ? "–" : total > 0 ? fmtNum(total) : "0";
+  if (st) val.title = "total " + total + " / " + (limit || "∞");
+}
+function fetchSessionStats(){
+  if (!currentSession) { usageStats = null; updateUsageRing(null); return; }
+  fetch(`/api/session/${currentSession}/stats?workspace=${encodeURIComponent(activeWorkspace)}`)
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(st => { usageStats = st; updateUsageRing(st); if (usagePopOpen) renderUsagePop(); })
+    .catch(() => { updateUsageRing(null); });
+}
+function toggleUsagePop(){
+  const pop = document.getElementById("usagePop");
+  if (!pop) return;
+  usagePopOpen = !usagePopOpen;
+  pop.hidden = !usagePopOpen;
+  if (usagePopOpen) fetchSessionStats();
+}
+function usageHeroRing(st){
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  svg.setAttribute("viewBox", "0 0 44 44");
+  svg.setAttribute("class", "usage-ring-svg");
+  const { frac } = usageFraction(st);
+  const track = document.createElementNS(ns, "circle");
+  track.setAttribute("class", "usage-ring-track");
+  track.setAttribute("cx", "22"); track.setAttribute("cy", "22"); track.setAttribute("r", "19");
+  const bar = document.createElementNS(ns, "circle");
+  bar.setAttribute("class", "usage-ring-bar");
+  bar.setAttribute("cx", "22"); bar.setAttribute("cy", "22"); bar.setAttribute("r", "19");
+  bar.setAttribute("style", "stroke-dashoffset:" + (USAGE_RING_C * (1 - frac)));
+  const val = document.createElementNS(ns, "foreignObject");
+  svg.appendChild(track); svg.appendChild(bar);
+  return { svg, frac };
+}
+function renderUsagePop(){
+  const body = document.getElementById("usagePopBody");
+  if (!body) return;
+  body.innerHTML = "";
+  if (!usageStats) {
+    body.innerHTML = '<div class="usage-hint">暂无用量数据。运行一次任务后，这里会显示 token 消耗与费用估算。</div>';
+    return;
+  }
+  const st = usageStats;
+  const u = st.usage || {};
+  const { total, limit, frac } = usageFraction(st);
+  const hero = document.createElement("div");
+  hero.className = "usage-hero";
+  const ring = usageHeroRing(st);
+  const ringWrap = document.createElement("span");
+  ringWrap.style.position = "relative";
+  ringWrap.style.display = "inline-flex";
+  ringWrap.appendChild(ring.svg);
+  const ringVal = document.createElement("span");
+  ringVal.id = "usageRingVal";
+  ringVal.style.position = "absolute";
+  ringVal.style.inset = "0";
+  ringVal.style.display = "grid";
+  ringVal.style.placeItems = "center";
+  ringVal.style.fontFamily = "var(--font-code)";
+  ringVal.style.fontSize = "12px";
+  ringVal.style.fontWeight = "650";
+  ringVal.style.color = "var(--text)";
+  ringVal.textContent = total > 0 ? fmtNum(total) : "0";
+  ringWrap.appendChild(ringVal);
+  const info = document.createElement("div");
+  info.className = "usage-hero-info";
+  const t = document.createElement("div");
+  t.className = "usage-hero-title";
+  t.textContent = st.title || ("会话 #" + st.id);
+  const sub = document.createElement("div");
+  sub.className = "usage-hero-sub";
+  sub.textContent = "上下文 " + (limit ? fmtNum(limit) + " tokens" : "不限") +
+    (frac > 0 ? " · 已用 " + Math.round(frac * 100) + "%" : "");
+  info.appendChild(t); info.appendChild(sub);
+  hero.appendChild(ringWrap); hero.appendChild(info);
+  body.appendChild(hero);
+  const rows = document.createElement("div");
+  rows.className = "usage-rows";
+  const mk = (label, value, opts) => {
+    const r = document.createElement("div");
+    r.className = "usage-row";
+    const l = document.createElement("span");
+    l.className = "u-label";
+    l.textContent = label;
+    const v = document.createElement("span");
+    v.className = "u-value" + (opts && opts.hl ? " hl" : "");
+    if (opts && opts.dim) {
+      v.textContent = opts.value || "";
+      const d = document.createElement("span");
+      d.className = "dim";
+      d.textContent = opts.dim;
+      v.appendChild(d);
+    } else {
+      v.textContent = value;
+    }
+    r.appendChild(l); r.appendChild(v);
+    rows.appendChild(r);
+  };
+  mk("总 tokens", fmtNum(u.total || 0), {
+    hl: true, value: fmtNum(u.total || 0), dim: limit ? " / " + fmtNum(limit) : "",
+  });
+  mk("输入 / 输出", fmtNum(u.prompt || 0) + " / " + fmtNum(u.completion || 0));
+  mk("推理 / 缓存", fmtNum(u.reasoning || 0) + " / " + fmtNum(u.cached || 0));
+  mk("消息数", (st.messages || 0) + "（用户 " + (st.counts ? st.counts.user : 0) +
+    " · 助手 " + (st.counts ? st.counts.assistant : 0) + " · 工具 " + (st.counts ? st.counts.tool : 0) + "）");
+  mk("迭代 / 工具调用", (st.iterations || 0) + " / " + (st.tool_calls || 0));
+  mk("费用估算", "¥" + (st.cost ? st.cost.value.toFixed(4) : "0.0000") + "（¥" +
+    (st.cost ? st.cost.rate_per_m : 2) + "/1M tokens）");
+  if (st.created_at || st.updated_at) {
+    mk("创建 / 更新", (st.created_at || "–") + " / " + (st.updated_at || "–"));
+  }
+  body.appendChild(rows);
+  const hint = document.createElement("div");
+  hint.className = "usage-hint";
+  hint.textContent = "费用为估算值，按总量 ¥2 / 1M tokens 计算，不代表最终账单。";
+  body.appendChild(hint);
+}
+
 function scrollBottom(){ main.scrollTop = main.scrollHeight; }
 
 /* ---------- markdown (minimal, safe) ---------- */
@@ -393,8 +534,8 @@ function stopThinkTimer(){
 /* ---------- websocket ---------- */
 function handleWSMessage(m) {
   if (m.type === "sessions") renderSessions(m.sessions);
-  else if (m.type === "session") { currentSession = m.session.id; tokenUsed = 0; updateTok(); }
-  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); rebuildToc(); }
+  else if (m.type === "session") { currentSession = m.session.id; tokenUsed = 0; updateTok(); renderSessions(sessionsData); fetchSessionStats(); }
+  else if (m.type === "session_cleared") { currentSession = null; tokenUsed = 0; updateTok(); usageStats = null; updateUsageRing(null); usagePopOpen = false; const up = document.getElementById("usagePop"); if (up) up.hidden = true; log.innerHTML = ""; userCounter = 0; editingUi = null; hideEditbar(); rebuildToc(); }
   else if (m.type === "history") {
     userCounter = 0;
     m.messages.forEach(msg => {
@@ -470,15 +611,32 @@ function handleWSMessage(m) {
     if (document.getElementById("autoApprove").checked) { respond(m.request_id, true); return; }
     const box = document.createElement("div");
     box.className = "approval";
-    box.textContent = "需要批准: " + m.name + " (" + m.reason + ")";
+    const args = m.arguments || {};
+    const cmdTxt = String(args.command || args.content || args.path || args.url || "").trim();
+    const title = document.createElement("div");
+    title.className = "approval-title";
+    title.textContent = "需要批准: " + m.name;
+    box.appendChild(title);
+    if (m.reason) {
+      const reason = document.createElement("div");
+      reason.className = "approval-reason";
+      reason.textContent = m.reason;
+      box.appendChild(reason);
+    }
+    if (cmdTxt) {
+      const pre = document.createElement("pre");
+      pre.className = "approval-cmd";
+      pre.textContent = cmdTxt;
+      box.appendChild(pre);
+    }
     const actions = document.createElement("div");
     actions.className = "approval-actions";
     const yes = document.createElement("button");
     yes.className = "ok"; yes.textContent = "批准";
-    yes.onclick = () => { box.textContent = "[已批准] " + m.name; respond(m.request_id, true); };
+    yes.onclick = () => { box.textContent = "[已批准] " + m.name + (cmdTxt ? " " + cmdTxt : ""); respond(m.request_id, true); };
     const no = document.createElement("button");
     no.className = "no"; no.textContent = "拒绝";
-    no.onclick = () => { box.textContent = "[已拒绝] " + m.name; box.classList.add("err"); respond(m.request_id, false); };
+    no.onclick = () => { box.textContent = "[已拒绝] " + m.name + (cmdTxt ? " " + cmdTxt : ""); box.classList.add("err"); respond(m.request_id, false); };
     actions.appendChild(yes); actions.appendChild(no);
     box.appendChild(actions);
     log.appendChild(box);
@@ -495,6 +653,7 @@ function handleWSMessage(m) {
     let hint = "";
     if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大 LUMINA_TOKEN_BUDGET）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
+    fetchSessionStats();
   } else if (m.type === "cancelled") {
     stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false);
     appendStat("[stopped] 任务已手动停止");
@@ -618,6 +777,8 @@ function switchWorkspace(value){
   userCounter = 0; editingUi = null; hideEditbar();
   rebuildToc();
   tokenUsed = 0; updateTok();
+  usageStats = null; updateUsageRing(null);
+  const up = document.getElementById("usagePop"); if (up) up.hidden = true; usagePopOpen = false;
   connectWS(value);
   persistDefaultWorkspace(value);
 }
@@ -652,6 +813,8 @@ function switchSession(id) {
   userCounter = 0; editingUi = null; hideEditbar();
   rebuildToc();
   tokenUsed = 0; updateTok();
+  usageStats = null; updateUsageRing(null);
+  const up = document.getElementById("usagePop"); if (up) up.hidden = true; usagePopOpen = false;
   ws.send(JSON.stringify({ type: "resume", session_id: Number(id) }));
 }
 function newSession() {
