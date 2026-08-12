@@ -1,11 +1,11 @@
-LuminaCode 1.0.3
+LuminaCode 1.0.4
 =================
 
 A local MCP-driven coding agent powered by DeepSeek V4 Flash.
 
 Install
 -------
-Run LuminaCode-Setup-1.0.3.exe. It will install LuminaCode to
+Run LuminaCode-Setup-1.0.4.exe. It will install LuminaCode to
 %LOCALAPPDATA%\Programs\LuminaCode and add shortcuts to the Start Menu
 and Desktop.
 

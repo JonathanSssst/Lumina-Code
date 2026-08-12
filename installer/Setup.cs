@@ -40,7 +40,7 @@ class LuminaCodeSetup
             dc.WorkingDirectory = dest;
             dc.Save();
 
-            MessageBox.Show("LuminaCode 1.0.3 已安装到：\n" + dest +
+            MessageBox.Show("LuminaCode 1.0.4 已安装到：\n" + dest +
                 "\n\n已在开始菜单和桌面创建快捷方式。",
                 "安装完成", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
