@@ -306,3 +306,61 @@ def test_msg_actions_only_on_last_message():
 def test_thinking_block_collapsible():
     r = subprocess.run(["node", "-e", _THINK_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout
+
+
+_FEATURES_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const find = (sub, from) => lines.findIndex((l, i) => i >= from && l.includes(sub));
+const slice = (s, e) => lines.slice(s, e).join("\n");
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+
+const docEl = { _a: {}, setAttribute(k, v) { this._a[k] = v; }, removeAttribute(k) { delete this._a[k]; } };
+const settings = { color_scheme: "dark", theme: "tokyonight",
+  notif_agent: true, notif_permission: true, notif_error: false,
+  sound_agent: "none", sound_permission: "none", sound_error: "none" };
+let notifCalls = [];
+const Notif = function (t) { notifCalls.push(t); };
+Notif.permission = "granted";
+const ctx = {
+  settings,
+  document: { documentElement: docEl },
+  localStorage: { _m: {}, setItem(k, v) { this._m[k] = v; }, getItem(k) { return this._m[k] || null; } },
+  window: { matchMedia: () => ({ matches: true }), Notification: Notif },
+  Notification: Notif,
+  updateThemeBtn() {}, newSession() {}, openWsManager() {}, openSettings() {},
+  toggleTerminal() {}, toggleSidebar() {}, loadFileTree() {}, showFileTreePanel() {}, checkUpdate() {},
+};
+vm.createContext(ctx);
+
+vm.runInContext(slice(find("function applyTheme", 0), find("function toggleTheme", 0)), ctx);
+ctx.applyTheme();
+check("named theme applied", docEl._a["data-theme-style"] === "tokyonight");
+check("scheme dark", docEl._a["data-theme"] === "dark");
+settings.theme = "system";
+ctx.applyTheme();
+check("system theme removes style", !("data-theme-style" in docEl._a));
+
+vm.runInContext(slice(find("function playSound", 0), find("function isTypingTarget", 0)), ctx);
+ctx.notifyUser("任务完成", "迭代 1", "agent");
+check("notification created", notifCalls.length === 1 && notifCalls[0] === "任务完成");
+ctx.notifyUser("err", "boom", "error");
+check("error gate respected", notifCalls.length === 1);
+settings.notif_agent = false;
+ctx.notifyUser("x", "y", "agent");
+check("agent gate respected", notifCalls.length === 1);
+
+vm.runInContext(slice(find("function paletteCommands", 0), find("function togglePalette", 0)), ctx);
+const titles = ctx.paletteCommands().map(c => c.title);
+check("palette has new session", titles.includes("新建会话"));
+check("palette has terminal", titles.includes("切换终端"));
+check("palette has settings", titles.includes("打开设置"));
+process.exit(failed ? 1 : 0);
+"""
+
+
+def test_theme_notifications_and_palette_helpers():
+    r = subprocess.run(["node", "-e", _FEATURES_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout

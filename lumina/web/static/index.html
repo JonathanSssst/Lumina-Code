@@ -33,6 +33,10 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     <div id="sessionList"></div>
     <select id="sessions" style="display:none"></select>
   </div>
+  <div class="side-section" id="fileTreeSec" style="display:none">
+    <div class="side-label">文件树 <span class="cnt" id="fileTreeCnt"></span></div>
+    <div id="fileTree"></div>
+  </div>
   <div class="side-actions">
     <button class="icon-btn" onclick="newSession()" title="新建会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
     <button class="icon-btn" onclick="renameSession()" title="重命名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
@@ -65,6 +69,19 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 </div>
 <div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
 <div id="todobar" class="todobar" hidden></div>
+<div id="terminalbar" class="terminalbar" hidden>
+  <div class="term-head">
+    <span id="termTitle" class="term-title">终端</span>
+    <span class="term-spacer"></span>
+    <span id="termStatus" class="term-status"></span>
+    <button class="icon-btn" onclick="closeTerminal()" title="关闭终端 (Ctrl+W)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+  </div>
+  <div id="termOut" class="term-out"></div>
+  <div class="term-inline">
+    <span class="term-prompt">❯</span>
+    <input id="termInput" autocomplete="off" spellcheck="false" placeholder="输入命令，Enter 运行"/>
+  </div>
+</div>
 <div id="inputbar"><div id="inputwrap">
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
@@ -88,10 +105,12 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal settings-modal">
     <h3>设置</h3>
-    <p class="hint">偏好设置自动保存到本地，重启后仍会保留。带 * 的选项仅保存，暂不生效。</p>
+    <p class="hint">偏好设置自动保存到本地，重启后仍会保留。</p>
     <div class="settings-shell">
       <div class="settings-nav">
         <button class="snav active" data-pane="pane-desktop" onclick="switchSettingsTab(this)">桌面</button>
+        <button class="snav" data-pane="pane-mcp" onclick="switchSettingsTab(this)">MCP</button>
+        <button class="snav" data-pane="pane-skills" onclick="switchSettingsTab(this)">技能</button>
         <button class="snav" data-pane="pane-servers" onclick="switchSettingsTab(this)">服务器</button>
         <button class="snav" data-pane="pane-models" onclick="switchSettingsTab(this)">模型</button>
       </div>
@@ -138,7 +157,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCode 的主题 *</div></div>
+              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCode 的主题</div></div>
               <div class="set-ctl"><select id="set_theme">
                 <option value="system">system</option><option value="tokyonight">tokyonight</option>
                 <option value="everforest">everforest</option><option value="ayu">ayu</option>
@@ -163,15 +182,15 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
           <div class="sec">
             <h4>系统通知</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时显示系统通知 *</div></div>
+              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_agent" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时显示系统通知 *</div></div>
+              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_permission" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时显示系统通知 *</div></div>
+              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_error" type="checkbox"/><span></span></label></div>
             </div>
           </div>
@@ -179,15 +198,21 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
             <h4>音效</h4>
             <div class="set-row">
               <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时播放声音 *</div></div>
-              <div class="set-ctl"><select id="set_sound_agent"><option value="none">无</option></select></div>
+              <div class="set-ctl"><select id="set_sound_agent">
+                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+              </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时播放声音 *</div></div>
-              <div class="set-ctl"><select id="set_sound_permission"><option value="none">无</option></select></div>
+              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时播放声音</div></div>
+              <div class="set-ctl"><select id="set_sound_permission">
+                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+              </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时播放声音 *</div></div>
-              <div class="set-ctl"><select id="set_sound_error"><option value="none">无</option></select></div>
+              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时播放声音</div></div>
+              <div class="set-ctl"><select id="set_sound_error">
+                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+              </select></div>
             </div>
           </div>
           <div class="sec">
@@ -204,11 +229,11 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
           <div class="sec">
             <h4>高级</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">文件树</div><div class="set-desc">在会话中显示文件树面板 *</div></div>
+              <div class="set-info"><div class="set-label">文件树</div><div class="set-desc">在侧栏显示当前工作区的文件树面板</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_file_tree" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">命令面板</div><div class="set-desc">在标题栏中显示搜索和命令面板按钮 *</div></div>
+              <div class="set-info"><div class="set-label">命令面板</div><div class="set-desc">按 Ctrl+K 打开命令面板</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_command_palette" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
@@ -221,7 +246,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
             </div>
           </div>
           <div class="sec">
-            <h4>快捷键（仅展示，暂不支持自定义）</h4>
+            <h4>快捷键</h4>
             <div class="set-row"><div class="set-info"><div class="set-label">打开设置</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">,</span></div></div>
             <div class="set-row"><div class="set-info"><div class="set-label">返回</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">[</span></div></div>
             <div class="set-row"><div class="set-info"><div class="set-label">前进</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">]</span></div></div>
@@ -232,6 +257,24 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
             <div class="set-row"><div class="set-info"><div class="set-label">新建终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">T</span></div></div>
             <div class="set-row"><div class="set-info"><div class="set-label">Prompt</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">E</span></div></div>
             <div class="set-row"><div class="set-info"><div class="set-label">Shell</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">X</span></div></div>
+          </div>
+        </div>
+        <div class="pane" id="pane-mcp">
+          <div class="sec">
+            <h4>MCP 服务器</h4>
+            <p class="hint" style="margin-bottom:12px">注册外部工具服务器（stdio）。配置写入工作区 <code>.lumina/lumina.mcp.json</code>，重启/新会话后生效。</p>
+            <div id="mcpStatus" class="hint" style="margin-bottom:12px"></div>
+            <div class="set-ctl" style="justify-content:flex-end; margin-bottom:12px">
+              <button onclick="openMcpDialog()">添加服务器</button>
+            </div>
+            <div class="set-list" id="mcpList"></div>
+          </div>
+        </div>
+        <div class="pane" id="pane-skills">
+          <div class="sec">
+            <h4>技能</h4>
+            <p class="hint" style="margin-bottom:12px">技能位于项目 <code>.lumina/skills/&lt;name&gt;/skill.md</code> 或 <code>~/.config/lumina/skills</code>。当输入命中触发词时自动注入提示。</p>
+            <div class="set-list" id="skillList"></div>
           </div>
         </div>
         <div class="pane" id="pane-servers">
@@ -341,6 +384,31 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
       <button class="save" onclick="addWs()">添加</button>
     </div>
     <div id="wsNote" class="save-note"></div>
+  </div>
+</div>
+<div id="mcpOverlay" class="modal-overlay" onclick="if(event.target===this)closeMcpDialog()">
+  <div class="modal" style="max-width:480px">
+    <h3 id="mcpDialogTitle">添加 MCP 服务器</h3>
+    <p class="hint">服务器通过 stdio 启动。命令通常为 <code>python</code> / <code>npx</code>，参数如 <code>server.py</code>。</p>
+    <div class="field"><label>名称</label><input id="mcp_name" type="text" placeholder="filesystem"/></div>
+    <div class="field"><label>命令</label><input id="mcp_command" type="text" placeholder="python"/></div>
+    <div class="field"><label>参数（逗号分隔）</label><input id="mcp_args" type="text" placeholder="/path/to/server.py"/></div>
+    <div class="field"><label>环境变量（可选，K=V 每行一个）</label><textarea id="mcp_env" rows="3" placeholder="KEY=value"></textarea></div>
+    <div class="actions">
+      <button onclick="closeMcpDialog()">取消</button>
+      <button class="save" onclick="saveMcpDialog()">保存</button>
+    </div>
+    <div id="mcpNote" class="save-note"></div>
+  </div>
+</div>
+<div id="paletteOverlay" class="palette-overlay" hidden>
+  <div class="palette-box">
+    <div class="palette-input-wrap">
+      <svg class="palette-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="paletteInput" type="text" autocomplete="off" spellcheck="false" placeholder="输入命令…"/>
+    </div>
+    <div id="paletteList"></div>
+    <div class="palette-foot">↑↓ 选择 · Enter 执行 · Esc 关闭</div>
   </div>
 </div>
 <script src="/static/app.js"></script>

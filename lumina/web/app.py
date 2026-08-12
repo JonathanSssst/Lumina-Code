@@ -15,6 +15,8 @@ from lumina.agent.authorize import Hooks
 from lumina.config import Settings, get_settings
 from lumina.config_edit import write_env
 from lumina.factory import build_agent
+from lumina.mcp import MCP_AVAILABLE
+from lumina.skills import SkillLoader
 from lumina.store import SessionStore, default_db_path
 from lumina.types import Message
 
@@ -54,6 +56,40 @@ def _static_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys._MEIPASS) / "lumina" / "web" / "static"
     return Path(__file__).resolve().parent / "static"
+
+
+_FILE_TREE_IGNORED = {
+    ".git", "__pycache__", "node_modules", ".venv", "venv", "dist", "build",
+    ".pytest_cache", ".mypy_cache", ".lumina",
+}
+_FILE_TREE_LIMIT = 600
+
+
+def _build_file_tree(root: Path, path: str = "") -> tuple[list[dict], int]:
+    """Nested file/dir tree for the sidebar panel. Returns (nodes, count)."""
+    target = (root / path).resolve()
+    nodes: list[dict] = []
+    if not target.is_dir() or not target.is_relative_to(root):
+        return nodes, 0
+    count = 0
+    for entry in sorted(target.iterdir(), key=lambda e: (not e.is_dir(), e.name.lower())):
+        if count >= _FILE_TREE_LIMIT:
+            break
+        if entry.name in _FILE_TREE_IGNORED:
+            continue
+        rel = entry.relative_to(root).as_posix()
+        if entry.is_dir():
+            children, sub = _build_file_tree(root, rel)
+            count += sub + 1
+            nodes.append({"name": entry.name, "path": rel, "type": "dir", "children": children})
+        else:
+            if entry.name.endswith((".pyc", ".pyo")):
+                continue
+            count += 1
+            nodes.append({"name": entry.name, "path": rel, "type": "file"})
+        if count >= _FILE_TREE_LIMIT:
+            break
+    return nodes, count
 
 
 class WsApprover:
@@ -370,6 +406,107 @@ def create_app(
         _save_state(state)
         return {"ok": True, "servers": servers}
 
+    MCP_CONFIG_NAME = "lumina.mcp.json"
+
+    def _mcp_config_paths() -> list[Path]:
+        return [workspace / ".lumina" / MCP_CONFIG_NAME, Path.home() / ".config" / "lumina" / MCP_CONFIG_NAME]
+
+    def _load_mcp_config() -> dict:
+        for p in _mcp_config_paths():
+            if p.is_file():
+                try:
+                    return json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    continue
+        return {}
+
+    @app.get("/api/mcp")
+    async def list_mcp() -> dict:
+        config = _load_mcp_config()
+        servers = config.get("mcpServers", {})
+        if not isinstance(servers, dict):
+            servers = {}
+        return {
+            "servers": servers,
+            "available": bool(MCP_AVAILABLE),
+            "config_path": str(workspace / ".lumina" / MCP_CONFIG_NAME),
+        }
+
+    @app.post("/api/mcp")
+    async def mutate_mcp(payload: dict[str, Any]) -> dict:
+        path = workspace / ".lumina" / MCP_CONFIG_NAME
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            config = _load_mcp_config()
+            servers = config.get("mcpServers", {})
+            if not isinstance(servers, dict):
+                servers = {}
+            action = str(payload.get("action", ""))
+            name = str(payload.get("name", "")).strip()
+            if action == "add":
+                if not name or not str(payload.get("command", "")).strip():
+                    return {"ok": False, "message": "名称和命令不能为空"}
+                servers[name] = {
+                    "command": str(payload.get("command", "")).strip(),
+                    "args": [str(a) for a in payload.get("args", []) if str(a).strip()] or [],
+                    "env": {str(k): str(v) for k, v in (payload.get("env") or {}).items()} or {},
+                }
+            elif action == "remove":
+                servers.pop(name, None)
+            elif action == "enable":
+                if name not in servers:
+                    return {"ok": False, "message": f"MCP 服务器不存在: {name}"}
+            else:
+                return {"ok": False, "message": f"未知操作: {action}"}
+            config["mcpServers"] = servers
+            path.write_text(json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8")
+            return {"ok": True, "servers": servers, "config_path": str(path)}
+        except OSError as exc:
+            return {"ok": False, "message": str(exc)}
+
+    @app.get("/api/skills")
+    async def list_skills(workspace: str = "") -> dict:
+        root = resolve_workspace(workspace)
+        try:
+            skills = SkillLoader(root).all()
+            return {
+                "skills": [
+                    {
+                        "name": s.name,
+                        "description": s.description,
+                        "triggers": s.triggers,
+                        "instructions": s.instructions,
+                    }
+                    for s in skills
+                ]
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"skills": [], "error": str(exc)}
+
+    @app.get("/api/files")
+    async def file_tree(workspace: str = "") -> dict:
+        root = resolve_workspace(workspace)
+        nodes, count = _build_file_tree(root)
+        return {"root": root.name or str(root), "tree": nodes, "count": count}
+
+    @app.get("/api/file")
+    async def read_file(path: str = "", workspace: str = "") -> Any:
+        root = resolve_workspace(workspace)
+        target = (root / path).resolve()
+        if not target.is_relative_to(root):
+            return JSONResponse({"error": "路径超出工作区范围"}, status_code=403)
+        if target.is_dir():
+            return JSONResponse({"error": "这是目录"}, status_code=400)
+        if not target.is_file():
+            return JSONResponse({"error": f"文件不存在: {path}"}, status_code=404)
+        try:
+            raw = target.read_bytes()
+        except OSError as exc:
+            return JSONResponse({"error": str(exc)}, status_code=500)
+        truncated = len(raw) > 200_000
+        content = raw[:200_000].decode("utf-8", errors="replace")
+        return {"path": path, "content": content, "truncated": truncated, "size": len(raw)}
+
     @app.get("/api/session/{sid}/export")
     async def export_session(sid: int, format: str = "markdown", workspace: str = "") -> Any:
         store = get_store(resolve_workspace(workspace))
@@ -523,6 +660,28 @@ def create_app(
                 except Exception:  # noqa: BLE001, S110
                     pass
 
+        async def run_terminal(command: str) -> dict:
+            """Run a shell command in the workspace and stream its output back."""
+            try:
+                proc = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.STDOUT,
+                    cwd=ws_path,
+                )
+                try:
+                    out, _ = await asyncio.wait_for(proc.communicate(), timeout=120)
+                except asyncio.TimeoutError:
+                    proc.kill()
+                    await proc.communicate()
+                    return {"command": command, "exit_code": -1, "output": "命令超时（120s），已终止。"}
+                output = out.decode("utf-8", errors="replace")
+                if len(output) > 8000:
+                    output = output[-8000:] + "\n... (输出过长，已截断)"
+                return {"command": command, "exit_code": proc.returncode, "output": output or ""}
+            except Exception as exc:  # noqa: BLE001
+                return {"command": command, "exit_code": -1, "output": str(exc)}
+
         try:
             await push_sessions(ws, store, ws_path)
             while True:
@@ -637,6 +796,12 @@ def create_app(
 
                 elif mtype == "set_auto":
                     approver.auto = bool(msg.get("value"))
+
+                elif mtype == "terminal":
+                    command = str(msg.get("command", ""))[:2000]
+                    if command.strip():
+                        result = await run_terminal(command)
+                        await ws.send_json({"type": "terminal_output", **result})
         except WebSocketDisconnect:
             pass
         finally:

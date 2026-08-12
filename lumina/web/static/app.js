@@ -629,6 +629,7 @@ function handleWSMessage(m) {
     scrollBottom();
   } else if (m.type === "approval_request") {
     if (document.getElementById("autoApprove").checked) { respond(m.request_id, true); return; }
+    notifyUser("需要批准", m.name + (m.arguments && m.arguments.command ? ": " + m.arguments.command : ""), "permission");
     const box = document.createElement("div");
     box.className = "approval";
     const args = m.arguments || {};
@@ -675,12 +676,20 @@ function handleWSMessage(m) {
     if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大 LUMINA_TOKEN_BUDGET）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
     fetchSessionStats();
+    notifyUser("任务完成", "迭代 " + m.iterations + " · 工具 " + m.tool_calls + " · tokens " + m.total_tokens, "agent");
   } else if (m.type === "cancelled") {
     stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
     appendStat("[stopped] 任务已手动停止");
+    notifyUser("任务已停止", "已手动停止", "agent");
   } else if (m.type === "error") {
     stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
     appendMd("error", "错误: " + m.message);
+    notifyUser("发生错误", m.message, "error");
+  } else if (m.type === "terminal_output") {
+    if (m.exit_code === 0) termAppend(m.output || "(无输出)", "out");
+    else termAppend(m.output || "(无输出)", "err");
+    termAppend("[exit " + m.exit_code + "]", m.exit_code === 0 ? "ok" : "err");
+    termSetStatus("");
   }
 }
 
@@ -861,6 +870,7 @@ function deleteSession() {
 function send() {
   const text = input.value.trim();
   if (!text || busy) return;
+  requestNotifPermission();
   if (editingUi != null) { const ui = editingUi; editingUi = null; hideEditbar(); truncateAndSend(ui, text); return; }
   inputHistory.push(text); if (inputHistory.length > 100) inputHistory.shift();
   histIndex = inputHistory.length;
@@ -897,7 +907,8 @@ function applyTheme(){
   const dark = scheme === "dark" || (scheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
   document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
   try { localStorage.setItem("lumina-theme", dark ? "dark" : "light"); } catch (e) {}
-  if (settings.theme === "matrix") document.documentElement.setAttribute("data-theme-style", "matrix");
+  const named = settings.theme && settings.theme !== "system" ? settings.theme : "";
+  if (named) document.documentElement.setAttribute("data-theme-style", named);
   else document.documentElement.removeAttribute("data-theme-style");
   updateThemeBtn();
 }
@@ -941,6 +952,7 @@ function applySettings(){
   applyFonts();
   const aa = document.getElementById("autoApprove");
   if (aa) aa.checked = !!settings.auto_approve;
+  showFileTreePanel(!!settings.file_tree);
 }
 function readSettingsFromDom(){
   const map = {
@@ -1011,6 +1023,8 @@ function switchSettingsTab(btn){
   document.getElementById(btn.dataset.pane).classList.add("active");
   if (btn.dataset.pane === "pane-servers") renderServers();
   if (btn.dataset.pane === "pane-models") renderModels();
+  if (btn.dataset.pane === "pane-mcp") renderMcp();
+  if (btn.dataset.pane === "pane-skills") renderSkills();
 }
 function loadSettings(){
   return fetch("/api/settings").then(r => r.json()).then(data => {
@@ -1365,5 +1379,389 @@ function removeWs(path){
     else setWsNote("删除失败: " + (res.message || ""), false);
   });
 }
+
+/* ---------- system notifications + sounds ---------- */
+function playSound(kind){
+  const opt = { agent: settings.sound_agent, permission: settings.sound_permission, error: settings.sound_error }[kind];
+  if (!opt || opt === "none") return;
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return;
+  try {
+    const ctx = new AC();
+    const notes = opt === "error"
+      ? [[220, 0, 0.18], [170, 0.2, 0.28]]
+      : opt === "chime"
+        ? [[660, 0, 0.12], [990, 0.13, 0.2]]
+        : [[520, 0, 0.1], [720, 0.11, 0.16]];
+    notes.forEach(([freq, delay, dur]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.12, ctx.currentTime + delay + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + delay + dur);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime + delay); o.stop(ctx.currentTime + delay + dur + 0.05);
+    });
+  } catch (e) { /* audio unavailable */ }
+}
+function requestNotifPermission(){
+  try { if ("Notification" in window && Notification.permission === "default") Notification.requestPermission(); } catch (e) {}
+}
+function notifyUser(title, body, kind){
+  if (kind === "agent" && !settings.notif_agent) return;
+  if (kind === "permission" && !settings.notif_permission) return;
+  if (kind === "error" && !settings.notif_error) return;
+  playSound(kind);
+  try {
+    if ("Notification" in window && Notification.permission === "granted") {
+      new Notification(title, { body: body || "", icon: "/static/assets/icon.ico" });
+    }
+  } catch (e) {}
+}
+
+/* ---------- keyboard shortcuts ---------- */
+function isTypingTarget(t){
+  return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
+}
+function cycleSession(delta){
+  if (busy || !sessionsData.length) return;
+  const idx = sessionsData.findIndex(s => s.id === currentSession);
+  const n = sessionsData.length;
+  const next = sessionsData[(idx < 0 ? -1 : idx) + delta + n] || sessionsData[(idx < 0 ? -1 : idx) + delta];
+  if (next) switchSession(next.id);
+}
+document.addEventListener("keydown", (e) => {
+  const t = e.target;
+  if (e.key === "Escape") {
+    const pal = document.getElementById("paletteOverlay");
+    if (pal && !pal.hidden) { closePalette(); e.preventDefault(); return; }
+    const term = document.getElementById("terminalbar");
+    if (term && !term.hidden) { closeTerminal(); e.preventDefault(); return; }
+    return;
+  }
+  if (!(e.ctrlKey || e.metaKey)) return;
+  if (e.shiftKey && (e.key === "E" || e.key === "e")) {
+    e.preventDefault(); input.focus(); return;
+  }
+  if (e.shiftKey && (e.key === "X" || e.key === "x")) {
+    e.preventDefault(); toggleTerminal(); return;
+  }
+  if (e.shiftKey && (e.key === "O" || e.key === "o")) {
+    e.preventDefault(); loadFileTree(); openPalette(); return;
+  }
+  const k = e.key.toLowerCase();
+  if (k === ",") { e.preventDefault(); openSettings(); }
+  else if (k === "t") {
+    if (e.altKey) { e.preventDefault(); toggleTerminal(); }
+    else if (!isTypingTarget(t)) { e.preventDefault(); newSession(); }
+  }
+  else if (k === "`") { e.preventDefault(); toggleTerminal(); }
+  else if (k === "w") { e.preventDefault(); closeTerminal(); }
+  else if (k === "k") { e.preventDefault(); togglePalette(); }
+  else if (k === "[") { e.preventDefault(); cycleSession(-1); }
+  else if (k === "]") { e.preventDefault(); cycleSession(1); }
+});
+
+/* ---------- terminal panel ---------- */
+let termHist = [];
+let termHistIdx = -1;
+function termAppend(text, cls){
+  const out = document.getElementById("termOut");
+  if (!out) return;
+  const line = document.createElement("div");
+  line.className = "term-line" + (cls ? " " + cls : "");
+  line.textContent = text;
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+}
+function termSetStatus(text){
+  const s = document.getElementById("termStatus");
+  if (s) s.textContent = text || "";
+}
+function toggleTerminal(){
+  const bar = document.getElementById("terminalbar");
+  if (!bar) return;
+  bar.hidden = !bar.hidden;
+  if (!bar.hidden) {
+    document.getElementById("termTitle").textContent = "终端 · " + (activeWorkspacePath || activeWorkspace || "");
+    document.getElementById("termInput").focus();
+  }
+}
+function closeTerminal(){
+  const bar = document.getElementById("terminalbar");
+  if (bar) bar.hidden = true;
+}
+function runTerminalCommand(cmd){
+  if (!cmd) return;
+  termAppend("❯ " + cmd, "cmd");
+  termSetStatus("运行中…");
+  ws.send(JSON.stringify({ type: "terminal", command: cmd }));
+}
+(function initTerminal(){
+  const ti = document.getElementById("termInput");
+  if (!ti) return;
+  ti.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      const cmd = ti.value.trim();
+      if (!cmd) return;
+      termHist.push(cmd); if (termHist.length > 50) termHist.shift();
+      termHistIdx = termHist.length;
+      ti.value = "";
+      runTerminalCommand(cmd);
+    } else if (e.key === "ArrowUp") {
+      if (termHist.length && termHistIdx > 0) { termHistIdx--; ti.value = termHist[termHistIdx]; }
+      e.preventDefault();
+    } else if (e.key === "ArrowDown") {
+      if (termHistIdx < termHist.length) { termHistIdx++; ti.value = termHistIdx < termHist.length ? termHist[termHistIdx] : ""; }
+      e.preventDefault();
+    }
+  });
+})();
+
+/* ---------- file tree ---------- */
+function showFileTreePanel(show){
+  const sec = document.getElementById("fileTreeSec");
+  if (sec) sec.style.display = show ? "" : "none";
+  if (show) loadFileTree();
+}
+function loadFileTree(){
+  const box = document.getElementById("fileTree");
+  if (!box) return;
+  box.innerHTML = '<p class="hint" style="margin:4px 0">加载中…</p>';
+  fetch("/api/files?workspace=" + encodeURIComponent(activeWorkspace))
+    .then(r => r.json())
+    .then(data => {
+      const cnt = document.getElementById("fileTreeCnt");
+      if (cnt) cnt.textContent = data.count ? "· " + data.count : "";
+      box.innerHTML = "";
+      if (!data.tree || !data.tree.length) {
+        box.innerHTML = '<p class="hint" style="margin:4px 0">（空目录）</p>';
+        return;
+      }
+      renderFileTree(box, data.tree, 0);
+    })
+    .catch(() => { box.innerHTML = '<p class="hint" style="margin:4px 0">加载失败</p>'; });
+}
+function renderFileTree(box, nodes, depth){
+  nodes.forEach(node => {
+    const row = document.createElement("div");
+    row.className = "ft-row" + (node.type === "dir" ? " ft-dir" : " ft-file");
+    row.style.paddingLeft = (8 + depth * 14) + "px";
+    const ic = document.createElement("span");
+    ic.className = "ft-ic";
+    ic.textContent = node.type === "dir" ? "▸" : "·";
+    const nm = document.createElement("span");
+    nm.className = "ft-name";
+    nm.textContent = node.name;
+    nm.title = node.path;
+    row.appendChild(ic); row.appendChild(nm);
+    if (node.type === "dir") {
+      row.onclick = () => {
+        const kids = row.querySelector(".ft-kids");
+        if (kids) { row.classList.toggle("open"); kids.hidden = !kids.hidden; }
+        else {
+          const kids2 = document.createElement("div");
+          kids2.className = "ft-kids";
+          row.classList.add("open");
+          renderFileTree(kids2, node.children || [], depth + 1);
+          row.appendChild(kids2);
+        }
+      };
+    } else {
+      row.onclick = () => previewFile(node.path);
+    }
+    box.appendChild(row);
+  });
+}
+function previewFile(path){
+  fetch("/api/file?path=" + encodeURIComponent(path) + "&workspace=" + encodeURIComponent(activeWorkspace))
+    .then(r => r.json())
+    .then(data => {
+      const bar = document.getElementById("terminalbar");
+      if (bar) bar.hidden = false;
+      document.getElementById("termTitle").textContent = "文件预览 · " + path;
+      const out = document.getElementById("termOut");
+      out.innerHTML = "";
+      const head = document.createElement("div");
+      head.className = "term-line head";
+      head.textContent = "── " + path + (data.truncated ? "（截断）" : "") + " ──";
+      out.appendChild(head);
+      const body = document.createElement("div");
+      body.className = "term-line body";
+      body.textContent = data.content || "";
+      out.appendChild(body);
+      out.scrollTop = 0;
+      termSetStatus("");
+    })
+    .catch(e => termAppend("预览失败: " + e.message, "err"));
+}
+
+/* ---------- MCP + skills management ---------- */
+let mcpServers = [];
+function openMcpDialog(){
+  document.getElementById("mcpDialogTitle").textContent = "添加 MCP 服务器";
+  document.getElementById("mcp_name").value = "";
+  document.getElementById("mcp_command").value = "";
+  document.getElementById("mcp_args").value = "";
+  document.getElementById("mcp_env").value = "";
+  document.getElementById("mcpNote").textContent = "";
+  document.getElementById("mcpOverlay").classList.add("open");
+}
+function closeMcpDialog(){ document.getElementById("mcpOverlay").classList.remove("open"); }
+function saveMcpDialog(){
+  const name = document.getElementById("mcp_name").value.trim();
+  const command = document.getElementById("mcp_command").value.trim();
+  const args = document.getElementById("mcp_args").value.split(",").map(s => s.trim()).filter(Boolean);
+  const env = {};
+  document.getElementById("mcp_env").value.split("\n").forEach(line => {
+    const i = line.indexOf("=");
+    if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim();
+  });
+  if (!name || !command) { document.getElementById("mcpNote").textContent = "名称和命令不能为空"; return; }
+  fetch("/api/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "add", name, command, args, env }),
+  }).then(r => r.json()).then(res => {
+    if (res.ok) { closeMcpDialog(); renderMcp(); }
+    else document.getElementById("mcpNote").textContent = "保存失败: " + (res.message || "");
+  }).catch(() => { document.getElementById("mcpNote").textContent = "保存失败"; });
+}
+function renderMcp(){
+  const list = document.getElementById("mcpList");
+  const status = document.getElementById("mcpStatus");
+  if (!list) return;
+  list.innerHTML = "";
+  fetch("/api/mcp").then(r => r.json()).then(data => {
+    mcpServers = data.servers || {};
+    if (status) {
+      status.textContent = data.available
+        ? "MCP 可用，配置文件：" + data.config_path
+        : "MCP 依赖未安装（pip install lumina[mcp]）。配置仍可保存，但工具不会连接。";
+      status.style.color = data.available ? "var(--muted)" : "var(--danger)";
+    }
+    const names = Object.keys(mcpServers);
+    if (!names.length) {
+      list.innerHTML = '<p class="hint" style="margin:0">尚未配置任何 MCP 服务器。</p>';
+      return;
+    }
+    names.forEach(name => {
+      const spec = mcpServers[name] || {};
+      const row = document.createElement("div");
+      row.className = "mcp-row";
+      const info = document.createElement("div");
+      info.className = "mcp-info";
+      const nm = document.createElement("div"); nm.className = "mcp-name"; nm.textContent = name;
+      const cmd = document.createElement("div"); cmd.className = "mcp-cmd";
+      cmd.textContent = [spec.command, ...(spec.args || [])].filter(Boolean).join(" ") || "(无命令)";
+      info.appendChild(nm); info.appendChild(cmd);
+      const del = document.createElement("button");
+      del.className = "danger"; del.textContent = "删除";
+      del.onclick = () => {
+        fetch("/api/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remove", name }) })
+          .then(r => r.json()).then(() => renderMcp());
+      };
+      row.appendChild(info); row.appendChild(del);
+      list.appendChild(row);
+    });
+  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">加载失败</p>'; });
+}
+function renderSkills(){
+  const list = document.getElementById("skillList");
+  if (!list) return;
+  list.innerHTML = "";
+  fetch("/api/skills?workspace=" + encodeURIComponent(activeWorkspace)).then(r => r.json()).then(data => {
+    const skills = data.skills || [];
+    if (!skills.length) {
+      list.innerHTML = '<p class="hint" style="margin:0">未找到技能。可创建 <code>.lumina/skills/&lt;name&gt;/skill.md</code> 添加。</p>';
+      return;
+    }
+    skills.forEach(s => {
+      const row = document.createElement("div");
+      row.className = "skill-row";
+      const nm = document.createElement("div"); nm.className = "skill-name"; nm.textContent = s.name;
+      if (s.triggers && s.triggers.length) {
+        const tg = document.createElement("span"); tg.className = "skill-triggers";
+        tg.textContent = "触发: " + s.triggers.join(" / ");
+        nm.appendChild(tg);
+      }
+      const desc = document.createElement("div"); desc.className = "skill-desc";
+      desc.textContent = s.description || "";
+      const body = document.createElement("pre");
+      body.className = "skill-body"; body.hidden = true;
+      body.textContent = s.instructions || "";
+      const view = document.createElement("button");
+      view.textContent = "查看指令";
+      view.onclick = () => { body.hidden = !body.hidden; view.textContent = body.hidden ? "查看指令" : "收起"; };
+      row.appendChild(nm); row.appendChild(desc); row.appendChild(view); row.appendChild(body);
+      list.appendChild(row);
+    });
+  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">加载失败</p>'; });
+}
+
+/* ---------- command palette ---------- */
+let paletteItems = [];
+let paletteIdx = -1;
+function paletteCommands(){
+  return [
+    { title: "新建会话", hint: "Ctrl+T", run: () => newSession() },
+    { title: "切换工作区", hint: "", run: () => openWsManager() },
+    { title: "打开设置", hint: "Ctrl+,", run: () => openSettings() },
+    { title: "切换终端", hint: "Ctrl+`", run: () => toggleTerminal() },
+    { title: "展开 / 收起侧边栏", hint: "", run: () => toggleSidebar() },
+    { title: "刷新文件树", hint: "", run: () => { loadFileTree(); showFileTreePanel(true); } },
+    { title: "检查更新", hint: "", run: () => checkUpdate() },
+  ];
+}
+function togglePalette(){
+  const pal = document.getElementById("paletteOverlay");
+  if (!pal) return;
+  if (pal.hidden) openPalette(); else closePalette();
+}
+function openPalette(){
+  const pal = document.getElementById("paletteOverlay");
+  if (!pal) return;
+  pal.hidden = false;
+  paletteItems = paletteCommands();
+  renderPalette("");
+  const pi = document.getElementById("paletteInput");
+  pi.value = "";
+  pi.focus();
+  paletteIdx = -1;
+}
+function closePalette(){
+  const pal = document.getElementById("paletteOverlay");
+  if (pal) pal.hidden = true;
+}
+function renderPalette(q){
+  const list = document.getElementById("paletteList");
+  if (!list) return;
+  const needle = q.toLowerCase();
+  const items = paletteItems.filter(i => !needle || i.title.toLowerCase().includes(needle));
+  list.innerHTML = "";
+  items.forEach((it, i) => {
+    const row = document.createElement("div");
+    row.className = "palette-item" + (i === paletteIdx ? " active" : "");
+    const t = document.createElement("span"); t.textContent = it.title;
+    const h = document.createElement("span"); h.className = "palette-hint"; h.textContent = it.hint || "";
+    row.appendChild(t); row.appendChild(h);
+    row.onclick = () => { closePalette(); it.run(); };
+    row.onmousemove = () => { paletteIdx = i; renderPalette(document.getElementById("paletteInput").value); };
+    list.appendChild(row);
+  });
+}
+(function initPalette(){
+  const pi = document.getElementById("paletteInput");
+  if (!pi) return;
+  pi.addEventListener("input", () => { paletteIdx = -1; renderPalette(pi.value); });
+  pi.addEventListener("keydown", (e) => {
+    const list = document.getElementById("paletteList");
+    const items = list ? list.querySelectorAll(".palette-item") : [];
+    if (e.key === "ArrowDown") { paletteIdx = Math.min(paletteIdx + 1, items.length - 1); renderPalette(pi.value); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { paletteIdx = Math.max(paletteIdx - 1, 0); renderPalette(pi.value); e.preventDefault(); }
+    else if (e.key === "Enter" && items[paletteIdx]) { const it = items[paletteIdx]; closePalette(); it.onclick(); }
+  });
+})();
+
 loadSettings().then(() => refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || "")));
 setTimeout(() => checkUpdate({ silent: true }), 4000);

@@ -6,6 +6,7 @@ a message over the web UI.
 """
 
 import asyncio
+import json
 
 import pytest
 from fastapi.testclient import TestClient
@@ -162,3 +163,72 @@ def test_settings_default_budget_disabled_and_context_limit():
     s = Settings(_env_file=None)
     assert s.token_budget == 0
     assert s.context_limit == 131072
+
+
+def test_api_files_tree_and_read(app, tmp_path):
+    (tmp_path / "readme.md").write_text("# hello", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.py").write_text("print(1)", encoding="utf-8")
+    (tmp_path / ".git").mkdir()
+    with TestClient(app) as c:
+        tree = c.get("/api/files").json()
+        names = {n["name"] for n in tree["tree"]}
+        assert "readme.md" in names
+        assert any(n["name"] == "src" and n["type"] == "dir" for n in tree["tree"])
+        assert ".git" not in names
+        content = c.get("/api/file", params={"path": "readme.md"}).json()
+        assert content["content"] == "# hello"
+        assert content["truncated"] is False
+
+
+def test_api_file_rejects_path_escape(app, tmp_path):
+    with TestClient(app) as c:
+        resp = c.get("/api/file", params={"path": "../outside.txt"})
+        assert resp.status_code == 403
+
+
+def test_api_mcp_add_list_remove(app, tmp_path):
+    with TestClient(app) as c:
+        add = c.post("/api/mcp", json={"action": "add", "name": "demo", "command": "python", "args": ["srv.py"]}).json()
+        assert add["ok"] is True
+        listed = c.get("/api/mcp").json()
+        assert "demo" in listed["servers"]
+        assert listed["servers"]["demo"]["command"] == "python"
+        assert listed["servers"]["demo"]["args"] == ["srv.py"]
+        config = json.loads((tmp_path / ".lumina" / "lumina.mcp.json").read_text(encoding="utf-8"))
+        assert "demo" in config["mcpServers"]
+        remove = c.post("/api/mcp", json={"action": "remove", "name": "demo"}).json()
+        assert remove["ok"] is True
+        assert "demo" not in c.get("/api/mcp").json()["servers"]
+
+
+def test_api_mcp_add_requires_name_and_command(app, tmp_path):
+    with TestClient(app) as c:
+        bad = c.post("/api/mcp", json={"action": "add", "name": "", "command": ""}).json()
+        assert bad["ok"] is False
+
+
+def test_api_skills_lists_project_skills(app, tmp_path):
+    skill_dir = tmp_path / ".lumina" / "skills" / "bug-fix"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "skill.md").write_text(
+        "---\nname: bug-fix\ndescription: 修复失败的测试\ntrigger: 修复测试, 测试失败\n---\nAlways run pytest first.",
+        encoding="utf-8",
+    )
+    with TestClient(app) as c:
+        data = c.get("/api/skills").json()
+        assert any(s["name"] == "bug-fix" for s in data["skills"])
+        bug = next(s for s in data["skills"] if s["name"] == "bug-fix")
+        assert "pytest" in bug["instructions"]
+        assert "测试失败" in bug["triggers"]
+
+
+def test_ws_terminal_runs_command(app, tmp_path, monkeypatch):
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: _NoRegistryAgent())
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()  # sessions
+        ws.send_json({"type": "terminal", "command": "echo lumina-terminal-ok"})
+        msg = ws.receive_json()
+        assert msg["type"] == "terminal_output"
+        assert msg["exit_code"] == 0
+        assert "lumina-terminal-ok" in msg["output"]
