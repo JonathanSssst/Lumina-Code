@@ -121,13 +121,21 @@ class Agent:
         *,
         history: Sequence[Message] | None = None,
         persist: Callable[[Message], None] | None = None,
+        plan: str | None = None,
+        persist_plan: Callable[[str], None] | None = None,
     ) -> AgentResult:
         """Run the agent loop.
 
         - `history`: prior conversation messages to continue from.
         - `persist`: called synchronously with every assistant/tool message appended.
+        - `plan`: an existing EXECUTOR PLAN to reuse (breakpoint resume). When provided,
+          the planner step is skipped and this plan is injected instead.
+        - `persist_plan`: called with the generated plan so callers can store it for
+          later resume.
         """
         self.persist = persist
+        self._tests_run = False
+        self._tdd_nudges = 0
         await self._warmup()
         messages: list[Message] = [
             Message(role="system", content=SYSTEM_PROMPT),
@@ -135,19 +143,38 @@ class Agent:
         project_instructions = self._project_instructions()
         if project_instructions:
             messages.append(Message(role="system", content=project_instructions))
+        if self.settings.tdd_enabled:
+            messages.append(
+                Message(
+                    role="system",
+                    content=(
+                        "TDD mode is ON. Before implementing a change: write a failing test, "
+                        "run it with run_tests to confirm it fails, then implement until the "
+                        "test passes. Never finish a code task without running the test suite."
+                    ),
+                )
+            )
         if self.settings.enable_planner:
             t_plan = time.monotonic()
-            plan = await self._generate_plan(user_input)
             if plan:
+                plan_text = plan
+            else:
+                plan_text = await self._generate_plan(user_input)
+                if plan_text and persist_plan is not None:
+                    try:
+                        persist_plan(plan_text)
+                    except Exception:
+                        logger.exception("Persistence callback failed for plan")
+            if plan_text:
                 messages.append(
                     Message(
                         role="system",
-                        content="===== EXECUTOR PLAN =====\n" + plan + "\n===== END PLAN =====",
+                        content="===== EXECUTOR PLAN =====\n" + plan_text + "\n===== END PLAN =====",
                     )
                 )
                 if self.hooks.on_reasoning:
                     await self.hooks.on_reasoning(
-                        "### Planning\n\n" + plan.strip() + "\n"
+                        "### Planning\n\n" + plan_text.strip() + "\n"
                     )
                 if self.hooks.on_thinking_done:
                     await self.hooks.on_thinking_done(time.monotonic() - t_plan)
@@ -213,12 +240,28 @@ class Agent:
                         "completed",
                         transcript,
                     )
+                if (
+                    self.settings.tdd_enabled
+                    and self.budget.tool_calls > 0
+                    and not self._tests_run
+                    and self._tdd_nudges < 1
+                ):
+                    self._tdd_nudges += 1
+                    tdd_msg = (
+                        "TDD: you made tool calls but never ran the test suite. "
+                        "Run run_tests now (and write tests first if the task needs code changes)."
+                    )
+                    self._append(messages, Message(role="user", content=tdd_msg))
+                    logger.info("TDD gate: forcing a test run before completion")
+                    continue
                 return self._result(
                     response.content, messages, "completed", transcript
                 )
 
             for call in response.tool_calls:
                 result = await self._execute_tool_call(call)
+                if call.name == "run_tests" and not result.denied:
+                    self._tests_run = True
                 last_test_failure = self._test_failure_from(result)
                 tool_message = Message(
                     role="tool",

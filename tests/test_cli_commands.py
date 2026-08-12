@@ -188,6 +188,12 @@ class _FakeStore:
     def list_sessions(self):
         return self._sessions
 
+    def get_plan(self, sid):
+        return ""
+
+    def set_plan(self, sid, plan):
+        return None
+
     def close(self):
         pass
 
@@ -333,6 +339,47 @@ def test_chat_sends_message_and_prints_result(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "answer" in out
     assert "iterations=1" in out
+
+
+def test_chat_continue_replays_last_task(monkeypatch, capsys):
+    from lumina.types import Message as CliMessage
+
+    runs: list[dict] = []
+
+    class SpyAgent(_FakeAgent):
+        async def run(self, *args, **kwargs):
+            runs.append(
+                {
+                    "content": kwargs.get("content") or args[0],
+                    "plan": kwargs.get("plan"),
+                    "persist_plan": kwargs.get("persist_plan"),
+                }
+            )
+            return self.result
+
+    def ask(*a, **k):
+        return next(prompts)
+
+    prompts = iter(["first task", "/continue", "/exit"])
+    monkeypatch.setattr("lumina.cli.Prompt.ask", ask)
+    monkeypatch.setattr(
+        "lumina.cli.build_agent", lambda *a, **k: SpyAgent(AgentResult("answer", 1, 0, 5, "completed"))
+    )
+    msgs = [CliMessage(role="user", content="first task")]
+    store = _FakeStore([])
+    store.get_messages = lambda sid: msgs
+    store.append_message = lambda sid, m: None
+    store.get_session = lambda sid: _FakeSession()
+    store.set_title = lambda sid, t: None
+    store.truncate_after_user = lambda sid, idx: None
+    store.get_plan = lambda sid: ""
+    store.set_plan = lambda sid, p: None
+
+    asyncio.run(_chat(_settings(), "C:\\proj", True, store, 1))
+    out = capsys.readouterr().out
+    assert "Continue:" in out
+    assert [r["content"] for r in runs] == ["first task", "first task"]
+    assert runs[1]["plan"] is None
 
 
 def test_cli_hooks_second_thinking_adds_blank_line(monkeypatch):

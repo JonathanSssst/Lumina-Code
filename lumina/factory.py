@@ -9,6 +9,7 @@ from lumina.context.project import ProjectScanner
 from lumina.llm.client import DeepSeekClient
 from lumina.tools.files import FileTools
 from lumina.tools.git import GitTools
+from lumina.tools.memory import ProjectMemoryTools
 from lumina.tools.parallel import ParallelRunner
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.search import SearchTools
@@ -23,6 +24,7 @@ def build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
     SearchTools(workspace, registry)
     ShellTools(workspace, registry, settings)
     GitTools(workspace, registry)
+    ProjectMemoryTools(workspace, registry)
     TodoTools(registry)
     web = WebTools(registry)
     registry.web_tools = web  # closed together with the agent

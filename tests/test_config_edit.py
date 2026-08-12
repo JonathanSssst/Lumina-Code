@@ -57,6 +57,8 @@ async def test_config_endpoints(tmp_path):
         data = r.json()
         assert data["DEEPSEEK_API_KEY"] == "sk-test"
         assert data["LUMINA_TOKEN_BUDGET"] == 999
+        assert data["LUMINA_TDD"] is False
+        assert data["LUMINA_PROJECT_MEMORY"] is True
 
         r2 = c.post(
             "/api/config",
@@ -333,7 +335,7 @@ def test_websocket_chat_roundtrip(tmp_path, monkeypatch):
     from lumina.web.app import create_app
 
     class FakeAgent:
-        async def run(self, content, history=None, persist=None):
+        async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
             return AgentResult(
                 final_content="fake answer",
                 iterations=1,

@@ -15,7 +15,7 @@ class FakeAgent:
     def __init__(self) -> None:
         self.reset_calls = 0
 
-    async def run(self, content, history=None, persist=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
         return AgentResult(
             final_content="fake answer",
             iterations=1,
@@ -35,7 +35,7 @@ class HangAgent:
     def __init__(self) -> None:
         self.started = asyncio.Event()
 
-    async def run(self, content, history=None, persist=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
         self.started.set()
         await asyncio.Event().wait()
 
@@ -198,6 +198,40 @@ def test_ws_cancel_hangs_task(app, tmp_path, monkeypatch):
 
         ws.send_json({"type": "cancel"})
         _recv_until(ws, "cancelled")
+
+
+def test_ws_continue_replays_last_user_message(app, tmp_path, monkeypatch):
+    agent = FakeAgent()
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: agent)
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_json({"type": "message", "content": "第一步任务"})
+        _recv_until(ws, "session")
+        _recv_until(ws, "done")
+        _recv_until(ws, "sessions")
+
+        reset_before = agent.reset_calls
+        ws.send_json({"type": "continue"})
+        _recv_until(ws, "done")
+        assert agent.reset_calls > reset_before
+        _recv_until(ws, "sessions")
+
+
+def test_ws_continue_without_session_errors(app, tmp_path, monkeypatch):
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: FakeAgent())
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_json({"type": "continue"})
+        err = ws.receive_json()
+        assert err["type"] == "error"
+
+        ws.send_json({"type": "new_session"})
+        _recv_until(ws, "session")  # empty new session has no user message
+        _recv_until(ws, "sessions")
+        ws.send_json({"type": "continue"})
+        err2 = ws.receive_json()
+        assert err2["type"] == "error"
+        assert "没有可继续的任务" in err2["message"]
 
 
 def test_ws_new_session_rejected_while_running(app, tmp_path, monkeypatch):

@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     # --- Self-review: verify the final answer, continue if gaps are found ---
     self_review: bool = Field(default=True, alias="LUMINA_SELF_REVIEW")
 
+    # --- Project memory: record/read project conventions via AGENTS.md ---
+    project_memory: bool = Field(default=True, alias="LUMINA_PROJECT_MEMORY")
+
+    # --- TDD: require tests before declaring a code task done ---
+    tdd_enabled: bool = Field(default=False, alias="LUMINA_TDD")
+
     # --- Web: extra workspace directories (comma-separated absolute paths) ---
     workspaces: str = Field(default="", alias="LUMINA_WORKSPACES")
 

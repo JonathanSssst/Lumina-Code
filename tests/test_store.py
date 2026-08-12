@@ -63,6 +63,29 @@ def test_delete_session_cascades(tmp_path):
     store.close()
 
 
+def test_plan_roundtrip_and_delete(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+    assert store.get_plan(sid) == ""
+    store.set_plan(sid, "1. a 2. b")
+    assert store.get_plan(sid) == "1. a 2. b"
+    store.set_plan(sid, "replaced")
+    assert store.get_plan(sid) == "replaced"
+    store.delete_session(sid)
+    assert store.get_plan(sid) == ""
+    store.close()
+
+
+def test_plan_isolated_per_session(tmp_path):
+    store = _make_store(tmp_path)
+    a = store.create_session(tmp_path)
+    b = store.create_session(tmp_path)
+    store.set_plan(a, "plan-a")
+    assert store.get_plan(a) == "plan-a"
+    assert store.get_plan(b) == ""
+    store.close()
+
+
 def test_set_title_and_touch(tmp_path):
     store = _make_store(tmp_path)
     sid = store.create_session(tmp_path)

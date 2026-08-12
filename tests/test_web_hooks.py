@@ -80,7 +80,7 @@ class _SharedTodoAgent:
         TodoTools(registry)
         self.registry = registry
 
-    async def run(self, content, history=None, persist=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
         return AgentResult(
             final_content="ok", iterations=1, tool_calls_made=0, total_tokens=5, stopped_reason="completed"
         )

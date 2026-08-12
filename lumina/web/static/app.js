@@ -721,6 +721,26 @@ function handleWSMessage(m) {
     if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大或移除 LUMINA_TOKEN_BUDGET，0 为不限制）";
     else if (m.stopped_reason === "iterations_exhausted") hint = " （已达最大迭代次数，可在 .env 调大或移除 LUMINA_MAX_ITERATIONS，0 为不限制）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
+    if (m.stopped_reason === "budget_exhausted" || m.stopped_reason === "iterations_exhausted" || m.stopped_reason === "auto_fix_exhausted") {
+      const row = document.createElement("div");
+      row.className = "msg stat";
+      const btn = document.createElement("button");
+      btn.className = "stat-btn";
+      btn.textContent = "继续执行（断点续跑）";
+      btn.onclick = () => {
+        if (busy || !currentSession) return;
+        btn.disabled = true;
+        btn.textContent = "正在继续…";
+        setBusy(true);
+        stopThinkTimer();
+        thinkingEl = null; resetStream(); resetOps();
+        appendStat("[continue] 断点续跑中…");
+        ws.send(JSON.stringify({ type: "continue" }));
+      };
+      row.appendChild(btn);
+      log.appendChild(row);
+      scrollBottom();
+    }
     fetchSessionStats();
     notifyUser("任务完成", "迭代 " + m.iterations + " · 工具 " + m.tool_calls + " · tokens " + m.total_tokens, "agent");
   } else if (m.type === "cancelled") {

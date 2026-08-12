@@ -38,6 +38,8 @@ _EDITABLE_KEYS = (
     "LUMINA_ENABLE_PLANNER",
     "LUMINA_COMPRESSION",
     "LUMINA_SELF_REVIEW",
+    "LUMINA_TDD",
+    "LUMINA_PROJECT_MEMORY",
 )
 
 
@@ -632,7 +634,9 @@ def create_app(
                 result = await agent.run(
                     content,
                     history=history,
+                    plan=store.get_plan(sid) or None,
                     persist=lambda m, sid_=sid: store.append_message(sid_, m),
+                    persist_plan=lambda p, sid_=sid: store.set_plan(sid_, p),
                 )
                 usage = budget.usage if budget is not None else None
                 await ws.send_json(
@@ -793,6 +797,37 @@ def create_app(
                         await ws.send_json({"type": "error", "message": "无法回退：找不到该消息"})
                         continue
                     await push_sessions(ws, store, ws_path)
+
+                elif mtype == "continue":
+                    if running and not running.done():
+                        await ws.send_json({"type": "error", "message": "任务运行中，请先等待完成"})
+                        continue
+                    if current_session is None:
+                        await ws.send_json({"type": "error", "message": "没有可继续的会话"})
+                        continue
+                    msgs = store.get_messages(current_session)
+                    last_user: Message | None = None
+                    last_user_index = -1
+                    user_index = -1
+                    for m in msgs:
+                        if m.role == "user":
+                            user_index += 1
+                            last_user = m
+                            last_user_index = user_index
+                    if last_user is None or not (last_user.content or "").strip():
+                        await ws.send_json({"type": "error", "message": "没有可继续的任务"})
+                        continue
+                    content = str(last_user.content)
+                    store.truncate_after_user(current_session, last_user_index)
+                    store.append_message(current_session, Message(role="user", content=content))
+                    s = store.get_session(current_session)
+                    if s and s.message_count <= 1:
+                        store.set_title(current_session, content[:40])
+                    agent.reset_budget()
+                    history = store.get_messages(current_session)
+                    running = asyncio.create_task(
+                        run_in_background(content, current_session, history)
+                    )
 
                 elif mtype == "approval_response":
                     approver.submit(bool(msg.get("approved")))

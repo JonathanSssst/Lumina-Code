@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from lumina.agent.budget import TokenBudget
 from lumina.context.project import ProjectScanner
+from lumina.factory import build_registry
 from lumina.skills.loader import SkillLoader
+from lumina.tools.registry import validate_arguments
 from lumina.types import Usage
 
 
@@ -60,3 +62,36 @@ def test_skill_loader_matches_triggers(tmp_path):
     assert skills[0].name == "bug-fix"
     assert len(loader.match("帮我修复这个 bug")) == 1
     assert loader.match("无关话题") == []
+
+
+def test_project_memory_tools_read_write_agents(tmp_path):
+    from lumina.types import ToolResult
+
+    async def go():
+        registry = build_registry(tmp_path, None)
+        read = registry.handler("read_agents")
+        write = registry.handler("write_agents")
+        first = await read()
+        assert isinstance(first, ToolResult)
+        assert "No AGENTS.md exists" in first.content
+        await write(content="# Project\n- run tests with pytest\n")
+        second = await read()
+        assert "pytest" in second.content
+        await write(content="## Extra\n- keep files ASCII\n", append=True)
+        third = await read()
+        assert "pytest" in third.content
+        assert "ASCII" in third.content
+
+    import asyncio
+
+    asyncio.run(go())
+
+
+def test_project_memory_write_agents_spec_and_approval(tmp_path):
+    registry = build_registry(tmp_path, None)
+    spec = registry.get_spec("write_agents")
+    assert spec is not None
+    args = validate_arguments(spec, {"content": "x"})
+    assert args["content"] == "x"
+    needs, _ = registry.check_approval("write_agents", {"content": "x"})
+    assert needs is False

@@ -215,6 +215,64 @@ async def test_agent_planner_injects_plan(workspace, settings):
     assert result.stopped_reason == "completed"
 
 
+async def test_agent_reuses_provided_plan_skips_planner(workspace, settings):
+    settings.enable_planner = True
+    client = FakeClient([_resp(content="按计划完成")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    await agent.run("修复 bug", plan="1. 写测试 2. 修 bug 3. 跑测试")
+    assert client.models == [None]  # no planner-model call
+    system_msgs = [m.content or "" for m in client.calls[0] if m.role == "system"]
+    assert any("EXECUTOR PLAN" in c and "写测试" in c for c in system_msgs)
+
+
+async def test_agent_persists_plan_via_callback(workspace, settings):
+    settings.enable_planner = True
+    saved: list[str] = []
+    client = FakeClient(
+        [
+            _resp(content="1. a 2. b"),
+            _resp(content="done"),
+        ]
+    )
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    await agent.run("do it", persist_plan=saved.append)
+    assert saved == ["1. a 2. b"]
+
+
+async def test_agent_tdd_forces_tests_before_finish(workspace, settings):
+    settings.self_review = False
+    settings.tdd_enabled = True
+    client = FakeClient(
+        [
+            _resp([ToolCall(id="1", name="run_tests", arguments={})]),
+            _resp(content="all green"),
+        ]
+    )
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    result = await agent.run("帮你验证一下测试")
+    assert result.stopped_reason == "completed"
+    calls = [m.content for m in client.calls[1] if m.role == "user" and m.content]
+    assert not any("TDD" in c for c in calls)  # tests ran, no nudge needed
+
+
+async def test_agent_tdd_nudges_when_tests_never_ran(workspace, settings):
+    settings.self_review = False
+    settings.tdd_enabled = True
+    client = FakeClient(
+        [
+            _resp([ToolCall(id="1", name="read_file", arguments={"path": "src/calc.py"})]),
+            _resp(content="任务完成"),  # no run_tests
+            _resp([ToolCall(id="2", name="run_tests", arguments={})]),
+            _resp(content="测试通过"),
+        ]
+    )
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    result = await agent.run("看看 calc.py")
+    assert result.stopped_reason == "completed"
+    nudge_calls = [m.content for m in client.calls[2] if m.role == "user" and m.content]
+    assert any("TDD" in c for c in nudge_calls)
+
+
 async def test_agent_persist_callback(workspace, settings):
     persisted: list[Message] = []
     client = FakeClient(

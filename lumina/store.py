@@ -28,6 +28,11 @@ CREATE TABLE IF NOT EXISTS messages (
     seq INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
+CREATE TABLE IF NOT EXISTS session_meta (
+    session_id INTEGER PRIMARY KEY REFERENCES sessions(id) ON DELETE CASCADE,
+    plan TEXT,
+    updated_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS usage (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     session_id INTEGER NOT NULL UNIQUE REFERENCES sessions(id) ON DELETE CASCADE,
@@ -134,8 +139,25 @@ class SessionStore:
         with self._lock:
             self._conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             self._conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
+            self._conn.execute("DELETE FROM session_meta WHERE session_id = ?", (session_id,))
             self._conn.execute("DELETE FROM usage WHERE session_id = ?", (session_id,))
             self._conn.commit()
+
+    def set_plan(self, session_id: int, plan: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO session_meta(session_id, plan, updated_at) VALUES(?,?,?) "
+                "ON CONFLICT(session_id) DO UPDATE SET plan = excluded.plan, updated_at = excluded.updated_at",
+                (session_id, plan, _now()),
+            )
+            self._conn.commit()
+
+    def get_plan(self, session_id: int) -> str:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT plan FROM session_meta WHERE session_id = ?", (session_id,)
+            ).fetchone()
+        return row["plan"] if row and row["plan"] else ""
 
     def touch(self, session_id: int) -> None:
         with self._lock:

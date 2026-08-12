@@ -302,6 +302,23 @@ async def _chat(settings, workspace: Path, yes: bool, store, session_id: int) ->
                 else:
                     console.print(f"[green]Resumed session #{session_id}[/]")
                 continue
+            if cmd == "/continue":
+                msgs = store.get_messages(session_id)
+                last_user: Message | None = None
+                last_user_index = -1
+                user_index = -1
+                for m in msgs:
+                    if m.role == "user":
+                        user_index += 1
+                        last_user = m
+                        last_user_index = user_index
+                if last_user is None or not (last_user.content or "").strip():
+                    console.print("[red]没有可继续的任务。[/]")
+                    continue
+                content = str(last_user.content)
+                store.truncate_after_user(session_id, last_user_index)
+                console.print(f"[cyan]Continue:[/] {content[:80]}")
+                prompt = content  # replay the last task below
             if cmd.startswith("/delete "):
                 parts = cmd.split()
                 if len(parts) == 2 and parts[1].isdigit():
@@ -323,7 +340,9 @@ async def _chat(settings, workspace: Path, yes: bool, store, session_id: int) ->
                 result = await agent.run(
                     prompt.strip(),
                     history=history,
+                    plan=store.get_plan(session_id) or None,
                     persist=lambda m, sid=session_id: store.append_message(sid, m),
+                    persist_plan=lambda p, sid=session_id: store.set_plan(sid, p),
                 )
                 hooks.finish()
                 _print_result(result)
@@ -353,6 +372,8 @@ def doctor() -> None:
         f" (at {int(settings.compress_at_percent * 100)}% of budget, keep {settings.compress_keep_messages})"
     )
     console.print(f"  self_review: {'on' if settings.self_review else 'off'}")
+    console.print(f"  tdd:         {'on' if settings.tdd_enabled else 'off'}")
+    console.print(f"  memory:      {'on' if settings.project_memory else 'off'}")
     console.print(f"  auto_fix:    {settings.max_auto_fix_rounds}")
     console.print(f"  planner:     {'[green]ON[/] (' + settings.planner_model + ')' if settings.enable_planner else '[yellow]OFF[/] (reasoner 规划器，LUMINA_ENABLE_PLANNER=true 开启)'}")
     console.print(f"  safe cmds:   {', '.join(settings.safe_command_list)}")
