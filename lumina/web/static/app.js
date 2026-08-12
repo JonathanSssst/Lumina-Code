@@ -718,7 +718,8 @@ function handleWSMessage(m) {
     tokenUsed += m.total_tokens || 0;
     updateTok();
     let hint = "";
-    if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大 LUMINA_TOKEN_BUDGET）";
+    if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大或移除 LUMINA_TOKEN_BUDGET，0 为不限制）";
+    else if (m.stopped_reason === "iterations_exhausted") hint = " （已达最大迭代次数，可在 .env 调大或移除 LUMINA_MAX_ITERATIONS，0 为不限制）";
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
     fetchSessionStats();
     notifyUser("任务完成", "迭代 " + m.iterations + " · 工具 " + m.tool_calls + " · tokens " + m.total_tokens, "agent");
@@ -1274,6 +1275,12 @@ function saveServerDialog(){
 /* ---------- models ---------- */
 const MODELS = [{ id: "deepseek-v4-flash", name: "DeepSeek V4 Flash" }];
 function renderModels(cfg){
+  // Called without an argument (on load / tab switch): fetch the live
+  // config first, otherwise the status would always read "未配置 API Key".
+  if (!cfg) {
+    fetch("/api/config").then(r => r.json()).then(renderModels);
+    return;
+  }
   const box = document.getElementById("modelList");
   if (!box) return;
   box.innerHTML = "";

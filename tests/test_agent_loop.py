@@ -118,7 +118,17 @@ async def test_agent_exhausts_budget(workspace, settings):
     )
     agent = _build_agent(workspace, settings, client, DenyApprover())
     result = await agent.run("loop forever")
-    assert result.stopped_reason == "budget_exhausted"
+    assert result.stopped_reason == "iterations_exhausted"
+
+
+async def test_max_iterations_zero_is_unlimited(workspace, settings):
+    settings.max_iterations = 0
+    settings.self_review = False
+    client = FakeClient([_resp(content="done in one step")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    result = await agent.run("simple task")
+    assert result.stopped_reason == "completed"
+    assert not agent.budget.exhausted
 
 
 async def test_reset_budget_starts_fresh_conversation(workspace, settings):

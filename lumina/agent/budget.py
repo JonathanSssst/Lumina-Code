@@ -13,10 +13,15 @@ class BudgetSnapshot:
     max_iterations: int
     tool_calls: int
     exhausted: bool
+    reason: str = ""
 
 
 class TokenBudget:
-    """Tracks token consumption and iteration limits; stops runaway agents."""
+    """Tracks token consumption and iteration limits; stops runaway agents.
+
+    A limit of 0 means "no cap" for that dimension: both `max_tokens` and
+    `max_iterations` can be set to 0 to disable the check entirely.
+    """
 
     def __init__(self, max_tokens: int, max_iterations: int) -> None:
         self.max_tokens = max_tokens
@@ -35,10 +40,24 @@ class TokenBudget:
         return self.usage.total_tokens
 
     @property
+    def iterations_exhausted(self) -> bool:
+        return self.max_iterations > 0 and self.iterations >= self.max_iterations
+
+    @property
+    def tokens_exhausted(self) -> bool:
+        return self.max_tokens > 0 and self.total_tokens >= self.max_tokens
+
+    @property
     def exhausted(self) -> bool:
-        return self.iterations >= self.max_iterations or (
-            self.max_tokens > 0 and self.total_tokens >= self.max_tokens
-        )
+        return self.iterations_exhausted or self.tokens_exhausted
+
+    @property
+    def reason(self) -> str:
+        if self.tokens_exhausted and not self.iterations_exhausted:
+            return "budget_exhausted"
+        if self.iterations_exhausted and not self.tokens_exhausted:
+            return "iterations_exhausted"
+        return "budget_exhausted"
 
     def snapshot(self) -> BudgetSnapshot:
         return BudgetSnapshot(
@@ -48,4 +67,5 @@ class TokenBudget:
             max_iterations=self.max_iterations,
             tool_calls=self.tool_calls,
             exhausted=self.exhausted,
+            reason=self.reason,
         )

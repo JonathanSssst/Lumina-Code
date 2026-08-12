@@ -238,7 +238,7 @@ class Agent:
                 if self.hooks.on_tool_result:
                     await self.hooks.on_tool_result(result)
 
-        return self._result("", messages, "budget_exhausted", transcript)
+        return self._result("", messages, self.budget.reason, transcript)
 
     async def _execute_tool_call(self, call: ToolCall) -> ToolResult:
         if self.hooks.on_tool_call:

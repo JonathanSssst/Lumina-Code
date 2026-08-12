@@ -164,6 +164,14 @@ def test_print_result_budget_exhausted_hint(capsys):
     assert "token 预算" in capsys.readouterr().out
 
 
+def test_print_result_iterations_exhausted_hint(capsys):
+    result = AgentResult("x", 1, 0, 50, "iterations_exhausted")
+    _print_result(result)
+    out = capsys.readouterr().out
+    assert "迭代" in out
+    assert "LUMINA_MAX_ITERATIONS" in out
+
+
 def test_print_result_auto_fix_exhausted_hint(capsys):
     result = AgentResult("x", 1, 0, 50, "auto_fix_exhausted")
     _print_result(result)

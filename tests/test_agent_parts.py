@@ -11,7 +11,30 @@ def test_budget_exhaustion():
     assert not budget.exhausted
     budget.record(Usage(prompt_tokens=60, completion_tokens=60, total_tokens=120))
     assert budget.exhausted
+    assert budget.reason == "budget_exhausted"
     assert budget.total_tokens == 120
+
+
+def test_budget_zero_limits_are_unlimited():
+    budget = TokenBudget(max_tokens=0, max_iterations=0)
+    for _ in range(100):
+        budget.record(Usage(prompt_tokens=50, completion_tokens=50, total_tokens=100))
+    assert not budget.exhausted
+
+
+def test_budget_reason_distinguishes_limits():
+    iters = TokenBudget(max_tokens=0, max_iterations=3)
+    iters.record(Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20))
+    iters.record(Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20))
+    iters.record(Usage(prompt_tokens=10, completion_tokens=10, total_tokens=20))
+    assert iters.exhausted
+    assert iters.reason == "iterations_exhausted"
+    assert iters.snapshot().reason == "iterations_exhausted"
+
+    toks = TokenBudget(max_tokens=100, max_iterations=0)
+    toks.record(Usage(prompt_tokens=80, completion_tokens=80, total_tokens=160))
+    assert toks.exhausted
+    assert toks.reason == "budget_exhausted"
 
 
 def test_project_scanner_detects_structure(workspace):

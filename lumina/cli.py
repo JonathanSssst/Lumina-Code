@@ -192,7 +192,12 @@ def _print_result(result) -> None:
     if result.stopped_reason == "budget_exhausted":
         console.print(
             "[yellow]已达累计 token 预算上限，任务被截断。"
-            "可在 .env 调大 LUMINA_TOKEN_BUDGET（当前默认 30000）。[/]"
+            "可在 .env 调大或移除 LUMINA_TOKEN_BUDGET（0 = 不限制）。[/]"
+        )
+    elif result.stopped_reason == "iterations_exhausted":
+        console.print(
+            "[yellow]已达最大迭代次数，任务被截断。"
+            "可在 .env 调大或移除 LUMINA_MAX_ITERATIONS（0 = 不限制）。[/]"
         )
     elif result.stopped_reason == "auto_fix_exhausted":
         console.print("[yellow]自动修复轮数已用尽，测试仍未通过。可调大 LUMINA_MAX_AUTO_FIX_ROUNDS。[/]")
