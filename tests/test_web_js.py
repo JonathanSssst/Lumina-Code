@@ -364,3 +364,50 @@ process.exit(failed ? 1 : 0);
 def test_theme_notifications_and_palette_helpers():
     r = subprocess.run(["node", "-e", _FEATURES_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout
+
+
+_BATCH2_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const find = (sub, from) => lines.findIndex((l, i) => i >= from && l.includes(sub));
+const slice = (s, e) => lines.slice(s, e).join("\n");
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+
+const ctx = {};
+vm.createContext(ctx);
+vm.runInContext(slice(find("const SESSION_GROUPS", 0), find("function runSessionSearch", 0)), ctx);
+function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
+  String(d.getDate()).padStart(2, "0") + " 10:00:00"; }
+const now = new Date();
+const todayStr = iso(now);
+const yest = new Date(now.getTime() - 86400000);
+const monday = new Date(now);
+monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+if (iso(monday) === todayStr) monday.setDate(monday.getDate() - 7);
+const longAgo = new Date(now.getTime() - 30 * 86400000);
+check("today group", ctx.sessionGroupOf(todayStr) === "today");
+check("yesterday group", ctx.sessionGroupOf(iso(yest)) === "yesterday");
+check("week group", ctx.sessionGroupOf(iso(monday)) === "week");
+check("earlier group", ctx.sessionGroupOf(iso(longAgo)) === "earlier");
+check("missing date", ctx.sessionGroupOf("") === "earlier");
+check("garbage date", ctx.sessionGroupOf("not-a-date") === "earlier");
+
+vm.runInContext(slice(find("function fileRefFrag", 0), find("function paintFileRef", 0)), ctx);
+check("frag after @", ctx.fileRefFrag("看看 @src/main.py") === "src/main.py");
+check("frag mid-word no trigger", ctx.fileRefFrag("email@domain.com") === "");
+check("frag after space", ctx.fileRefFrag("编辑 @ README.md") === "");
+check("frag empty", ctx.fileRefFrag("hello ") === "");
+const files = ctx.fileRefFiles([
+  { type: "dir", children: [{ type: "file", path: "a.py" }, { type: "dir", children: [{ type: "file", path: "b/c.py" }] }] },
+  { type: "file", path: "d.md" }
+]);
+check("flatten files", files.join(",") === "a.py,b/c.py,d.md");
+process.exit(failed ? 1 : 0);
+"""
+
+
+def test_session_grouping_and_file_ref_helpers():
+    r = subprocess.run(["node", "-e", _BATCH2_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout

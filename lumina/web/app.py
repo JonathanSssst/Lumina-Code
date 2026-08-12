@@ -232,6 +232,7 @@ def create_app(
             "title": s.title if s else "",
             "messages": s.message_count if s else 0,
             "tokens": usage.total_tokens if usage else 0,
+            "updated_at": s.updated_at if s else "",
         }
 
     async def push_sessions(ws: WebSocket, store: SessionStore, path: Path) -> None:
@@ -552,6 +553,23 @@ def create_app(
             "value": round(total * 2 / 1_000_000, 4),
         }
         return stats
+
+    @app.get("/api/search")
+    async def search_sessions(q: str = "", workspace: str = "") -> dict:
+        """Search user/assistant message content across sessions."""
+        root = resolve_workspace(workspace)
+        query = q.strip()
+        if not query:
+            return {"query": "", "results": []}
+        store = get_store(root)
+        return {"query": query, "results": store.search_messages(root, query)}
+
+    @app.get("/api/usage/trend")
+    async def usage_trend(workspace: str = "") -> dict:
+        """Recent per-session token usage for the trend chart."""
+        root = resolve_workspace(workspace)
+        store = get_store(root)
+        return {"points": store.usage_trend(root)}
 
     @app.get("/api/config")
     async def get_config() -> dict:

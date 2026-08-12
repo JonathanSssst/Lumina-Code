@@ -324,6 +324,54 @@ class SessionStore:
             "tool_calls": int(row["tool_calls"]),
         }
 
+    # --- search / trend ---
+
+    def search_messages(self, workspace: Path, query: str, limit: int = 30) -> list[dict]:
+        """Find user/assistant messages containing ``query`` across sessions."""
+        like = f"%{query}%"
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT m.session_id AS sid, m.role AS role, m.content AS content, s.title AS title "
+                "FROM messages m JOIN sessions s ON s.id = m.session_id "
+                "WHERE m.role IN ('user', 'assistant') AND m.content IS NOT NULL "
+                "  AND m.content LIKE ? AND s.workspace = ? "
+                "ORDER BY m.id DESC LIMIT ?",
+                (like, str(Path(workspace).resolve()), int(limit)),
+            ).fetchall()
+        return [
+            {
+                "session_id": int(r["sid"]),
+                "role": r["role"],
+                "title": r["title"] or "新会话",
+                "snippet": _snippet(r["content"] or "", query),
+            }
+            for r in rows
+        ]
+
+    def usage_trend(self, workspace: Path, limit: int = 60) -> list[dict]:
+        """Recent sessions with non-zero token usage, newest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT s.id AS sid, s.title AS title, s.updated_at AS updated_at, "
+                "       u.total_tokens AS total, u.prompt_tokens AS prompt, "
+                "       u.completion_tokens AS completion "
+                "FROM usage u JOIN sessions s ON s.id = u.session_id "
+                "WHERE s.workspace = ? AND u.total_tokens > 0 "
+                "ORDER BY s.updated_at DESC LIMIT ?",
+                (str(Path(workspace).resolve()), int(limit)),
+            ).fetchall()
+        return [
+            {
+                "session_id": int(r["sid"]),
+                "title": r["title"] or "新会话",
+                "updated_at": r["updated_at"],
+                "total_tokens": int(r["total"]),
+                "prompt_tokens": int(r["prompt"]),
+                "completion_tokens": int(r["completion"]),
+            }
+            for r in rows
+        ]
+
     def _next_seq(self, session_id: int) -> int:
         with self._lock:
             row = self._conn.execute(
@@ -335,3 +383,15 @@ class SessionStore:
 
 def _now() -> str:
     return datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _snippet(text: str, query: str, radius: int = 70) -> str:
+    """Compact single-line excerpt around the first query match."""
+    flat = text.replace("\n", " ").strip()
+    idx = flat.lower().find(query.lower())
+    idx = max(idx, 0)
+    start = max(0, idx - radius)
+    end = min(len(flat), idx + len(query) + radius)
+    prefix = "…" if start > 0 else ""
+    suffix = "…" if end < len(flat) else ""
+    return prefix + flat[start:end].strip() + suffix

@@ -13,8 +13,10 @@ from fastapi.testclient import TestClient
 
 from lumina.agent.authorize import AgentResult
 from lumina.config import Settings
+from lumina.store import SessionStore, default_db_path
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.todo import TodoTools
+from lumina.types import Message, Usage
 from lumina.web.app import WsApprover, WsHooks, create_app
 
 
@@ -232,3 +234,52 @@ def test_ws_terminal_runs_command(app, tmp_path, monkeypatch):
         assert msg["type"] == "terminal_output"
         assert msg["exit_code"] == 0
         assert "lumina-terminal-ok" in msg["output"]
+
+
+def _seed_searchable_session(path):
+    store = SessionStore(default_db_path(path))
+    sid = store.create_session(path, title="搜索测试")
+    store.append_message(sid, Message(role="user", content="我需要修复 fibonacci 的 bug"))
+    store.append_message(sid, Message(role="assistant", content="已修复 fibonacci，测试全部通过"))
+    store.record_usage(
+        sid,
+        Usage(prompt_tokens=120, completion_tokens=80, total_tokens=200, reasoning_tokens=20, cached_tokens=0),
+        iterations=1,
+        tool_calls=2,
+    )
+    store.close()
+    return sid
+
+
+def test_api_search_finds_messages_across_sessions(app, tmp_path):
+    _seed_searchable_session(tmp_path)
+    with TestClient(app) as c:
+        data = c.get("/api/search", params={"q": "fibonacci"}).json()
+        assert data["query"] == "fibonacci"
+        assert len(data["results"]) == 2
+        assert all("fibonacci" in r["snippet"] for r in data["results"])
+        assert data["results"][0]["session_id"] > 0
+        assert "搜索测试" in data["results"][0]["title"]
+        empty = c.get("/api/search", params={"q": "不存在的关键词"}).json()
+        assert empty["results"] == []
+
+
+def test_api_search_requires_nonempty_query(app, tmp_path):
+    with TestClient(app) as c:
+        data = c.get("/api/search", params={"q": "   "}).json()
+        assert data["query"] == ""
+        assert data["results"] == []
+
+
+def test_api_usage_trend_lists_recent_sessions_with_usage(app, tmp_path):
+    _seed_searchable_session(tmp_path)
+    with TestClient(app) as c:
+        data = c.get("/api/usage/trend").json()
+        points = data["points"]
+        assert len(points) == 1
+        p = points[0]
+        assert p["total_tokens"] == 200
+        assert p["prompt_tokens"] == 120
+        assert p["completion_tokens"] == 80
+        assert p["title"] == "搜索测试"
+        assert p["updated_at"]

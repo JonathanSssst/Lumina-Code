@@ -93,6 +93,51 @@ function toggleUsagePop(){
   usagePopOpen = !usagePopOpen;
   pop.hidden = !usagePopOpen;
   if (usagePopOpen) fetchSessionStats();
+  else hideUsageTrend();
+}
+let usageTrendOpen = false;
+function hideUsageTrend(){
+  const chart = document.getElementById("usageTrend");
+  if (chart) chart.hidden = true;
+  usageTrendOpen = false;
+}
+function toggleUsageTrend(){
+  const chart = document.getElementById("usageTrend");
+  if (!chart) return;
+  usageTrendOpen = !usageTrendOpen;
+  chart.hidden = !usageTrendOpen;
+  if (usageTrendOpen) renderUsageTrend();
+}
+function renderUsageTrend(){
+  const chart = document.getElementById("usageTrend");
+  if (!chart) return;
+  chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">加载趋势…</div>';
+  fetch("/api/usage/trend?workspace=" + encodeURIComponent(activeWorkspace))
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      const pts = (data.points || []).slice(0, 30);
+      chart.innerHTML = "";
+      if (!pts.length) {
+        chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">暂无用量数据</div>';
+        return;
+      }
+      const max = Math.max(...pts.map(p => p.total_tokens), 1);
+      pts.forEach(p => {
+        const col = document.createElement("div");
+        col.className = "trend-col";
+        col.title = (p.title || "会话 #" + p.session_id) + " · " + fmtNum(p.total_tokens) + " tokens" + (p.updated_at ? " · " + p.updated_at : "");
+        col.onclick = () => { toggleUsagePop(); switchSession(p.session_id); };
+        const bar = document.createElement("div");
+        bar.className = "trend-bar";
+        bar.style.height = Math.max(6, Math.round(p.total_tokens / max * 88)) + "px";
+        const sub = document.createElement("div");
+        sub.className = "trend-sub";
+        sub.textContent = "#" + p.session_id;
+        col.appendChild(bar); col.appendChild(sub);
+        chart.appendChild(col);
+      });
+    })
+    .catch(() => { chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">加载失败</div>'; });
 }
 function usageHeroRing(st){
   const ns = "http://www.w3.org/2000/svg";
@@ -813,24 +858,98 @@ function switchWorkspace(value){
   persistDefaultWorkspace(value);
 }
 
+const SESSION_GROUPS = [
+  { key: "today", label: "今天" },
+  { key: "yesterday", label: "昨天" },
+  { key: "week", label: "本周" },
+  { key: "earlier", label: "更早" },
+];
+function sessionGroupOf(updatedAt){
+  if (!updatedAt) return "earlier";
+  const d = new Date(updatedAt.replace(" ", "T"));
+  if (isNaN(d.getTime())) return "earlier";
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOf = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayDiff = Math.round((startToday - startOf) / 86400000);
+  if (dayDiff <= 0) return "today";
+  if (dayDiff === 1) return "yesterday";
+  const monday = new Date(startToday);
+  monday.setDate(startToday.getDate() - ((startToday.getDay() + 6) % 7));
+  return startOf >= monday ? "week" : "earlier";
+}
 function renderSessions(sessions) {
   sessionsData = sessions || [];
   document.getElementById("sideCnt").textContent = sessionsData.length ? "· " + sessionsData.length : "";
   const list = document.getElementById("sessionList");
   list.innerHTML = "";
-  sessionsData.forEach(s => {
-    const item = document.createElement("div");
-    item.className = "session-item" + (s.id === currentSession ? " active" : "");
-    item.onclick = () => switchSession(s.id);
-    const dot = document.createElement("span"); dot.className = "si-dot";
-    const title = document.createElement("span"); title.className = "si-title";
-    title.textContent = (s.title || "#" + s.id).slice(0, 26);
-    title.title = s.title || "";
-    const meta = document.createElement("span"); meta.className = "si-meta";
-    meta.textContent = "#" + s.id + " · " + s.messages;
-    item.appendChild(dot); item.appendChild(title); item.appendChild(meta);
-    list.appendChild(item);
+  const buckets = {};
+  SESSION_GROUPS.forEach(g => buckets[g.key] = []);
+  sessionsData.forEach(s => { (buckets[sessionGroupOf(s.updated_at)] || buckets.earlier).push(s); });
+  SESSION_GROUPS.forEach(g => {
+    const items = buckets[g.key];
+    if (!items.length) return;
+    const head = document.createElement("div");
+    head.className = "session-group";
+    head.textContent = g.label;
+    list.appendChild(head);
+    items.forEach(s => {
+      const item = document.createElement("div");
+      item.className = "session-item" + (s.id === currentSession ? " active" : "");
+      item.onclick = () => switchSession(s.id);
+      const dot = document.createElement("span"); dot.className = "si-dot";
+      const title = document.createElement("span"); title.className = "si-title";
+      title.textContent = (s.title || "#" + s.id).slice(0, 26);
+      title.title = s.title || "";
+      const meta = document.createElement("span"); meta.className = "si-meta";
+      meta.textContent = "#" + s.id + " · " + s.messages;
+      item.appendChild(dot); item.appendChild(title); item.appendChild(meta);
+      list.appendChild(item);
+    });
   });
+}
+function sessionSearchInput(){
+  const q = document.getElementById("sessionSearch").value.trim();
+  clearTimeout(window.__sessionSearchTimer);
+  if (!q) {
+    hideSessionSearch();
+    return;
+  }
+  window.__sessionSearchTimer = setTimeout(() => runSessionSearch(q), 220);
+}
+function runSessionSearch(q){
+  const box = document.getElementById("searchResults");
+  fetch("/api/search?q=" + encodeURIComponent(q) + "&workspace=" + encodeURIComponent(activeWorkspace))
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      box.innerHTML = "";
+      box.style.display = "";
+      const results = data.results || [];
+      if (!results.length) {
+        box.innerHTML = '<div class="sr-empty">没有匹配的消息</div>';
+        return;
+      }
+      results.forEach(m => {
+        const item = document.createElement("div");
+        item.className = "sr-item";
+        item.onclick = () => { hideSessionSearch(); switchSession(m.session_id); };
+        const t = document.createElement("div"); t.className = "sr-title";
+        t.textContent = (m.role === "assistant" ? "AI · " : "") + (m.title || "会话 #" + m.session_id);
+        const s = document.createElement("div"); s.className = "sr-snip";
+        s.textContent = m.snippet || "";
+        item.appendChild(t); item.appendChild(s);
+        box.appendChild(item);
+      });
+    })
+    .catch(() => {
+      box.innerHTML = '<div class="sr-empty">搜索失败</div>';
+      box.style.display = "";
+    });
+}
+function hideSessionSearch(){
+  const box = document.getElementById("searchResults");
+  box.innerHTML = "";
+  box.style.display = "none";
 }
 function respond(id, approved) {
   ws.send(JSON.stringify({ type: "approval_response", request_id: id, approved }));
@@ -882,10 +1001,26 @@ function send() {
   input.value = "";
 }
 input.addEventListener("keydown", (e) => {
+  if (fileRefMatches.length) {
+    if (e.key === "ArrowDown") { e.preventDefault(); fileRefIdx = (fileRefIdx + 1) % fileRefMatches.length; paintFileRef(); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); fileRefIdx = (fileRefIdx - 1 + fileRefMatches.length) % fileRefMatches.length; paintFileRef(); return; }
+    if (e.key === "Enter") { e.preventDefault(); if (fileRefMatches[fileRefIdx]) insertFileRef(fileRefMatches[fileRefIdx]); return; }
+    if (e.key === "Tab") { e.preventDefault(); if (fileRefMatches[fileRefIdx]) insertFileRef(fileRefMatches[fileRefIdx]); return; }
+    if (e.key === "Escape") { hideFileRefPop(); return; }
+  }
   if (e.key === "Enter") send();
   else if (e.key === "ArrowUp") { if (inputHistory.length && histIndex > 0) { histIndex--; input.value = inputHistory[histIndex]; } }
   else if (e.key === "ArrowDown") { if (histIndex < inputHistory.length) { histIndex++; input.value = histIndex < inputHistory.length ? inputHistory[histIndex] : ""; } }
 });
+input.addEventListener("input", onFileRefInput);
+const sessionSearchInputEl = document.getElementById("sessionSearch");
+if (sessionSearchInputEl) {
+  sessionSearchInputEl.addEventListener("input", sessionSearchInput);
+  sessionSearchInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { sessionSearchInputEl.value = ""; hideSessionSearch(); }
+    if (e.key === "Enter") { const el = document.querySelector("#searchResults .sr-item"); if (el) el.click(); }
+  });
+}
 document.getElementById("autoApprove").addEventListener("change", (e) => {
   ws.send(JSON.stringify({ type: "set_auto", value: e.target.checked }));
   settings.auto_approve = e.target.checked;
@@ -1594,6 +1729,67 @@ function previewFile(path){
       termSetStatus("");
     })
     .catch(e => termAppend("预览失败: " + e.message, "err"));
+}
+
+/* ---------- @file reference popup ---------- */
+let fileRefMatches = [];
+let fileRefIdx = -1;
+function fileRefFrag(text){
+  const idx = text.lastIndexOf("@");
+  if (idx < 0) return "";
+  const prev = text[idx - 1];
+  if (prev !== undefined && prev !== " " && prev !== "　" && prev !== "\n" && prev !== "@") return "";
+  return text.slice(idx + 1).split(/\s/)[0] || "";
+}
+function fileRefFiles(node){
+  const out = [];
+  (node || []).forEach(n => {
+    if (n.type === "file") out.push(n.path);
+    else if (n.children) fileRefFiles(n.children).forEach(p => out.push(p));
+  });
+  return out;
+}
+function onFileRefInput(){
+  const frag = fileRefFrag(input.value);
+  const pop = document.getElementById("fileRefPop");
+  if (!frag) { hideFileRefPop(); return; }
+  fetch("/api/files?workspace=" + encodeURIComponent(activeWorkspace))
+    .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+    .then(data => {
+      const all = fileRefFiles(data.tree || []);
+      const q = frag.toLowerCase();
+      const matches = all.filter(p => p.toLowerCase().indexOf(q) !== -1).slice(0, 8);
+      if (!matches.length) { hideFileRefPop(); return; }
+      fileRefMatches = matches;
+      fileRefIdx = 0;
+      pop.innerHTML = "";
+      matches.forEach((p, i) => {
+        const it = document.createElement("div");
+        it.className = "fr-item" + (i === 0 ? " active" : "");
+        it.textContent = p;
+        it.onmousedown = (e) => { e.preventDefault(); insertFileRef(p); };
+        pop.appendChild(it);
+      });
+      pop.hidden = false;
+    })
+    .catch(() => hideFileRefPop());
+}
+function paintFileRef(){
+  const pop = document.getElementById("fileRefPop");
+  if (!pop) return;
+  [...pop.children].forEach((c, i) => c.classList.toggle("active", i === fileRefIdx));
+}
+function insertFileRef(path){
+  const val = input.value;
+  const idx = val.lastIndexOf("@");
+  input.value = val.slice(0, idx + 1) + path + " ";
+  hideFileRefPop();
+  input.focus();
+}
+function hideFileRefPop(){
+  const pop = document.getElementById("fileRefPop");
+  if (pop) pop.hidden = true;
+  fileRefMatches = [];
 }
 
 /* ---------- MCP + skills management ---------- */

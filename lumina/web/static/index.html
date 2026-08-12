@@ -30,6 +30,11 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </div>
   <div class="side-section side-grow">
     <div class="side-label">会话 <span class="cnt" id="sideCnt"></span></div>
+    <div class="side-search" id="sessionSearchWrap">
+      <svg class="side-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="sessionSearch" type="text" placeholder="搜索会话…"/>
+    </div>
+    <div id="searchResults" style="display:none"></div>
     <div id="sessionList"></div>
     <select id="sessions" style="display:none"></select>
   </div>
@@ -83,6 +88,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </div>
 </div>
 <div id="inputbar"><div id="inputwrap">
+  <div id="fileRefPop" class="fileref-pop" hidden></div>
   <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
   <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
 </div></div>
@@ -96,9 +102,15 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="usagePop" class="usage-pop" hidden>
   <div class="usage-pop-head">
     <span class="usage-pop-title">会话用量</span>
-    <button class="icon-btn" onclick="toggleUsagePop()" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    <span class="usage-pop-head-btns">
+      <button class="icon-btn" onclick="toggleUsageTrend()" title="用量趋势">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
+      </button>
+      <button class="icon-btn" onclick="toggleUsagePop()" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </span>
   </div>
   <div class="usage-pop-body" id="usagePopBody"></div>
+  <div id="usageTrend" class="usage-trend" hidden></div>
 </div>
 </div>
 </div>
