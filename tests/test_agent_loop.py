@@ -267,6 +267,7 @@ def test_compress_boundary_keeps_tool_pairs():
 async def test_self_review_approves_and_passes_through(workspace, settings):
     client = FakeClient(
         [
+            _resp([ToolCall(id="1", name="read_file", arguments={"path": "src/calc.py"})], content="Reading..."),
             _resp(content="Initial answer."),
             _resp(content="APPROVED", usage_tokens=3),  # self-review says all good
         ]
@@ -281,19 +282,32 @@ async def test_self_review_approves_and_passes_through(workspace, settings):
 async def test_self_review_finds_gaps_and_continues(workspace, settings):
     client = FakeClient(
         [
+            _resp([ToolCall(id="1", name="read_file", arguments={"path": "src/calc.py"})], content="Reading..."),
             _resp(content="Initial answer."),
             _resp(content="- Tests were not run\n- Verify the fix", usage_tokens=3),  # review finds gaps
             _resp(content="Now tests are run and pass."),
-            _resp(content="APPROVED", usage_tokens=3),
         ]
     )
     agent = _build_agent(workspace, settings, client, DenyApprover())
     result = await agent.run("do the task")
     assert result.stopped_reason == "completed"
-    # a continuation round happened after the self-review message
+    # the synthetic review user message is in-memory only (not persisted to history)
     assert any(
-        m.role == "user" and "Self-review found gaps" in (m.content or "") for m in client.calls[2]
+        m.role == "tool" for m in client.calls[3]
     )
+    assert any(
+        m.role == "user" and "Self-review found gaps" in (m.content or "") for m in client.calls[3]
+    )
+
+
+async def test_no_tools_skips_self_review(workspace, settings):
+    client = FakeClient([_resp(content="这是模拟代码，不涉及真实改动。")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    result = await agent.run("帮我模拟一个函数实现的思路")
+    assert result.stopped_reason == "completed"
+    assert not agent._reviewed
+    assert "自我审查" not in result.final_content
+    assert len(client.calls) == 1  # no extra reviewer round-trip
 
 
 async def test_agent_seeds_agents_md(workspace, settings):

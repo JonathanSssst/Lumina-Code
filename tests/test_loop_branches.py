@@ -165,6 +165,7 @@ async def test_self_review_approved(workspace):
     agent = _agent(workspace, _settings(), ScriptedLLM([]))
     agent.client = ScriptedLLM(
         [
+            LLMResponse(content="reading", tool_calls=[ToolCall(id="1", name="read_file", arguments={"path": "src/calc.py"})]),
             LLMResponse(content="the final answer"),
             LLMResponse(content="APPROVED"),
         ]
@@ -173,13 +174,14 @@ async def test_self_review_approved(workspace):
     assert result.stopped_reason == "completed"
     assert "the final answer" in result.final_content
     assert "APPROVED" in result.final_content
-    assert agent.client.calls == 2
+    assert agent.client.calls == 3
 
 
 async def test_self_review_requests_fixes_then_completes(workspace):
     agent = _agent(workspace, _settings(), ScriptedLLM([]))
     agent.client = ScriptedLLM(
         [
+            LLMResponse(content="reading", tool_calls=[ToolCall(id="1", name="read_file", arguments={"path": "src/calc.py"})]),
             LLMResponse(content="answer v1"),
             LLMResponse(content="- missing test coverage"),
             LLMResponse(content="answer v2"),
@@ -188,7 +190,16 @@ async def test_self_review_requests_fixes_then_completes(workspace):
     result = await agent.run("do the thing")
     assert result.stopped_reason == "completed"
     assert "answer v2" in result.final_content
-    assert agent.client.calls == 3
+    assert agent.client.calls == 4
+
+
+async def test_no_tools_skips_self_review_loop(workspace):
+    agent = _agent(workspace, _settings(), ScriptedLLM([]))
+    agent.client = ScriptedLLM([LLMResponse(content="这是模拟代码，不涉及真实改动。")])
+    result = await agent.run("帮我模拟一个函数")
+    assert result.stopped_reason == "completed"
+    assert agent.client.calls == 1
+    assert "自我审查" not in result.final_content
 
 
 # ---------- context compression ----------

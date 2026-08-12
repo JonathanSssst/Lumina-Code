@@ -34,11 +34,16 @@ SUMMARY_SYSTEM_PROMPT = (
 )
 
 REVIEW_SYSTEM_PROMPT = (
-    "You are a strict code-reviewer for a coding agent. Given the original task and the agent's "
-    "final answer, verify the answer against the task: flag unverified claims, missing steps, "
-    "ignored test failures, and contradictions with what tools actually reported. If everything "
-    "checks out and nothing important is missing, reply with exactly 'APPROVED'. Otherwise reply "
-    "with a concise bulleted list of concrete gaps and what to do next, in the user's language."
+    "You are the final quality gate of a coding agent. Given the original task and the agent's "
+    "final answer, check the answer for real problems: contradictions with what tools actually "
+    "reported, claims that tools did not confirm, broken code, and steps the task required that "
+    "the answer skipped. "
+    "IMPORTANT: only demand tool/test evidence when the task actually involved running commands, "
+    "tests, or editing files. If the task is conceptual (e.g. explain, describe, simulate, draft, "
+    "imagine) and a clear complete answer satisfies it, approve it. Never reject an answer merely "
+    "because no tests ran when the task never required them. "
+    "If the answer checks out, reply with exactly 'APPROVED'. Otherwise reply with a concise "
+    "bulleted list of concrete gaps and what to do next, in the user's language."
 )
 
 
@@ -193,18 +198,15 @@ class Agent:
                     return self._result(
                         response.content, messages, "auto_fix_exhausted", transcript
                     )
-                if not self._reviewed and self.settings.self_review:
+                if not self._reviewed and self.settings.self_review and self.budget.tool_calls > 0:
                     review = await self._self_review(user_input, response.content)
                     self._reviewed = True
                     if review and not review.startswith("APPROVED"):
-                        self._append(
-                            messages,
-                            Message(role="user", content="Self-review found gaps:\n" + review),
+                        messages.append(
+                            Message(role="user", content="Self-review found gaps:\n" + review)
                         )
                         logger.info("Self-review requested fixes; continuing one more round")
                         continue
-                    if review and self.hooks.on_assistant_message:
-                        await self.hooks.on_assistant_message("\n\n> 自我审查：\n" + review + "\n")
                     return self._result(
                         response.content + (f"\n\n--- 自我审查 ---\n{review}" if review else ""),
                         messages,
