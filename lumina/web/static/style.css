@@ -195,6 +195,7 @@
     --shadow: 0 10px 34px rgba(70,55,15,.14);
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { height: 100%; }
   body { margin: 0; display: flex;
          background: var(--bg); background-image: var(--bg-grad); background-attachment: fixed;
