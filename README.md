@@ -1,7 +1,8 @@
 # LuminaCode
 
 一个本地运行的自主编码 Agent，基于 DeepSeek V4 Flash，提供 CLI、Web 与桌面三种使用方式。
-支持多会话持久化、Reasoner 分层规划、MCP 服务器、技能（Skills）、上下文压缩与自我反思闭环。
+支持多会话持久化、Reasoner 分层规划、MCP 服务器、技能（Skills）、可检索的项目级记忆、
+上下文压缩、TDD 闭环、断点续跑与自我反思。
 
 ## 特性
 
@@ -15,7 +16,9 @@
 - **并行子 agent**：`run_parallel` 工具将任务拆给多个只读子 agent 并发探索，合并结果
 - **上下文压缩**：长任务接近 token 预算时自动摘要早期历史，防止中断
 - **自我反思**：完成时自动审查结果，发现缺陷继续修复
-- **AGENTS.md**：工作区根目录的 `AGENTS.md` / `agents.md` 自动注入为项目指令
+- **项目级记忆**：工作区根目录的 `AGENTS.md` / `agents.md` 自动注入为项目指令；升级为可检索知识库（`.lumina/memory/` 多条目 + `memory_search` 关键词检索，`shared=True` 可写入全局 `~/.config/lumina/memory/` 跨项目复用），启动时注入条目索引
+- **TDD 闭环**（`LUMINA_TDD=true`）：完成代码任务前强制运行测试套件，未跑测试会提示补跑
+- **断点续跑**：plan 持久化到会话，任务因预算/迭代耗尽停下后可一键续跑（CLI `/continue`、Web「继续执行」），复用已存计划并重置预算
 - **撤销与导出**：文件写入前自动快照，`undo_file` 一键回滚；会话可导出 Markdown / JSON
 - **会话持久化**：SQLite 存储，CLI/Web 均可随时恢复
 - **MCP 与技能**：支持 MCP 服务器接入与本地技能库
@@ -77,14 +80,16 @@ OPENAI_PLANNER_MODEL=gpt-4o
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
-| `LUMINA_TOKEN_BUDGET` | `30000` | 单任务累计 token 预算 |
+| `LUMINA_TOKEN_BUDGET` | `0` | 单任务累计 token 预算（0 = 不限制） |
 | `LUMINA_MAX_TOKENS` | `8192` | 单次请求输出上限（API 上限内自动收敛） |
-| `LUMINA_MAX_ITERATIONS` | `20` | 最大循环轮数 |
+| `LUMINA_MAX_ITERATIONS` | `20` | 最大循环轮数（0 = 不限制） |
 | `LUMINA_ENABLE_PLANNER` | `false` | 开启 Reasoner 分层规划 |
 | `LUMINA_LLM_PROVIDER` | `auto` | 模型提供商：`deepseek` / `openai` / `auto`（有 `OPENAI_API_KEY` 时自动切到 openai） |
 | `LUMINA_DEEPSEEK_PLANNER_MODEL` | `deepseek-reasoner` | 规划模型 |
 | `LUMINA_COMPRESSION` | `true` | 上下文压缩开关 |
 | `LUMINA_SELF_REVIEW` | `true` | 完成时自我审查 |
+| `LUMINA_TDD` | `false` | 完成代码任务前强制运行测试（TDD 闭环） |
+| `LUMINA_PROJECT_MEMORY` | `true` | 注入 AGENTS.md 与记忆知识库索引 |
 | `LUMINA_DANGER_COMMANDS` | `rm -rf,git push,...` | 危险命令（需批准） |
 | `LUMINA_SAFE_COMMANDS` | `pytest,ruff,...` | 安全命令（自动放行） |
 | `LUMINA_WORKSPACES` | — | 附加工作区（逗号分隔），`lumina web` 中可切换 |
@@ -109,7 +114,7 @@ lumina run "重构 main.py" --yes
 
 # 交互式多会话聊天
 lumina chat
-# 会话内命令：/new /list /resume <id> /delete <id> /exit
+# 会话内命令：/new /list /resume <id> /continue /delete <id> /exit
 # 思考过程自动折叠（显示「已思考 N 秒」）；工具调用紧凑展示、结果不刷屏；答案在 Result 面板统一输出
 
 # 环境诊断（查看生效配置、API 连通性等）
@@ -152,7 +157,8 @@ Web UI 特性：
 - 发送后「发送」按钮变为「停止」，回复结束后自动恢复
 - 会话导出（Markdown / JSON 下载）
 - 深色 / 浅色主题一键切换（默认深色，本地记忆）
-- ⚙ 设置面板：直接编辑 `.env`（API Key、Base URL、模型、token 预算、迭代上限、温度、规划 / 压缩 / 自我审查开关），保存后新会话生效
+- 任务因预算/迭代耗尽停止后显示「继续执行」按钮，一键断点续跑
+- ⚙ 设置面板：直接编辑 `.env`（API Key、Base URL、模型、token 预算、迭代上限、温度、规划 / 压缩 / 自我审查 / TDD / 项目记忆开关），保存后新会话生效
 - Markdown 渲染（代码块、标题、列表、表格、分割线、引用、链接）
 - 思考过程（Thinking）折叠面板，显示「已思考 N 秒」；对话结束前不显示复制等消息操作
 - 工具操作汇总卡片：显示「已读取 N 个文件 · 已编辑 path +n -m」等，可点击展开详情
@@ -210,7 +216,9 @@ lumina/
 `read_file` / `write_file` / `edit_file` / `replace_all` / `undo_file` / `list_files` / `list_tree` /
 `glob` / `grep` / `run_command` / `run_tests` / `git_status` / `git_diff` / `git_log` /
 `web_search` / `web_fetch` / `run_parallel`（并行子 agent，仅读写工具）/
-`update_todo` / `todo_list`（大型任务待办列表跟踪）
+`update_todo` / `todo_list`（大型任务待办列表跟踪）/
+`read_agents` / `write_agents`（AGENTS.md 项目记忆）/
+`memory_write` / `memory_read` / `memory_list` / `memory_search`（可检索知识库，支持跨项目共享）
 
 ## 开发
 

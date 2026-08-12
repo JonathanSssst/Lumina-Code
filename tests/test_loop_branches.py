@@ -57,15 +57,24 @@ def _settings(**kw) -> Settings:
 
 # ---------- helpers ----------
 
-def test_sanitize_history_drops_trailing_tool_messages():
+def test_sanitize_history_keeps_complete_tool_round():
     msgs = [
         Message(role="user", content="q"),
         Message(role="assistant", content=None, tool_calls=[ToolCall(id="t", name="x", arguments={})]),
         Message(role="tool", tool_call_id="t", name="x", content="r"),
     ]
     cleaned = _sanitize_history(msgs)
-    assert cleaned[-1].role == "assistant"
-    assert cleaned[-1].tool_calls is not None
+    assert cleaned[-1].role == "tool"
+    assert cleaned[-1].tool_call_id == "t"
+
+
+def test_sanitize_history_drops_dangling_tool_call():
+    msgs = [
+        Message(role="user", content="q"),
+        Message(role="assistant", content=None, tool_calls=[ToolCall(id="t", name="x", arguments={})]),
+    ]
+    cleaned = _sanitize_history(msgs)
+    assert cleaned[-1].role == "user"
 
 
 def test_compress_boundary_never_splits_tool_pairs():

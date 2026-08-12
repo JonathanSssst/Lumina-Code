@@ -97,7 +97,12 @@ class Agent:
         self._reviewed = False
 
     def _project_instructions(self) -> str:
-        """Load AGENTS.md from the workspace to seed project-specific rules."""
+        """Load AGENTS.md from the workspace to seed project-specific rules.
+
+        Also appends an index of knowledge base entries (.lumina/memory) so the
+        agent knows which persistent memories are available to read/search.
+        """
+        sections: list[str] = []
         for name in ("AGENTS.md", "agents.md"):
             path = self.workspace / name
             if not path.exists():
@@ -105,15 +110,31 @@ class Agent:
             try:
                 text = path.read_text(encoding="utf-8", errors="replace").strip()
             except OSError:
-                return ""
-            if not text:
-                return ""
-            return (
-                "===== PROJECT INSTRUCTIONS (AGENTS.md) =====\n"
-                + text[:4000]
-                + "\n===== END PROJECT INSTRUCTIONS ====="
+                text = ""
+            if text:
+                sections.append(
+                    "===== PROJECT INSTRUCTIONS (AGENTS.md) =====\n"
+                    + text[:4000]
+                    + "\n===== END PROJECT INSTRUCTIONS ====="
+                )
+            break
+        memory_dir = self.workspace / ".lumina" / "memory"
+        entries: list[str] = []
+        if memory_dir.is_dir():
+            try:
+                for p in sorted(memory_dir.glob("*.md")):
+                    entries.append(p.stem)
+            except OSError:
+                entries = []
+        if entries:
+            sections.append(
+                "===== MEMORY INDEX =====\n"
+                "Knowledge base entries (use memory_read to open one, memory_search to "
+                "search):\n- "
+                + "\n- ".join(entries[:50])
+                + "\n===== END MEMORY INDEX ====="
             )
-        return ""
+        return "\n\n".join(sections)
 
     async def run(
         self,
@@ -490,12 +511,31 @@ class Agent:
 
 
 def _sanitize_history(messages: list[Message]) -> list[Message]:
-    """Drop trailing tool messages so a resumed history is API-compliant.
+    """Trim the tail so a resumed history is API-compliant.
 
-    Tool results must immediately follow the assistant message that requested them.
+    An interrupted run can leave an assistant tool-call message whose tool
+    results are missing, or orphan tool messages. Both produce an HTTP 400
+    from the API when the next user message is appended, so drop incomplete
+    trailing tool rounds. Complete rounds (every tool_call answered by a tool
+    message) are kept.
     """
-    while messages and messages[-1].role == "tool":
-        messages.pop()
+    while messages:
+        n_tools = 0
+        i = len(messages) - 1
+        while i >= 0 and messages[i].role == "tool":
+            n_tools += 1
+            i -= 1
+        if i < 0:
+            del messages[len(messages) - n_tools : len(messages)]
+            break
+        prev = messages[i]
+        if prev.role == "assistant" and prev.tool_calls:
+            if n_tools == len(prev.tool_calls) and n_tools > 0:
+                break
+            del messages[i:]
+            continue
+        del messages[len(messages) - n_tools : len(messages)]
+        break
     return messages
 
 

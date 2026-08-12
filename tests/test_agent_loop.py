@@ -184,7 +184,7 @@ async def test_agent_continues_from_history(workspace, settings):
     assert any(m.content == "之前的对话" for m in executor_call)
 
 
-async def test_agent_sanitizes_trailing_tool_in_history(workspace, settings):
+async def test_agent_keeps_complete_tool_round_in_history(workspace, settings):
     history = [
         Message(role="assistant", tool_calls=[ToolCall(id="t1", name="read_file", arguments={"path": "x"})]),
         Message(role="tool", tool_call_id="t1", name="read_file", content="result"),
@@ -194,7 +194,19 @@ async def test_agent_sanitizes_trailing_tool_in_history(workspace, settings):
     await agent.run("继续", history=history)
     roles = [m.role for m in client.calls[0]]
     assert roles[-1] == "user"
-    assert "tool" not in roles
+    assert roles[-3:] == ["assistant", "tool", "user"]
+
+
+async def test_agent_drops_dangling_tool_call_in_history(workspace, settings):
+    history = [
+        Message(role="assistant", tool_calls=[ToolCall(id="t1", name="read_file", arguments={"path": "x"})]),
+    ]
+    client = FakeClient([_resp(content="ok")])
+    agent = _build_agent(workspace, settings, client, DenyApprover())
+    await agent.run("继续", history=history)
+    roles = [m.role for m in client.calls[0]]
+    assert roles[-1] == "user"
+    assert "assistant" not in roles
 
 
 async def test_agent_planner_injects_plan(workspace, settings):

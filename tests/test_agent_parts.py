@@ -95,3 +95,85 @@ def test_project_memory_write_agents_spec_and_approval(tmp_path):
     assert args["content"] == "x"
     needs, _ = registry.check_approval("write_agents", {"content": "x"})
     assert needs is False
+
+
+def test_memory_knowledge_base_write_read_list(tmp_path):
+    from lumina.types import ToolResult
+
+    async def go():
+        registry = build_registry(tmp_path, None)
+        write = registry.handler("memory_write")
+        read = registry.handler("memory_read")
+        listing = registry.handler("memory_list")
+
+        res = await write(name="architecture", content="# Architecture\n- FastAPI backend\n")
+        assert isinstance(res, ToolResult)
+        assert not res.is_error
+        assert "architecture" in res.content
+
+        res2 = await read(name="architecture")
+        assert "FastAPI" in res2.content
+
+        res3 = await listing()
+        assert "architecture [project]" in res3.content
+
+        missing = await read(name="nope")
+        assert missing.is_error
+
+    import asyncio
+
+    asyncio.run(go())
+
+
+def test_memory_knowledge_base_search(tmp_path):
+    from lumina.types import ToolResult
+
+    async def go():
+        registry = build_registry(tmp_path, None)
+        write = registry.handler("memory_write")
+        search = registry.handler("memory_search")
+
+        await write(name="testing", content="# Testing\n- run pytest with coverage\n- use ruff\n")
+        await write(name="deploy", content="# Deploy\n- ship via build.ps1\n")
+
+        hit = await search(query="pytest")
+        assert isinstance(hit, ToolResult)
+        assert "testing" in hit.content
+        assert "deploy" not in hit.content
+
+        none = await search(query="docker swarm")
+        assert "No memory entries matched" in none.content
+
+    import asyncio
+
+    asyncio.run(go())
+
+
+def test_memory_shared_and_safe_names(tmp_path, monkeypatch):
+    from lumina.types import ToolResult
+
+    async def go():
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as home:
+            monkeypatch.setenv("HOME", home)
+            monkeypatch.setenv("USERPROFILE", home)
+            monkeypatch.setenv("HOMEDRIVE", "")
+            monkeypatch.setenv("HOMEPATH", "")
+            registry = build_registry(tmp_path, None)
+            write = registry.handler("memory_write")
+            read = registry.handler("memory_read")
+
+            res = await write(name="my project rules", content="shared knowledge", shared=True)
+            assert isinstance(res, ToolResult)
+            assert "global" in res.content
+
+            res2 = await read(name="my project rules")
+            assert "shared knowledge" in res2.content
+
+            bad = await write(name="", content="x")
+            assert bad.is_error
+
+    import asyncio
+
+    asyncio.run(go())

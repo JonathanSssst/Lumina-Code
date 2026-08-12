@@ -148,14 +148,33 @@ async def test_aclose_releases_client(workspace, settings):
     assert client.closed
 
 
-def test_sanitize_history_strips_trailing_tool():
+def test_sanitize_history_keeps_complete_tool_round():
     msgs = [
         Message(role="assistant", tool_calls=[ToolCall(id="t1", name="x", arguments={})]),
         Message(role="tool", tool_call_id="t1", name="x", content="r"),
     ]
     _sanitize_history(msgs)
-    # the orphan trailing tool result is dropped; the assistant call remains
-    assert [m.role for m in msgs] == ["assistant"]
+    assert [m.role for m in msgs] == ["assistant", "tool"]
+
+
+def test_sanitize_history_drops_dangling_assistant_tool_call():
+    msgs = [
+        Message(role="user", content="hi"),
+        Message(role="assistant", tool_calls=[ToolCall(id="t1", name="x", arguments={})]),
+    ]
+    _sanitize_history(msgs)
+    assert [m.role for m in msgs] == ["user"]
+
+
+def test_sanitize_history_drops_partial_tool_round():
+    msgs = [
+        Message(role="user", content="hi"),
+        Message(role="assistant", tool_calls=[ToolCall(id="t1", name="x", arguments={})]),
+        Message(role="tool", tool_call_id="t1", name="x", content="r1"),
+        Message(role="assistant", tool_calls=[ToolCall(id="t2", name="y", arguments={})]),
+    ]
+    _sanitize_history(msgs)
+    assert [m.role for m in msgs] == ["user", "assistant", "tool"]
 
 
 def test_render_compression_source_covers_roles():
@@ -180,4 +199,4 @@ def test_sanitize_history_keeps_valid_pairs():
         Message(role="tool", tool_call_id="t1", name="x", content="r"),
     ]
     _sanitize_history(msgs)
-    assert [m.role for m in msgs] == ["user", "assistant"]
+    assert [m.role for m in msgs] == ["user", "assistant", "tool"]
