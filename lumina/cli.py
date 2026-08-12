@@ -247,7 +247,7 @@ def chat(
     console.print(
         Panel(
             f"[bold]Lumina[/] working in [cyan]{workspace}[/]\n"
-            f"Session [bold]#{session_id}[/] — /exit 退出，/list 列表，/resume <id> 恢复，/new 新会话"
+            f"Session [bold]#{session_id}[/] — /exit 退出，/list 列表，/resume <id> 恢复，/new 新会话，/usage 用量，/summary 总结，/continue 续跑"
         )
     )
     asyncio.run(_chat(settings, workspace, yes=yes, store=store, session_id=session_id))
@@ -319,6 +319,12 @@ async def _chat(settings, workspace: Path, yes: bool, store, session_id: int) ->
                 store.truncate_after_user(session_id, last_user_index)
                 console.print(f"[cyan]Continue:[/] {content[:80]}")
                 prompt = content  # replay the last task below
+            if cmd == "/usage":
+                _print_session_usage(store, session_id)
+                continue
+            if cmd == "/summary":
+                await _summarize_session(settings, workspace, store, session_id, yes)
+                continue
             if cmd.startswith("/delete "):
                 parts = cmd.split()
                 if len(parts) == 2 and parts[1].isdigit():
@@ -352,6 +358,73 @@ async def _chat(settings, workspace: Path, yes: bool, store, session_id: int) ->
                 await agent.client.aclose()
     finally:
         store.close()
+
+
+def _print_session_usage(store, session_id: int) -> None:
+    """Show token/iteration/tool-call usage for the current session."""
+    stats = store.get_session_stats(session_id)
+    usage = stats["usage"]
+    table = Table(title=f"会话用量 #{stats['id']} — {stats['title']}")
+    table.add_column("项目", style="cyan")
+    table.add_column("数值", style="green")
+    table.add_row("消息数", str(stats["messages"]))
+    table.add_row(
+        "用户/助手/工具",
+        f"{stats['counts']['user']} / {stats['counts']['assistant']} / {stats['counts']['tool']}",
+    )
+    table.add_row("累计 token", f"{usage['total']} (输入 {usage['prompt']} + 输出 {usage['completion']})")
+    table.add_row("推理 token", str(usage["reasoning"]))
+    table.add_row("缓存 token", str(usage["cached"]))
+    table.add_row("迭代轮数", str(stats["iterations"]))
+    table.add_row("工具调用", str(stats["tool_calls"]))
+    table.add_row("创建/更新", f"{stats['created_at']} / {stats['updated_at']}")
+    console.print(table)
+
+
+async def _summarize_session(settings, workspace: Path, store, session_id: int, yes: bool) -> None:
+    """Generate a concise summary of the session history via the LLM."""
+    msgs = store.get_messages(session_id)
+    relevant = [
+        m for m in msgs if m.role in ("user", "assistant") and (m.content or "").strip()
+    ]
+    if not relevant:
+        console.print("[yellow]该会话还没有可总结的消息。[/]")
+        return
+    try:
+        agent = build_agent(workspace, settings, CliApprover(auto_yes=yes))
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]无法初始化 agent: {exc}[/]")
+        return
+    transcript = []
+    for m in relevant[-80:]:
+        role = "user" if m.role == "user" else "assistant"
+        text = str(m.content)
+        if len(text) > 500:
+            text = text[:500] + "…"
+        transcript.append(f"{role}: {text}")
+    system = (
+        "You are a session summarizer. Given the transcript of a coding-agent "
+        "conversation, produce a concise markdown summary (under 200 words): "
+        "the goal, what was done, key decisions/results, and any open items or "
+        "next steps. Respond in the user's language."
+    )
+    try:
+        console.print("[cyan]正在生成会话总结…[/]")
+        resp = await agent.client.chat(
+            [
+                Message(role="system", content=system),
+                Message(role="user", content="===== TRANSCRIPT =====\n" + "\n".join(transcript) + "\n===== END ====="),
+            ],
+            max_tokens=600,
+        )
+    except Exception as exc:  # noqa: BLE001
+        console.print(f"[red]总结生成失败: {exc}[/]")
+        return
+    finally:
+        await agent.client.aclose()
+    summary = (resp.content or "").strip()
+    if summary:
+        console.print(Panel(Markdown(summary), title="会话总结", border_style="blue"))
 
 
 @app.command()

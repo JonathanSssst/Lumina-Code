@@ -159,6 +159,10 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
               <div class="set-info"><div class="set-label">展开编辑工具部分</div><div class="set-desc">在时间线中展开 write_file、edit_file 等工具部分</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_expand_edit" type="checkbox"/><span></span></label></div>
             </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label">右键菜单快捷入口</div><div class="set-desc">在文件夹右键菜单添加「在此打开 lumina chat」与「无限模式」入口</div></div>
+              <div class="set-ctl"><label class="toggle"><input id="set_shell_menu" type="checkbox"/><span></span></label></div>
+            </div>
           </div>
           <div class="sec">
             <h4>外观</h4>
@@ -343,6 +347,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
       </select>
     </div>
     <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
+    <div id="apiKeyHint" class="config-hint" style="display:none">未配置 API Key — 请在上方填写后保存</div>
     <details style="margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:10px 14px">
       <summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">高级参数</summary>
       <div style="margin-top:12px">
@@ -363,6 +368,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
           <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
           <div class="field"><label>任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
         </div>
+        <label class="cb"><input id="cfg_UNLIMITED_MODE" type="checkbox"/>无限模式：不限制迭代轮数与 token 预算 (0)</label>
         <div class="row">
           <div class="field"><label>最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
           <div class="field"><label>温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>

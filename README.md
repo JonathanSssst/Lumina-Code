@@ -23,6 +23,7 @@
 - **会话持久化**：SQLite 存储，CLI/Web 均可随时恢复
 - **MCP 与技能**：支持 MCP 服务器接入与本地技能库
 - **待办列表跟踪**：大型任务自动拆分步骤，`update_todo` / `todo_list` 工具维护进度并随结果回显
+- **右键菜单快捷入口**：桌面设置可一键添加「在此打开 lumina chat」到资源管理器右键菜单（含无限模式入口，迭代/预算 = 0 不限制）
 - **版本自检**：启动时检测 GitHub 最新发布版，发现新版本可一键跳转下载
 
 ## 安装
@@ -114,7 +115,7 @@ lumina run "重构 main.py" --yes
 
 # 交互式多会话聊天
 lumina chat
-# 会话内命令：/new /list /resume <id> /continue /delete <id> /exit
+# 会话内命令：/new /list /resume <id> /continue /usage /summary /delete <id> /exit
 # 思考过程自动折叠（显示「已思考 N 秒」）；工具调用紧凑展示、结果不刷屏；答案在 Result 面板统一输出
 
 # 环境诊断（查看生效配置、API 连通性等）

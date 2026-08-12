@@ -1051,7 +1051,7 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 /* ---------- theme ---------- */
 let settings = {};
 let settingsReady = false;
-const APP_VERSION = "1.0.4";
+const APP_VERSION = "1.0.6";
 const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
 (function initThemeFast(){
   document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");
@@ -1172,6 +1172,23 @@ function settingsChanged(){
   persistSettings();
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "set_auto", value: !!settings.auto_approve }));
 }
+function shellMenuChanged(){
+  if (!settingsReady) return;
+  const el = document.getElementById("set_shell_menu");
+  if (!el) return;
+  const enabled = !!el.checked;
+  fetch("/api/shell-menu", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ enabled }),
+  }).then(r => r.json()).then(res => {
+    if (!res.ok) {
+      el.checked = !enabled; // revert on failure
+      const note = document.getElementById("saveNote");
+      if (note) note.textContent = "右键菜单开关失败: " + (res.message || "");
+    }
+  }).catch(() => { el.checked = !enabled; });
+}
 function switchSettingsTab(btn){
   document.querySelectorAll(".settings-nav .snav").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
@@ -1189,6 +1206,10 @@ function loadSettings(){
     applySettings();
     renderModels();
     settingsReady = true;
+    const sm = document.getElementById("set_shell_menu");
+    if (sm) {
+      fetch("/api/shell-menu").then(r => r.json()).then(res => { if (sm) sm.checked = !!res.enabled; }).catch(() => {});
+    }
   }).catch(() => { settingsReady = true; });
 }
 function openSettings(){
@@ -1199,8 +1220,11 @@ function openSettings(){
 function closeSettings(){ document.getElementById("settingsOverlay").classList.remove("open"); }
 (function bindSettingsControls(){
   document.querySelectorAll("#settingsOverlay .set-ctl input, #settingsOverlay .set-ctl select").forEach(el => {
+    if (el.id === "set_shell_menu") return; // handled separately by shellMenuChanged
     el.addEventListener("change", settingsChanged);
   });
+  const sm = document.getElementById("set_shell_menu");
+  if (sm) sm.addEventListener("change", shellMenuChanged);
 })();
 
 /* ---------- servers ---------- */
@@ -1338,16 +1362,54 @@ function openModelDialog(){
       const el = document.getElementById("cfg_" + k);
       if (el) { if (el.type === "checkbox") el.checked = !!cfg[k]; else el.value = cfg[k] == null ? "" : cfg[k]; }
     });
+    // "Unlimited mode" = both iteration and token budget are 0
+    const unlimited = document.getElementById("cfg_UNLIMITED_MODE");
+    if (unlimited) unlimited.checked = (cfg.LUMINA_MAX_ITERATIONS === 0 || cfg.LUMINA_MAX_ITERATIONS === "0")
+      && (cfg.LUMINA_TOKEN_BUDGET === 0 || cfg.LUMINA_TOKEN_BUDGET === "0");
+    wireApiKeyHint();
     document.getElementById("modelNote").textContent = "";
     document.getElementById("modelOverlay").classList.add("open");
   });
 }
+function activeProviderUsesOpenAI(cfg){
+  const provider = (cfg && cfg.LUMINA_LLM_PROVIDER) || "auto";
+  return provider === "openai" || (provider === "auto" && cfg && cfg.OPENAI_API_KEY);
+}
+function updateApiKeyHint(){
+  const hint = document.getElementById("apiKeyHint");
+  if (!hint) return;
+  const providerEl = document.getElementById("cfg_LUMINA_LLM_PROVIDER");
+  const deepseekKey = (document.getElementById("cfg_DEEPSEEK_API_KEY") || {}).value || "";
+  const openaiKey = (document.getElementById("cfg_OPENAI_API_KEY") || {}).value || "";
+  const provider = (providerEl && providerEl.value) || "auto";
+  const useOpenAI = provider === "openai" || (provider === "auto" && openaiKey);
+  const hasKey = useOpenAI ? openaiKey : deepseekKey;
+  hint.style.display = hasKey ? "none" : "block";
+}
+function wireApiKeyHint(){
+  ["cfg_LUMINA_LLM_PROVIDER", "cfg_DEEPSEEK_API_KEY", "cfg_OPENAI_API_KEY"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.removeEventListener("input", updateApiKeyHint);
+    el.removeEventListener("change", updateApiKeyHint);
+    el.addEventListener("input", updateApiKeyHint);
+    el.addEventListener("change", updateApiKeyHint);
+  });
+  updateApiKeyHint();
+}
 function closeModelDialog(){ document.getElementById("modelOverlay").classList.remove("open"); }
 function saveModelConfig(){
   const fields = {};
+  const unlimited = document.getElementById("cfg_UNLIMITED_MODE").checked;
   document.querySelectorAll("#modelOverlay input, #modelOverlay select").forEach(el => {
     const key = el.id.replace("cfg_", "");
-    fields[key] = el.type === "checkbox" ? el.checked : el.value.trim();
+    if (key === "UNLIMITED_MODE") return; // derived, not a real config key
+    let value = el.type === "checkbox" ? el.checked : el.value.trim();
+    if (unlimited && (key === "LUMINA_MAX_ITERATIONS" || key === "LUMINA_TOKEN_BUDGET")) {
+      value = "0"; // unlimited mode pins both caps to 0
+      el.value = "0";
+    }
+    fields[key] = value;
   });
   fetch("/api/config", {
     method: "POST",

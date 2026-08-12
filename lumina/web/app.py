@@ -365,6 +365,20 @@ def create_app(
         _save_settings(merged)
         return {"ok": True, "settings": merged}
 
+    @app.get("/api/shell-menu")
+    async def get_shell_menu() -> dict:
+        from lumina.web.shell_menu import context_menu_enabled
+
+        return {"enabled": context_menu_enabled()}
+
+    @app.post("/api/shell-menu")
+    async def set_shell_menu(payload: dict[str, Any]) -> dict:
+        from lumina.web.shell_menu import set_context_menu
+
+        enabled = bool(payload.get("enabled"))
+        ok, message = set_context_menu(enabled)
+        return {"ok": ok, "message": message, "enabled": enabled if ok else None}
+
     @app.get("/api/servers")
     async def list_servers() -> dict:
         servers = _load_state().get("servers", []) if app.state.state_file is not None else []

@@ -341,6 +341,78 @@ def test_chat_sends_message_and_prints_result(monkeypatch, capsys):
     assert "iterations=1" in out
 
 
+def test_chat_usage_prints_session_stats(monkeypatch, capsys):
+    prompts = iter(["/usage", "/exit"])
+    monkeypatch.setattr("lumina.cli.Prompt.ask", lambda *a, **k: next(prompts))
+    store = _FakeStore([])
+
+    def fake_stats(sid):
+        return {
+            "id": sid,
+            "title": "统计会话",
+            "created_at": "2026-01-01 00:00:00",
+            "updated_at": "2026-01-01 00:00:00",
+            "messages": 5,
+            "counts": {"user": 2, "assistant": 2, "tool": 1, "system": 0},
+            "usage": {"prompt": 100, "completion": 50, "total": 150, "reasoning": 10, "cached": 5},
+            "iterations": 3,
+            "tool_calls": 7,
+        }
+
+    store.get_session_stats = fake_stats
+    asyncio.run(_chat(_settings(), "C:\\proj", True, store, 1))
+    out = capsys.readouterr().out
+    assert "150" in out
+    assert "7" in out
+    assert "3" in out
+
+
+def test_chat_summary_generates_markdown(monkeypatch, capsys):
+    from lumina.agent.authorize import AgentResult as AR
+    from lumina.llm.client import LLMResponse
+    from lumina.types import Message as CliMessage
+    from lumina.types import Usage
+
+    class FakeSummaryClient:
+        async def aclose(self):
+            pass
+
+        async def chat(self, messages, **kwargs):
+            return LLMResponse(
+                content="## 总结\n- 完成了 X",
+                usage=Usage(prompt_tokens=10, completion_tokens=5, total_tokens=15),
+            )
+
+    class FakeSummaryAgent:
+        def __init__(self):
+            self.client = FakeSummaryClient()
+
+        async def run(self, *a, **k):
+            return AR("", 1, 0, 0, "completed")
+
+    monkeypatch.setattr("lumina.cli.build_agent", lambda *a, **k: FakeSummaryAgent())
+    prompts = iter(["/summary", "/exit"])
+    monkeypatch.setattr("lumina.cli.Prompt.ask", lambda *a, **k: next(prompts))
+    store = _FakeStore([])
+    store.get_messages = lambda sid: [
+        CliMessage(role="user", content="修复 bug"),
+        CliMessage(role="assistant", content="已修复"),
+    ]
+    asyncio.run(_chat(_settings(), "C:\\proj", True, store, 1))
+    out = capsys.readouterr().out
+    assert "会话总结" in out
+    assert "完成了 X" in out
+
+
+def test_chat_summary_empty_session_is_noop(monkeypatch, capsys):
+    prompts = iter(["/summary", "/exit"])
+    monkeypatch.setattr("lumina.cli.Prompt.ask", lambda *a, **k: next(prompts))
+    store = _FakeStore([])
+    store.get_messages = lambda sid: []
+    asyncio.run(_chat(_settings(), "C:\\proj", True, store, 1))
+    assert "还没有可总结" in capsys.readouterr().out
+
+
 def test_chat_continue_replays_last_task(monkeypatch, capsys):
     from lumina.types import Message as CliMessage
 
