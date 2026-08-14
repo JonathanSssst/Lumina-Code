@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from lumina.config import workspace_data_dir
 from lumina.tools.registry import ToolRegistry
 from lumina.types import ToolResult
 
@@ -27,7 +28,7 @@ GLOBAL_CONFIG = Path.home() / ".config" / "lumina" / CONFIG_NAME
 class McpBridge:
     """Discovers MCP servers from config and registers their tools in a ToolRegistry.
 
-    Config format (workspace `.lumina/lumina.mcp.json` or global config):
+    Config format (workspace user-data lumina.mcp.json or global config):
         {"mcpServers": {"server-name": {"command": "python", "args": ["server.py"], "env": {}}}}
     """
 
@@ -41,7 +42,7 @@ class McpBridge:
 
     def _load_config(self) -> dict:
         candidates = [
-            self.workspace / ".lumina" / CONFIG_NAME,
+            workspace_data_dir(self.workspace) / CONFIG_NAME,
             GLOBAL_CONFIG,
         ]
         for path in candidates:

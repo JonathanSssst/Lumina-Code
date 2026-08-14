@@ -208,7 +208,7 @@ def _maximize_window(window: Any) -> None:
 def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False) -> None:
     import uvicorn
 
-    from lumina.config import get_settings
+    from lumina.config import get_settings, user_data_dir
     from lumina.logging_setup import setup_logging
     from lumina.web.app import create_app
 
@@ -268,7 +268,11 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
                     js_api=bridge,
                 )
                 _apply_window_icon(_window)
-                webview.start(func=lambda: _maximize_window(_window))
+                webview.start(
+                    func=lambda: _maximize_window(_window),
+                    private_mode=False,
+                    storage_path=str(user_data_dir() / "webview"),
+                )
                 server.should_exit = True
                 thread.join(timeout=10)
                 return
@@ -286,7 +290,78 @@ def run_desktop(port: int = 1200, port_span: int = 200, no_webview: bool = False
         thread.join(timeout=10)
 
 
+_CLI_FIRST_ARGS = {
+    "chat",
+    "run",
+    "doctor",
+    "web",
+    "--version",
+    "-version",
+    "--help",
+    "-h",
+    "--latest",
+    "-latest",
+}
+
+
+def _is_cli_invocation(argv: list[str]) -> bool:
+    """True when the app was launched for CLI duty (e.g. `LuminaCode chat`)."""
+    return len(argv) > 1 and argv[1] in _CLI_FIRST_ARGS
+
+
+def _attach_console() -> None:
+    """Attach a windowed (--windowed) exe to the parent console, or allocate one."""
+    import ctypes
+
+    kernel32 = ctypes.windll.kernel32  # type: ignore[attr-defined]
+    if not kernel32.AttachConsole(0xFFFFFFFF):  # ATTACH_PARENT_PROCESS
+        kernel32.AllocConsole()
+    for name in ("stdout", "stderr", "stdin"):
+        try:
+            if name == "stdin":
+                sys.stdin = open("CONIN$", "r", encoding="utf-8", errors="replace")  # noqa: SIM115
+            else:
+                stream = open("CONOUT$", "w", encoding="utf-8", errors="replace")  # noqa: SIM115
+                if name == "stdout":
+                    sys.stdout = stream
+                else:
+                    sys.stderr = stream
+        except OSError:
+            pass
+
+
+def _run_cli_mode() -> int:
+    """Run the bundled typer CLI (chat/run/doctor/web) and return the exit code."""
+    if getattr(sys, "frozen", False) and sys.platform == "win32":
+        _attach_console()
+    from lumina import cli as cli_mod
+
+    cli_mod.console = cli_mod.Console()  # rebind to the (re)attached console
+    try:
+        cli_mod.app()
+    except SystemExit as exc:
+        return int(exc.code or 0)
+    except KeyboardInterrupt:
+        return 1
+    except Exception:  # noqa: BLE001
+        import traceback
+
+        traceback.print_exc()
+        return 1
+    finally:
+        if getattr(sys, "frozen", False) and sys.platform == "win32":
+            try:
+                import ctypes
+
+                ctypes.windll.kernel32.FreeConsole()  # type: ignore[attr-defined]
+            except Exception:  # noqa: BLE001, S110
+                pass
+    return 0
+
+
 def main() -> None:
+    if _is_cli_invocation(sys.argv):
+        os._exit(_run_cli_mode())
     parser = argparse.ArgumentParser(prog="lumina-app", description="LuminaCode desktop app")
     parser.add_argument("--port", type=int, default=1200, help="starting HTTP port (default: 1200)")
     parser.add_argument("--port-span", type=int, default=200, help="ports scanned above --port when busy")

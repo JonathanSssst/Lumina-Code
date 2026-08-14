@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from lumina.agent.authorize import AgentResult
-from lumina.config import Settings
+from lumina.config import Settings, workspace_data_dir
 from lumina.store import SessionStore, default_db_path
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.todo import TodoTools
@@ -197,7 +197,7 @@ def test_api_mcp_add_list_remove(app, tmp_path):
         assert "demo" in listed["servers"]
         assert listed["servers"]["demo"]["command"] == "python"
         assert listed["servers"]["demo"]["args"] == ["srv.py"]
-        config = json.loads((tmp_path / ".lumina" / "lumina.mcp.json").read_text(encoding="utf-8"))
+        config = json.loads((workspace_data_dir(tmp_path) / "lumina.mcp.json").read_text(encoding="utf-8"))
         assert "demo" in config["mcpServers"]
         remove = c.post("/api/mcp", json={"action": "remove", "name": "demo"}).json()
         assert remove["ok"] is True
@@ -211,7 +211,7 @@ def test_api_mcp_add_requires_name_and_command(app, tmp_path):
 
 
 def test_api_skills_lists_project_skills(app, tmp_path):
-    skill_dir = tmp_path / ".lumina" / "skills" / "bug-fix"
+    skill_dir = workspace_data_dir(tmp_path) / "skills" / "bug-fix"
     skill_dir.mkdir(parents=True)
     (skill_dir / "skill.md").write_text(
         "---\nname: bug-fix\ndescription: 修复失败的测试\ntrigger: 修复测试, 测试失败\n---\nAlways run pytest first.",
@@ -283,3 +283,20 @@ def test_api_usage_trend_lists_recent_sessions_with_usage(app, tmp_path):
         assert p["completion_tokens"] == 80
         assert p["title"] == "搜索测试"
         assert p["updated_at"]
+
+
+def test_api_health_reports_ok_version_and_local(app):
+    with TestClient(app) as c:
+        data = c.get("/api/health").json()
+        assert data["ok"] is True
+        assert data["local"] is True
+        assert isinstance(data["version"], str) and data["version"]
+
+
+def test_api_agents_lists_default_agent(app):
+    with TestClient(app) as c:
+        data = c.get("/api/agents").json()
+        agents = data["agents"]
+        assert agents[0]["id"] == "default"
+        assert agents[0]["name"]
+        assert agents[0]["description"]

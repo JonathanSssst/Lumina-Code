@@ -24,7 +24,7 @@ from rich.table import Table
 from rich.text import Text
 
 from lumina import __version__
-from lumina.config import get_settings, resolve_env_file
+from lumina.config import get_settings, resolve_env_file, user_data_dir
 from lumina.factory import build_agent
 from lumina.logging_setup import setup_logging
 from lumina.types import Message
@@ -523,7 +523,11 @@ def web(
                 _window = webview.create_window(
                     "LuminaCode", url, width=1200, height=820, min_size=(900, 620)
                 )
-                webview.start(func=lambda: _maximize_window(_window))
+                webview.start(
+                    func=lambda: _maximize_window(_window),
+                    private_mode=False,
+                    storage_path=str(user_data_dir() / "webview"),
+                )
             except Exception as exc:  # noqa: BLE001
                 console.print(f"[yellow]WebView failed to start ({exc}); opening the browser instead.[/]")
                 webbrowser.open(url)

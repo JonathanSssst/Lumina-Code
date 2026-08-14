@@ -6,7 +6,7 @@ import sys
 
 import pytest
 
-from lumina.config import Settings
+from lumina.config import Settings, workspace_data_dir
 from lumina.factory import build_registry
 from lumina.mcp.client import CONFIG_NAME, MCP_AVAILABLE, McpBridge
 from lumina.tools.registry import validate_arguments
@@ -53,7 +53,7 @@ def _write_server(tmp_path) -> str:
 
 
 def _config(workspace, script: str, server_name: str = "demo") -> None:
-    cfg = workspace / ".lumina"
+    cfg = workspace_data_dir(workspace)
     cfg.mkdir(exist_ok=True)
     (cfg / CONFIG_NAME).write_text(
         json.dumps(
@@ -100,7 +100,7 @@ def test_connect_all_registers_and_calls_tools(tmp_path):
 
 
 def test_connect_all_collects_errors(tmp_path):
-    cfg = tmp_path / ".lumina"
+    cfg = workspace_data_dir(tmp_path)
     cfg.mkdir()
     (cfg / CONFIG_NAME).write_text(
         json.dumps({"mcpServers": {"broken": {"command": "definitely-not-a-real-cmd-xyz", "args": []}}}),
@@ -121,7 +121,7 @@ def test_connect_all_cleans_up_after_failed_handshake(tmp_path, monkeypatch):
             raise RuntimeError("close boom")
 
     monkeypatch.setattr("lumina.mcp.client.stdio_client", lambda *a, **k: _BadCm())
-    cfg = tmp_path / ".lumina"
+    cfg = workspace_data_dir(tmp_path)
     cfg.mkdir()
     (cfg / CONFIG_NAME).write_text(
         json.dumps({"mcpServers": {"s": {"command": sys.executable, "args": ["x.py"]}}}),

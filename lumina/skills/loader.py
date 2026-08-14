@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from lumina.config import workspace_data_dir
+
 SKILL_DIR_NAMES = ("skills",)
 
 _LOCAL_SKILLS = Path.home() / ".config" / "lumina" / "skills"
@@ -17,7 +19,7 @@ class Skill:
 
 
 class SkillLoader:
-    """Loads skills from `.lumina/skills/` (project) and `~/.config/lumina/skills/` (global).
+    """Loads skills from the per-workspace user data dir and `~/.config/lumina/skills/`.
 
     A skill is a `<name>/skill.md` (or `<name>.md`) file whose front-matter block
     declares metadata, followed by the instruction body injected into the agent context.
@@ -25,7 +27,7 @@ class SkillLoader:
 
     def __init__(self, workspace: Path) -> None:
         self.workspace = Path(workspace).resolve()
-        self.project_dir = self.workspace / ".lumina" / "skills"
+        self.project_dir = workspace_data_dir(workspace) / "skills"
         self._skills: list[Skill] = []
         self._loaded = False
 

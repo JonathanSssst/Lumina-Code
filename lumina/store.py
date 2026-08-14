@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
+from lumina.config import workspace_data_dir
 from lumina.types import Message, ToolCall, Usage
 
 _SCHEMA = """
@@ -59,8 +60,8 @@ class SessionInfo:
 
 
 def default_db_path(workspace: Path) -> Path:
-    """Session DB lives in the project's .lumina dir so it follows the repo."""
-    return Path(workspace).resolve() / ".lumina" / "sessions.db"
+    """Session DB lives in the per-workspace user data dir (not in the repo)."""
+    return workspace_data_dir(workspace) / "sessions.db"
 
 
 class SessionStore:

@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 
+from lumina.config import workspace_data_dir
 from lumina.tools.registry import ToolRegistry
 from lumina.types import ToolResult
 
@@ -19,7 +20,7 @@ class FileTools:
     def __init__(self, workspace: Path, registry: ToolRegistry) -> None:
         self.workspace = Path(workspace).resolve()
         self.registry = registry
-        self.undo_dir = self.workspace / ".lumina" / "undo"
+        self.undo_dir = workspace_data_dir(workspace) / "undo"
         self._counter = 0
         self._setup()
 
@@ -98,11 +99,12 @@ class FileTools:
                 self._snapshot(target)
                 target.write_text(content, encoding="utf-8")
                 added, removed = _diff_counts(old, content)
+                diff = _unified_diff(old, content, path)
                 return ToolResult(
                     tool_call_id="",
                     name="write_file",
                     content=f"Wrote {len(content)} chars to {path}",
-                    stats={"path": path, "added": added, "removed": removed},
+                    stats={"path": path, "added": added, "removed": removed, "diff": diff},
                 )
             except PermissionError as exc:
                 return ToolResult(tool_call_id="", name="write_file", content=str(exc), is_error=True)
@@ -143,14 +145,15 @@ class FileTools:
                         is_error=True,
                     )
                 self._snapshot(target)
-                target.write_text(text.replace(old_string, new_string), encoding="utf-8")
-                diff = _simple_diff(old_string, new_string)
+                new_text = text.replace(old_string, new_string)
+                target.write_text(new_text, encoding="utf-8")
                 added, removed = _diff_counts(old_string, new_string)
+                diff = _unified_diff(text, new_text, path)
                 return ToolResult(
                     tool_call_id="",
                     name="edit_file",
-                    content=f"Edited {path}\n{diff}",
-                    stats={"path": path, "added": added, "removed": removed},
+                    content=f"Edited {path}",
+                    stats={"path": path, "added": added, "removed": removed, "diff": diff},
                 )
             except PermissionError as exc:
                 return ToolResult(tool_call_id="", name="edit_file", content=str(exc), is_error=True)
@@ -330,6 +333,24 @@ def _diff_counts(old_string: str, new_string: str) -> tuple[int, int]:
         elif line.startswith("-") and not line.startswith("---"):
             removed += 1
     return added, removed
+
+
+def _unified_diff(old_text: str, new_text: str, path: str = "") -> str:
+    """Generate a unified diff string for display in the UI."""
+    old_lines = old_text.splitlines(keepends=True)
+    new_lines = new_text.splitlines(keepends=True)
+    diff = list(difflib.unified_diff(
+        old_lines, new_lines,
+        fromfile=f"a/{path}" if path else "a/old",
+        tofile=f"b/{path}" if path else "b/new",
+        n=2,
+    ))
+    if not diff:
+        return ""
+    # Cap at 500 lines to avoid huge payloads
+    if len(diff) > 500:
+        diff = diff[:250] + [f"\n... ({len(diff) - 500} lines omitted) ...\n"] + diff[-250:]
+    return "".join(diff)
 
 
 def _simple_diff(old_string: str, new_string: str) -> str:

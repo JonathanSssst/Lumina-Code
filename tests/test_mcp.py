@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 
-from lumina.config import Settings
+from lumina.config import Settings, workspace_data_dir
 from lumina.factory import build_registry
 from lumina.mcp.client import CONFIG_NAME, McpBridge
 from lumina.tools.registry import validate_arguments
@@ -15,7 +15,7 @@ def _bridge(workspace) -> McpBridge:
 
 
 def test_load_config_workspace_preferred(tmp_path, monkeypatch):
-    cfg = tmp_path / ".lumina"
+    cfg = workspace_data_dir(tmp_path)
     cfg.mkdir()
     (cfg / CONFIG_NAME).write_text(
         json.dumps({"mcpServers": {"local": {"command": "python", "args": ["s.py"]}}}), encoding="utf-8"
@@ -56,7 +56,7 @@ def test_load_config_skips_invalid_json(tmp_path, monkeypatch):
 
 
 def test_connect_all_noop_when_mcp_unavailable(tmp_path, monkeypatch):
-    cfg = tmp_path / ".lumina"
+    cfg = workspace_data_dir(tmp_path)
     cfg.mkdir()
     (cfg / CONFIG_NAME).write_text(
         json.dumps({"mcpServers": {"s": {"command": "python"}}}), encoding="utf-8"

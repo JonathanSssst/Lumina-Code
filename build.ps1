@@ -1,6 +1,6 @@
 # Build LuminaCode desktop exe with PyInstaller.
 # Usage:  powershell -ExecutionPolicy Bypass -File build.ps1
-# Optional: -Version 1.0.2  (overrides the version read from lumina/__init__.py)
+# Optional: -Version 1.0.9  (overrides the version read from lumina/__init__.py)
 
 param(
     [string]$Version = ""
@@ -45,6 +45,10 @@ python -m PyInstaller `
     --hidden-import webview.platforms.win32 `
     --hidden-import webview.platforms.edgechromium `
     --hidden-import webview.platforms.mshtml `
+    --hidden-import lumina.cli `
+    --hidden-import typer `
+    --hidden-import rich `
+    --hidden-import click `
     --exclude-module PyQt5 `
     --exclude-module PyQt6 `
     --exclude-module matplotlib `
@@ -81,5 +85,12 @@ try {
 finally {
     Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
 }
+
+Write-Host "==> CLI smoke test (LuminaCode.exe --version)" -ForegroundColor Cyan
+$cliProc = Start-Process -FilePath $Exe -ArgumentList "--version" -Wait -PassThru -WindowStyle Hidden
+if ($cliProc.ExitCode -ne 0) {
+    throw "CLI smoke test: LuminaCode.exe --version exited $($cliProc.ExitCode)"
+}
+Write-Host "==> CLI smoke test OK (exit 0)" -ForegroundColor Green
 
 Write-Host "==> Done. Upload $Exe to the v$Version GitHub release." -ForegroundColor Green

@@ -10,6 +10,22 @@ def test_app_data_dir_is_project_root_in_source_mode():
     assert desktop.app_data_dir() == desktop._PROJECT_ROOT
 
 
+def test_user_data_dir_defaults_to_appdata(monkeypatch):
+    from lumina.config import user_data_dir
+
+    monkeypatch.delenv("LUMINA_HOME", raising=False)
+    monkeypatch.setenv("APPDATA", "C:/appdata")
+    assert user_data_dir() == Path("C:/appdata") / "LuminaCode"
+
+
+def test_user_data_dir_honors_lumina_home(monkeypatch):
+    from lumina.config import user_data_dir
+
+    monkeypatch.setenv("LUMINA_HOME", "C:/custom")
+    monkeypatch.delenv("APPDATA", raising=False)
+    assert user_data_dir() == Path("C:/custom")
+
+
 def test_default_workspace_prefers_last_used(tmp_path, monkeypatch):
     project = tmp_path / "proj"
     project.mkdir()
@@ -84,3 +100,21 @@ def test_wait_for_server_times_out():
 def test_wait_for_server_detects_shutdown():
     server = SimpleNamespace(started=False, should_exit=True)
     assert desktop._wait_for_server(server, timeout=1.0) is False
+
+
+def test_is_cli_invocation():
+    assert desktop._is_cli_invocation(["LuminaCode.exe", "chat"]) is True
+    assert desktop._is_cli_invocation(["LuminaCode.exe", "run", "fix it"]) is True
+    assert desktop._is_cli_invocation(["LuminaCode.exe", "doctor"]) is True
+    assert desktop._is_cli_invocation(["LuminaCode.exe", "--version"]) is True
+    assert desktop._is_cli_invocation(["LuminaCode.exe", "--help"]) is True
+    assert desktop._is_cli_invocation(["LuminaCode.exe"]) is False
+    assert desktop._is_cli_invocation(["app.py", "--port", "1300"]) is False
+    assert desktop._is_cli_invocation(["app.py", "--no-webview"]) is False
+
+
+def test_run_cli_mode_handles_version(monkeypatch, capsys):
+    monkeypatch.setattr(desktop.sys, "argv", ["app.py", "--version"])
+    code = desktop._run_cli_mode()
+    assert code == 0
+    assert "LuminaCode version" in capsys.readouterr().out

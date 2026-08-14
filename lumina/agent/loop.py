@@ -8,7 +8,7 @@ from pathlib import Path
 
 from lumina.agent.authorize import AgentResult, AsyncApprover, Hooks
 from lumina.agent.budget import TokenBudget
-from lumina.config import Settings
+from lumina.config import Settings, workspace_data_dir
 from lumina.context.project import ProjectScanner, summarize_tool_result
 from lumina.llm.client import DeepSeekClient
 from lumina.tools.registry import ToolRegistry, validate_arguments
@@ -99,8 +99,9 @@ class Agent:
     def _project_instructions(self) -> str:
         """Load AGENTS.md from the workspace to seed project-specific rules.
 
-        Also appends an index of knowledge base entries (.lumina/memory) so the
-        agent knows which persistent memories are available to read/search.
+        Also appends an index of knowledge base entries (per-workspace user
+        data dir) so the agent knows which persistent memories are available to
+        read/search.
         """
         sections: list[str] = []
         for name in ("AGENTS.md", "agents.md"):
@@ -118,7 +119,7 @@ class Agent:
                     + "\n===== END PROJECT INSTRUCTIONS ====="
                 )
             break
-        memory_dir = self.workspace / ".lumina" / "memory"
+        memory_dir = workspace_data_dir(self.workspace) / "memory"
         entries: list[str] = []
         if memory_dir.is_dir():
             try:

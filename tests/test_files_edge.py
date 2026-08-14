@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from lumina.config import workspace_data_dir
 from lumina.tools.registry import validate_arguments
 
 
@@ -89,7 +90,7 @@ async def test_undo_without_snapshot(registry, workspace):
 
 
 async def test_undo_tolerates_bad_snapshots(registry, workspace):
-    undo_dir = workspace / ".lumina" / "undo"
+    undo_dir = workspace_data_dir(workspace) / "undo"
     undo_dir.mkdir(parents=True)
     (undo_dir / "not_a_number_5.json").write_text("not json", encoding="utf-8")
     (workspace / "t.txt").write_text("v1", encoding="utf-8")

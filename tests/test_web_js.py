@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import shutil
 import subprocess
@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 APP_JS = Path(__file__).resolve().parent.parent / "lumina" / "web" / "static" / "app.js"
+I18N_JS = Path(__file__).resolve().parent.parent / "lumina" / "web" / "static" / "i18n.js"
 
 pytestmark = pytest.mark.skipif(shutil.which("node") is None, reason="node not installed")
 
@@ -62,7 +63,7 @@ function mkEl() {
 const bar = mkEl();
 bar.hidden = true; // matches the `hidden` attribute in index.html
 const ctx = { document: { getElementById: id => (id === "todobar" ? bar : null), createElement: () => mkEl() },
-  setTimeout, clearTimeout };
+  setTimeout, clearTimeout, t: s => s, tpl: (s, a) => s.replace(/\{(\w+)\}/g, (m, k) => (a && a[k] != null) ? String(a[k]) : m) };
 vm.createContext(ctx);
 vm.runInContext(lines.slice(s, e).join("\n"), ctx);
 let failed = 0;
@@ -138,7 +139,7 @@ const ctx = { document: {
       usage: { total: 400, prompt: 300, completion: 100, reasoning: 10, cached: 20 },
       iterations: 2, tool_calls: 1, cost: { value: 0.0008, rate_per_m: 2 },
       created_at: "2026-01-01", updated_at: "2026-01-01" }) }),
-  currentSession: 5, activeWorkspace: "" };
+  currentSession: 5, activeWorkspace: "", t: s => s, tpl: (s, a) => s.replace(/\{(\w+)\}/g, (m, k) => (a && a[k] != null) ? String(a[k]) : m) };
 vm.createContext(ctx);
 vm.runInContext(lines.slice(s, e).join("\n"), ctx);
 let failed = 0;
@@ -209,7 +210,7 @@ const msgs = [mkEl("msg user"), mkEl("msg assistant"), mkEl("msg user")];
 const ctx = { document: {
     createElement: () => mkEl(),
     querySelectorAll: sel => (sel.indexOf(".msg-actions") !== -1 ? attached.slice() : msgs) },
-  busy: false };
+  busy: false, t: s => s };
 vm.createContext(ctx);
 vm.runInContext(lines.slice(s, e).join("\n"), ctx);
 let failed = 0;
@@ -255,7 +256,8 @@ const ctx = {
   } },
   log: logEl,
   thinkingEl: null, thinkBuf: null, thinkSpan: null,
-  startThinkTimer() { ctx.thinkTimerStarted = true; }
+  startThinkTimer() { ctx.thinkTimerStarted = true; },
+  t: s => s, tpl: (s, a) => s.replace(/\{(\w+)\}/g, (m, k) => (a && a[k] != null) ? String(a[k]) : m)
 };
 vm.createContext(ctx);
 vm.runInContext(lines.slice(s, e).join("\n"), ctx);
@@ -332,6 +334,7 @@ const ctx = {
   Notification: Notif,
   updateThemeBtn() {}, newSession() {}, openWsManager() {}, openSettings() {},
   toggleTerminal() {}, toggleSidebar() {}, loadFileTree() {}, showFileTreePanel() {}, checkUpdate() {},
+  t: s => s,
 };
 vm.createContext(ctx);
 
@@ -375,7 +378,7 @@ const slice = (s, e) => lines.slice(s, e).join("\n");
 let failed = 0;
 function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
 
-const ctx = {};
+const ctx = { t: s => s, tpl: (s, a) => s.replace(/\{(\w+)\}/g, (m, k) => (a && a[k] != null) ? String(a[k]) : m) };
 vm.createContext(ctx);
 vm.runInContext(slice(find("const SESSION_GROUPS", 0), find("function runSessionSearch", 0)), ctx);
 function iso(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" +
@@ -410,4 +413,144 @@ process.exit(failed ? 1 : 0);
 
 def test_session_grouping_and_file_ref_helpers():
     r = subprocess.run(["node", "-e", _BATCH2_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout
+
+
+_FEATURES2_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const find = (sub, from) => lines.findIndex((l, i) => i >= from && l.includes(sub));
+const slice = (s, e) => lines.slice(s, e).join("\n");
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+
+function mkEl() {
+  return { value: "", textContent: "", innerHTML: "", hidden: true, className: "", children: [],
+    _q: {},
+    addEventListener() {},
+    appendChild(c) { this.children.push(c); return c; },
+    classList: { _s: new Set(),
+      add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); },
+      toggle(c, force) { force === undefined ? (this._s.has(c) ? this._s.delete(c) : this._s.add(c)) :
+        (force ? this._s.add(c) : this._s.delete(c)); },
+      contains(c) { return this._s.has(c); } } };
+}
+const els = {
+  agentSel: mkEl(), agentSelWrap: mkEl(), serverStatusBtn: mkEl(), serverStatusPop: mkEl(),
+  serverStatusBody: mkEl(), releaseOverlay: mkEl(), releaseBody: mkEl(),
+};
+const FEAT_T = {
+  "# v{ver}\n\n## 修复\n- 修复「新功能」弹窗每次启动都弹出的问题，现在只在升级后的首次启动显示\n- 修复桌面窗口无法打开而回退到浏览器的问题，WebView 数据改为持久化存储\n- 完善多语言翻译与文案一致性": "# v{ver}\n\n## Fixes\n- Fixed the release-notes popup showing on every launch; it now appears only on the first launch after an update\n- Fixed the desktop window failing to open and falling back to the browser; WebView data is now stored persistently\n- Polished translations and wording consistency",
+  "本地服务器": "Local server",
+  "服务器状态不可用": "Server status unavailable",
+  "尚未配置服务器，请在「设置 → 服务器」中添加。": "No servers configured yet. Add one under Settings > Servers.",
+};
+const ctx = {
+  settings: { release_notes: true, custom_agents: true, server_status: true },
+  currentSession: 3,
+  APP_VERSION: "1.0.6",
+  t: s => FEAT_T[s] || s,
+  tpl: (s, a) => String(FEAT_T[s] || s).replace(/\{(\w+)\}/g, (m, k) => (a && a[k] != null) ? String(a[k]) : m),
+  document: { getElementById(id) { return els[id] || null; }, createElement: () => mkEl() },
+  localStorage: { _m: {}, setItem(k, v) { this._m[k] = v; }, getItem(k) { return k in this._m ? this._m[k] : null; } },
+  sessionStorage: { _m: {}, setItem(k, v) { this._m[k] = v; }, getItem(k) { return k in this._m ? this._m[k] : null; } },
+  fetch(url) {
+    if (url === "/api/health") return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: true, version: "1.0.6", local: true }) });
+    if (url === "/api/servers") return Promise.resolve({ ok: true, json: () => Promise.resolve({ servers: [{ name: "r1", url: "http://r1" }] }) });
+    if (url === "/api/agents") return Promise.resolve({ ok: true, json: () => Promise.resolve({ agents: [{ id: "default", name: "默认智能体" }, { id: "x", name: "X" }] }) });
+    return Promise.resolve({ ok: false });
+  },
+};
+vm.createContext(ctx);
+vm.runInContext(slice(find("server status button + popup", 0), find("---------- servers ----------", 0)), ctx);
+
+(async () => {
+  ctx.toggleServerStatus();
+  check("server popup opens", els.serverStatusPop.hidden === false);
+  await new Promise(r => setTimeout(r, 5));
+  check("local + one remote row", els.serverStatusBody.children.length === 2);
+  check("local row shows running", els.serverStatusBody.children[0].children[1].textContent === "运行中");
+  check("remote row lists url", els.serverStatusBody.children[1].children[0].children[1].textContent === "http://r1");
+  check("btn dot on when local ok", els.serverStatusBtn.classList.contains("on"));
+  ctx.toggleServerStatus();
+  check("server popup closes", els.serverStatusPop.hidden === true);
+
+  ctx.openReleaseNotes();
+  check("release body rendered", els.releaseBody.innerHTML.indexOf("# v1.0.6") === 0);
+  check("release overlay open", els.releaseOverlay.classList.contains("open"));
+  ctx.closeReleaseNotes();
+  check("release overlay closed", !els.releaseOverlay.classList.contains("open"));
+  check("last seen persisted", ctx.localStorage.getItem("lumina-release-last-seen") === "1.0.6");
+  ctx.maybeShowReleaseNotes();
+  check("no re-show after seen", !els.releaseOverlay.classList.contains("open"));
+  ctx.localStorage.setItem("lumina-release-last-seen", "0.0.0");
+  ctx.maybeShowReleaseNotes();
+  check("re-show after version bump", els.releaseOverlay.classList.contains("open"));
+  ctx.closeReleaseNotes();
+
+  await ctx.loadAgents();
+  check("agent options populated", els.agentSel.children.length === 2);
+  check("agent wrap shown when enabled", els.agentSelWrap.hidden === false);
+  ctx.persistAgent();
+  check("agent persisted per session", ctx.sessionStorage.getItem("lumina-agent-3") !== null);
+  process.exit(failed ? 1 : 0);
+})();
+"""
+
+
+def test_server_status_release_notes_and_agent_selector():
+    r = subprocess.run(["node", "-e", _FEATURES2_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout
+
+
+_I18N_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const src = fs.readFileSync(process.argv[1], "utf8");
+const els = [];
+function mkTextNode(data) { return { nodeType: 3, data }; }
+function mkEl(key, text) {
+  const el = { nodeType: 1, childNodes: [mkTextNode(text)],
+    getAttribute(a) { return a === "data-i18n" ? key : null; } };
+  els.push(el);
+  return el;
+}
+const store = {};
+const ctx = {
+  localStorage: { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = String(v); } },
+  document: { querySelectorAll: sel => (sel === "[data-i18n]" ? els.slice() : []),
+    documentElement: { lang: "" } },
+};
+vm.createContext(ctx);
+vm.runInContext(src, ctx);
+const i18n = vm.runInContext("LUMINA_I18N", ctx);
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+const el = mkEl("设置", "设置");
+const pad = mkEl("会话", " 会话 ");
+const miss = mkEl("未收录的键", "未收录的键");
+i18n.setLang("zh-CN");
+i18n.apply();
+check("initial zh is key", el.childNodes[0].data === "设置");
+i18n.setLang("en");
+i18n.apply();
+check("en is English", el.childNodes[0].data === "Settings");
+i18n.setLang("zh-CN");
+i18n.apply();
+check("back to zh is key again", el.childNodes[0].data === "设置");
+i18n.setLang("en"); i18n.apply();
+check("en keeps padding", pad.childNodes[0].data === " Sessions ");
+i18n.setLang("zh-CN"); i18n.apply();
+check("zh restores padded key", pad.childNodes[0].data === " 会话 ");
+i18n.setLang("en"); i18n.apply();
+check("untranslated en keeps key", miss.childNodes[0].data === "未收录的键");
+i18n.setLang("zh-CN"); i18n.apply();
+check("untranslated zh keeps key", miss.childNodes[0].data === "未收录的键");
+check("lang cached to localStorage", store["lumina-i18n-lang"] === "zh-CN");
+process.exit(failed ? 1 : 0);
+"""
+
+
+def test_i18n_round_trip_between_languages():
+    r = subprocess.run(["node", "-e", _I18N_HARNESS, str(I18N_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout

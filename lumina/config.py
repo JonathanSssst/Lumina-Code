@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import re
+import shutil
 from functools import lru_cache
 from pathlib import Path
 
@@ -7,6 +11,63 @@ from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 MAX_REQUEST_TOKENS = 8192
+
+
+def user_data_dir() -> Path:
+    """User-level data directory, shared across all workspaces.
+
+    Used for WebView storage (localStorage: UI language cache, theme,
+    release-notes "last seen", sidebar state) and all workspace runtime data.
+    Defaults to %APPDATA%\\LuminaCode; the LUMINA_HOME environment variable
+    overrides it.
+    """
+    base = os.environ.get("LUMINA_HOME")
+    if base:
+        return Path(base)
+    return Path(os.environ.get("APPDATA", str(Path.home()))) / "LuminaCode"
+
+
+def _workspace_key(workspace: Path) -> str:
+    """Stable, filesystem-safe identifier for a workspace path."""
+    s = str(Path(workspace).resolve()).replace("\\", "/").rstrip("/")
+    key = re.sub(r"[^A-Za-z0-9._-]+", "_", s).strip("_")
+    if len(key) > 60:
+        key = key[:52] + "_" + hashlib.sha1(s.encode("utf-8")).hexdigest()[:8]
+    return key
+
+
+def workspace_data_dir(workspace: Path) -> Path:
+    """Per-workspace runtime data directory under the user data dir.
+
+    Holds logs, the session DB, undo snapshots, project memory, the workspace
+    MCP config and project skills, so workspaces stay clean (no .lumina folder).
+    """
+    return user_data_dir() / "workspaces" / _workspace_key(workspace)
+
+
+def migrate_legacy_workspace_data(workspace: Path) -> None:
+    """One-time move of a legacy ``<workspace>/.lumina`` folder into the user dir.
+
+    Idempotent: entries already moved (target exists) are skipped and the
+    source folder is removed once it is empty. Call before any new data is
+    written to the workspace data dir.
+    """
+    legacy = Path(workspace).resolve() / ".lumina"
+    if not legacy.is_dir():
+        return
+    dest = workspace_data_dir(workspace)
+    dest.mkdir(parents=True, exist_ok=True)
+    for entry in list(legacy.iterdir()):
+        target = dest / entry.name
+        if not target.exists():
+            try:
+                shutil.move(str(entry), str(target))
+            except OSError:
+                continue
+    try:
+        legacy.rmdir()
+    except OSError:
+        pass
 
 
 class Settings(BaseSettings):

@@ -14,7 +14,7 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 <div id="app">
 <aside id="sidebar">
   <div class="side-head">
-    <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏">
+    <button class="icon-btn" id="sideToggle" onclick="toggleSidebar()" title="展开 / 收起侧边栏" data-i18n-title="展开 / 收起侧边栏">
       <svg class="i-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
       <svg class="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg>
     </button>
@@ -22,43 +22,43 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
     <span class="side-brand-txt">LuminaCode</span>
   </div>
   <div class="side-section">
-    <div class="side-label">工作区</div>
+    <div class="side-label" data-i18n="工作区">工作区</div>
     <div class="side-ws">
-      <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区"></select>
-      <button class="icon-btn" onclick="openWsManager()" title="选择 / 管理工作区"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></button>
+      <select id="wsSel" onchange="switchWorkspace(this.value)" title="工作区" data-i18n-title="工作区"></select>
+      <button class="icon-btn" onclick="openWsManager()" title="选择 / 管理工作区" data-i18n-title="选择 / 管理工作区"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/></svg></button>
     </div>
   </div>
   <div class="side-section side-grow">
-    <div class="side-label">会话 <span class="cnt" id="sideCnt"></span></div>
+    <div class="side-label" data-i18n="会话">会话 <span class="cnt" id="sideCnt"></span></div>
     <div class="side-search" id="sessionSearchWrap">
       <svg class="side-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input id="sessionSearch" type="text" placeholder="搜索会话…"/>
+      <input id="sessionSearch" type="text" placeholder="搜索会话…" data-i18n-placeholder="搜索会话…"/>
     </div>
     <div id="searchResults" style="display:none"></div>
     <div id="sessionList"></div>
     <select id="sessions" style="display:none"></select>
   </div>
   <div class="side-section" id="fileTreeSec" style="display:none">
-    <div class="side-label">文件树 <span class="cnt" id="fileTreeCnt"></span></div>
+    <div class="side-label" data-i18n="文件树">文件树 <span class="cnt" id="fileTreeCnt"></span></div>
     <div id="fileTree"></div>
   </div>
   <div class="side-actions">
-    <button class="icon-btn" onclick="newSession()" title="新建会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
-    <button class="icon-btn" onclick="renameSession()" title="重命名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
-    <button class="icon-btn" onclick="exportSession()" title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
-    <button class="icon-btn danger" onclick="deleteSession()" title="删除会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></button>
+    <button class="icon-btn" onclick="newSession()" title="新建会话" data-i18n-title="新建会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <button class="icon-btn" onclick="renameSession()" title="重命名" data-i18n-title="重命名"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
+    <button class="icon-btn" onclick="exportSession()" title="导出 Markdown" data-i18n-title="导出 Markdown"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg></button>
+    <button class="icon-btn danger" onclick="deleteSession()" title="删除会话" data-i18n-title="删除会话"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg></button>
   </div>
   <div class="side-foot">
     <span id="tokStat" class="stat" style="display:none;"></span>
     <div class="side-foot-btns">
-      <label class="toggle"><input id="autoApprove" type="checkbox"/><span>自动批准</span></label>
+      <label class="toggle"><input id="autoApprove" type="checkbox"/><span data-i18n="自动批准">自动批准</span></label>
       <span class="foot-icns">
-        <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题">
+        <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="切换主题" data-i18n-title="切换主题">
           <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
           <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
         </button>
         <span class="icon-btn-wrap" id="settingsBtnWrap">
-          <button class="icon-btn" onclick="openSettings()" title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg><span class="upd-dot"></span></button>
+          <button class="icon-btn" onclick="openSettings()" title="设置" data-i18n-title="设置"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg><span class="upd-dot"></span><span class="cli-dot"></span></button>
         </span>
       </span>
     </div>
@@ -72,41 +72,60 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
   </aside>
   <div id="tocTip" class="toc-tip"></div>
 </div>
-<div id="editbar" class="editbar" style="display:none"><span>正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()">取消</button></div>
+<div id="editbar" class="editbar" style="display:none"><span data-i18n="正在编辑该消息，发送后将从此处重写对话">正在编辑该消息，发送后将从此处重写对话</span><button onclick="cancelEdit()" data-i18n="取消">取消</button></div>
 <div id="todobar" class="todobar" hidden></div>
 <div id="terminalbar" class="terminalbar" hidden>
   <div class="term-head">
-    <span id="termTitle" class="term-title">终端</span>
+    <span id="termTitle" class="term-title" data-i18n="终端">终端</span>
     <span class="term-spacer"></span>
     <span id="termStatus" class="term-status"></span>
-    <button class="icon-btn" onclick="closeTerminal()" title="关闭终端 (Ctrl+W)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    <button class="icon-btn" onclick="closeTerminal()" title="关闭终端 (Ctrl+W)" data-i18n-title="关闭终端 (Ctrl+W)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
   </div>
   <div id="termOut" class="term-out"></div>
   <div class="term-inline">
     <span class="term-prompt">❯</span>
-    <input id="termInput" autocomplete="off" spellcheck="false" placeholder="输入命令，Enter 运行"/>
+    <input id="termInput" autocomplete="off" spellcheck="false" placeholder="输入命令，Enter 运行" data-i18n-placeholder="输入命令，Enter 运行"/>
   </div>
 </div>
 <div id="inputbar"><div id="inputwrap">
   <div id="fileRefPop" class="fileref-pop" hidden></div>
-  <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus/>
-  <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送</button>
+  <div id="agentSelWrap" hidden title="自定义智能体" data-i18n-title="自定义智能体">
+    <select id="agentSel" aria-label="自定义智能体" data-i18n-aria="自定义智能体"></select>
+  </div>
+  <input id="input" placeholder="描述任务，例如：帮我修复失败的测试" autofocus data-i18n-placeholder="描述任务，例如：帮我修复失败的测试"/>
+  <button id="send" onclick="sendBtnClick()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg><span data-i18n="发送">发送</span></button>
 </div></div>
-<button id="usageRingBtn" onclick="toggleUsagePop()" title="会话用量" aria-label="会话用量">
+<button id="usageRingBtn" onclick="toggleUsagePop()" title="会话用量" aria-label="会话用量" data-i18n-title="会话用量" data-i18n-aria="会话用量">
   <svg class="usage-ring-svg" viewBox="0 0 44 44">
     <circle class="usage-ring-track" cx="22" cy="22" r="19"/>
     <circle class="usage-ring-bar" cx="22" cy="22" r="19"/>
   </svg>
   <span id="usageRingVal">–</span>
 </button>
+<button id="serverStatusBtn" onclick="toggleServerStatus()" title="服务器状态" aria-label="服务器状态" data-i18n-title="服务器状态" data-i18n-aria="服务器状态" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><path d="M6 6h.01M6 18h.01"/></svg>
+  <span class="status-dot"></span>
+</button>
+<div id="serverStatusPop" class="server-pop" hidden>
+  <div class="server-pop-head">
+    <span class="server-pop-title" data-i18n="服务器状态">服务器状态</span>
+    <span class="server-pop-head-btns">
+      <button class="icon-btn" onclick="refreshServerStatus()" title="检查状态" data-i18n-title="检查状态">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.4-6.3L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.4 6.3L3 16"/><path d="M3 21v-5h5"/></svg>
+      </button>
+      <button class="icon-btn" onclick="toggleServerStatus()" title="关闭" data-i18n-title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </span>
+  </div>
+  <div class="server-pop-body" id="serverStatusBody"></div>
+</div>
 <div id="usagePop" class="usage-pop" hidden>
   <div class="usage-pop-head">
-    <span class="usage-pop-title">会话用量</span>
+    <span class="usage-pop-title" data-i18n="会话用量">会话用量</span>
     <span class="usage-pop-head-btns">
-      <button class="icon-btn" onclick="toggleUsageTrend()" title="用量趋势">
+      <button class="icon-btn" onclick="toggleUsageTrend()" title="用量趋势" data-i18n-title="用量趋势">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg>
       </button>
-      <button class="icon-btn" onclick="toggleUsagePop()" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <button class="icon-btn" onclick="toggleUsagePop()" title="关闭" data-i18n-title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </span>
   </div>
   <div class="usage-pop-body" id="usagePopBody"></div>
@@ -116,64 +135,72 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
 </div>
 <div id="settingsOverlay" class="modal-overlay" onclick="if(event.target===this)closeSettings()">
   <div class="modal settings-modal">
-    <h3>设置</h3>
-    <p class="hint">偏好设置自动保存到本地，重启后仍会保留。</p>
+    <h3 data-i18n="设置">设置</h3>
+    <p class="hint" data-i18n="偏好设置自动保存到本地，重启后仍会保留。">偏好设置自动保存到本地，重启后仍会保留。</p>
     <div class="settings-shell">
       <div class="settings-nav">
-        <button class="snav active" data-pane="pane-desktop" onclick="switchSettingsTab(this)">桌面</button>
-        <button class="snav" data-pane="pane-mcp" onclick="switchSettingsTab(this)">MCP</button>
-        <button class="snav" data-pane="pane-skills" onclick="switchSettingsTab(this)">技能</button>
-        <button class="snav" data-pane="pane-servers" onclick="switchSettingsTab(this)">服务器</button>
-        <button class="snav" data-pane="pane-models" onclick="switchSettingsTab(this)">模型</button>
+        <button class="snav active" data-pane="pane-desktop" onclick="switchSettingsTab(this)" data-i18n="桌面">桌面</button>
+        <button class="snav" data-pane="pane-mcp" onclick="switchSettingsTab(this)" data-i18n="MCP">MCP</button>
+        <button class="snav" data-pane="pane-skills" onclick="switchSettingsTab(this)" data-i18n="技能">技能</button>
+        <button class="snav" data-pane="pane-servers" onclick="switchSettingsTab(this)" data-i18n="服务器">服务器</button>
+        <button class="snav" data-pane="pane-models" onclick="switchSettingsTab(this)" data-i18n="模型">模型</button>
       </div>
       <div class="settings-body">
         <div class="pane active" id="pane-desktop">
           <div class="sec">
-            <h4>通用</h4>
+            <h4 data-i18n="通用">通用</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">语言</div><div class="set-desc">更改 LuminaCode 的显示语言 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="语言">语言</div><div class="set-desc" data-i18n="更改 LuminaCode 的显示语言 *">更改 LuminaCode 的显示语言 *</div></div>
               <div class="set-ctl"><select id="set_language">
-                <option value="zh-CN">简体中文</option><option value="zh-TW">繁体中文</option><option value="en">English</option>
+                <option value="zh-CN" data-i18n="简体中文">简体中文</option><option value="en" data-i18n="English">English</option>
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">自动批准</div><div class="set-desc">权限请求将被自动批准</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="自动批准">自动批准</div><div class="set-desc" data-i18n="权限请求将被自动批准">权限请求将被自动批准</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_auto_approve" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">终端 shell</div><div class="set-desc">选择终端使用的 shell。兼容的 shell 也会用于智能体工具调用 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="终端 shell">终端 shell</div><div class="set-desc" data-i18n="选择终端使用的 shell。兼容的 shell 也会用于智能体工具调用 *">选择终端使用的 shell。兼容的 shell 也会用于智能体工具调用 *</div></div>
               <div class="set-ctl"><select id="set_shell">
-                <option value="auto">自动（默认）</option><option value="powershell">powershell</option>
+                <option value="auto" data-i18n="自动（默认）">自动（默认）</option><option value="powershell">powershell</option>
                 <option value="bash">bash</option><option value="cmd">cmd</option>
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">显示推理摘要</div><div class="set-desc">在时间线中显示模型推理摘要，即思考过程</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="显示推理摘要">显示推理摘要</div><div class="set-desc" data-i18n="在时间线中显示模型推理摘要，即思考过程">在时间线中显示模型推理摘要，即思考过程</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_show_reasoning" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">展开 shell 工具部分</div><div class="set-desc">在时间线中展开 shell 工具部分</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="展开 shell 工具部分">展开 shell 工具部分</div><div class="set-desc" data-i18n="在时间线中展开 shell 工具部分">在时间线中展开 shell 工具部分</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_expand_shell" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">展开编辑工具部分</div><div class="set-desc">在时间线中展开 write_file、edit_file 等工具部分</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="展开编辑工具部分">展开编辑工具部分</div><div class="set-desc" data-i18n="在时间线中展开 write_file、edit_file 等工具部分">在时间线中展开 write_file、edit_file 等工具部分</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_expand_edit" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">右键菜单快捷入口</div><div class="set-desc">在文件夹右键菜单添加「在此打开 lumina chat」与「无限模式」入口</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="右键菜单快捷入口">右键菜单快捷入口</div><div class="set-desc" data-i18n="在文件夹右键菜单添加「在此打开 lumina chat」与「无限模式」入口（需先开启命令行入口）">在文件夹右键菜单添加「在此打开 lumina chat」与「无限模式」入口（需先开启命令行入口）</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_shell_menu" type="checkbox"/><span></span></label></div>
+            </div>
+            <div class="set-row">
+              <div class="set-info"><div class="set-label" data-i18n="命令行入口">命令行入口</div><div class="set-desc" id="cliStatusDesc" data-i18n="启动时检测命令行 lumina，不可用时在设置按钮上显示红点提示">启动时检测命令行 lumina，不可用时在设置按钮上显示红点提示</div></div>
+              <div class="set-ctl">
+                <button id="cliInstallBtn" onclick="installCli()" data-i18n="安装命令行">安装命令行</button>
+                <button id="cliRemoveBtn" onclick="removeCli()" style="display:none" data-i18n="移除">移除</button>
+                <label class="toggle"><input id="set_install_cli" type="checkbox"/><span></span></label>
+              </div>
             </div>
           </div>
           <div class="sec">
-            <h4>外观</h4>
+            <h4 data-i18n="外观">外观</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">配色方案</div><div class="set-desc">选择跟随系统、浅色或深色主题</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="配色方案">配色方案</div><div class="set-desc" data-i18n="选择跟随系统、浅色或深色主题">选择跟随系统、浅色或深色主题</div></div>
               <div class="set-ctl"><select id="set_color_scheme">
-                <option value="system">系统</option><option value="light">浅色</option><option value="dark">深色</option>
+                <option value="system" data-i18n="系统">系统</option><option value="light" data-i18n="浅色">浅色</option><option value="dark" data-i18n="深色">深色</option>
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">主题</div><div class="set-desc">自定义 LuminaCode 的主题</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="主题">主题</div><div class="set-desc" data-i18n="自定义 LuminaCode 的主题">自定义 LuminaCode 的主题</div></div>
               <div class="set-ctl"><select id="set_theme">
                 <option value="system">system</option><option value="tokyonight">tokyonight</option>
                 <option value="everforest">everforest</option><option value="ayu">ayu</option>
@@ -183,254 +210,273 @@ try { document.documentElement.setAttribute("data-theme", localStorage.getItem("
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">界面字体</div><div class="set-desc">自定义整个界面使用的字体（留空为 System Sans）</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="界面字体">界面字体</div><div class="set-desc" data-i18n="自定义整个界面使用的字体（留空为 System Sans）">自定义整个界面使用的字体（留空为 System Sans）</div></div>
               <div class="set-ctl"><input id="set_ui_font" type="text" placeholder="System Sans"/></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">代码字体</div><div class="set-desc">自定义代码块使用的字体（留空为 System Sans）</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="代码字体">代码字体</div><div class="set-desc" data-i18n="自定义代码块使用的字体（留空为 System Sans）">自定义代码块使用的字体（留空为 System Sans）</div></div>
               <div class="set-ctl"><input id="set_code_font" type="text" placeholder="System Sans"/></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">终端字体</div><div class="set-desc">自定义终端使用的字体（留空为 JetBrainsMono Nerd Font Mono）*</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="终端字体">终端字体</div><div class="set-desc" data-i18n="自定义终端使用的字体（留空为 JetBrainsMono Nerd Font Mono）*">自定义终端使用的字体（留空为 JetBrainsMono Nerd Font Mono）*</div></div>
               <div class="set-ctl"><input id="set_term_font" type="text" placeholder="JetBrainsMono Nerd Font Mono"/></div>
             </div>
           </div>
           <div class="sec">
-            <h4>系统通知</h4>
+            <h4 data-i18n="系统通知">系统通知</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时显示系统通知</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="智能体">智能体</div><div class="set-desc" data-i18n="当智能体完成或需要注意时显示系统通知">当智能体完成或需要注意时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_agent" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时显示系统通知</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="权限">权限</div><div class="set-desc" data-i18n="当需要权限时显示系统通知">当需要权限时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_permission" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时显示系统通知</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="错误">错误</div><div class="set-desc" data-i18n="发生错误时显示系统通知">发生错误时显示系统通知</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_notif_error" type="checkbox"/><span></span></label></div>
             </div>
           </div>
           <div class="sec">
-            <h4>音效</h4>
+            <h4 data-i18n="音效">音效</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">智能体</div><div class="set-desc">当智能体完成或需要注意时播放声音 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="智能体">智能体</div><div class="set-desc" data-i18n="当智能体完成或需要注意时播放声音 *">当智能体完成或需要注意时播放声音 *</div></div>
               <div class="set-ctl"><select id="set_sound_agent">
-                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+                <option value="none" data-i18n="无">无</option><option value="soft" data-i18n="柔和">柔和</option><option value="chime" data-i18n="清脆">清脆</option><option value="error" data-i18n="错误音">错误音</option>
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">权限</div><div class="set-desc">当需要权限时播放声音</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="权限">权限</div><div class="set-desc" data-i18n="当需要权限时播放声音">当需要权限时播放声音</div></div>
               <div class="set-ctl"><select id="set_sound_permission">
-                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+                <option value="none" data-i18n="无">无</option><option value="soft" data-i18n="柔和">柔和</option><option value="chime" data-i18n="清脆">清脆</option><option value="error" data-i18n="错误音">错误音</option>
               </select></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">错误</div><div class="set-desc">发生错误时播放声音</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="错误">错误</div><div class="set-desc" data-i18n="发生错误时播放声音">发生错误时播放声音</div></div>
               <div class="set-ctl"><select id="set_sound_error">
-                <option value="none">无</option><option value="soft">柔和</option><option value="chime">清脆</option><option value="error">错误音</option>
+                <option value="none" data-i18n="无">无</option><option value="soft" data-i18n="柔和">柔和</option><option value="chime" data-i18n="清脆">清脆</option><option value="error" data-i18n="错误音">错误音</option>
               </select></div>
             </div>
           </div>
           <div class="sec">
-            <h4>更新</h4>
+            <h4 data-i18n="更新">更新</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">发行说明</div><div class="set-desc">更新后显示“新功能”弹窗 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="发行说明">发行说明</div><div class="set-desc" data-i18n="更新后显示“新功能”弹窗 *">更新后显示“新功能”弹窗 *</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_release_notes" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">检查更新</div><div class="set-desc">检查 GitHub 上的最新版本，发现新版本时可一键跳转下载</div></div>
-              <div class="set-ctl"><button id="checkUpdateBtn" onclick="checkUpdate()">检查更新</button><span id="updateNote" class="set-desc"></span></div>
+              <div class="set-info"><div class="set-label" data-i18n="检查更新">检查更新</div><div class="set-desc" data-i18n="检查 GitHub 上的最新版本，发现新版本时可一键跳转下载">检查 GitHub 上的最新版本，发现新版本时可一键跳转下载</div></div>
+              <div class="set-ctl"><button id="checkUpdateBtn" onclick="checkUpdate()" data-i18n="检查更新">检查更新</button><span id="updateNote" class="set-desc"></span></div>
             </div>
           </div>
           <div class="sec">
-            <h4>高级</h4>
+            <h4 data-i18n="高级">高级</h4>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">文件树</div><div class="set-desc">在侧栏显示当前工作区的文件树面板</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="文件树">文件树</div><div class="set-desc" data-i18n="在侧栏显示当前工作区的文件树面板">在侧栏显示当前工作区的文件树面板</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_file_tree" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">命令面板</div><div class="set-desc">按 Ctrl+K 打开命令面板</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="命令面板">命令面板</div><div class="set-desc" data-i18n="按 Ctrl+K 打开命令面板">按 Ctrl+K 打开命令面板</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_command_palette" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">服务器状态</div><div class="set-desc">在标题栏中显示服务器状态按钮 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="服务器状态">服务器状态</div><div class="set-desc" data-i18n="在标题栏中显示服务器状态按钮 *">在标题栏中显示服务器状态按钮 *</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_server_status" type="checkbox"/><span></span></label></div>
             </div>
             <div class="set-row">
-              <div class="set-info"><div class="set-label">自定义智能体</div><div class="set-desc">在输入框中显示智能体选择器 *</div></div>
+              <div class="set-info"><div class="set-label" data-i18n="自定义智能体">自定义智能体</div><div class="set-desc" data-i18n="在输入框中显示智能体选择器 *">在输入框中显示智能体选择器 *</div></div>
               <div class="set-ctl"><label class="toggle"><input id="set_custom_agents" type="checkbox"/><span></span></label></div>
             </div>
           </div>
           <div class="sec">
-            <h4>快捷键</h4>
-            <div class="set-row"><div class="set-info"><div class="set-label">打开设置</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">,</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">返回</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">[</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">前进</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">]</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">搜索项目</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">O</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">新建会话</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">T</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">关闭终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">W</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">切换终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">`</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">新建终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">T</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">Prompt</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">E</span></div></div>
-            <div class="set-row"><div class="set-info"><div class="set-label">Shell</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">X</span></div></div>
+            <h4 data-i18n="快捷键">快捷键</h4>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="打开设置">打开设置</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">,</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="搜索项目">搜索项目</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">O</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="新建会话">新建会话</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">T</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="关闭终端">关闭终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">W</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="切换终端">切换终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">`</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="新建终端">新建终端</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Alt</span><span class="kbd">T</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="Prompt">Prompt</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">E</span></div></div>
+            <div class="set-row"><div class="set-info"><div class="set-label" data-i18n="Shell">Shell</div></div><div class="set-ctl"><span class="kbd">Ctrl</span><span class="kbd">Shift</span><span class="kbd">X</span></div></div>
           </div>
         </div>
         <div class="pane" id="pane-mcp">
           <div class="sec">
-            <h4>MCP 服务器</h4>
-            <p class="hint" style="margin-bottom:12px">注册外部工具服务器（stdio）。配置写入工作区 <code>.lumina/lumina.mcp.json</code>，重启/新会话后生效。</p>
+            <h4 data-i18n="MCP 服务器">MCP 服务器</h4>
+            <p class="hint" style="margin-bottom:12px" data-i18n-html="注册外部工具服务器（stdio）。配置写入应用数据目录，重启/新会话后生效。">注册外部工具服务器（stdio）。配置写入应用数据目录，重启/新会话后生效。</p>
             <div id="mcpStatus" class="hint" style="margin-bottom:12px"></div>
             <div class="set-ctl" style="justify-content:flex-end; margin-bottom:12px">
-              <button onclick="openMcpDialog()">添加服务器</button>
+              <button onclick="openMcpDialog()" data-i18n="添加服务器">添加服务器</button>
             </div>
             <div class="set-list" id="mcpList"></div>
           </div>
         </div>
         <div class="pane" id="pane-skills">
           <div class="sec">
-            <h4>技能</h4>
-            <p class="hint" style="margin-bottom:12px">技能位于项目 <code>.lumina/skills/&lt;name&gt;/skill.md</code> 或 <code>~/.config/lumina/skills</code>。当输入命中触发词时自动注入提示。</p>
+            <h4 data-i18n="技能">技能</h4>
+            <p class="hint" style="margin-bottom:12px" data-i18n-html="技能位于应用数据目录对应工作区的 <code>skills</code> 子目录，或全局 <code>~/.config/lumina/skills</code>。当输入命中触发词时自动注入提示。">技能位于应用数据目录对应工作区的 <code>skills</code> 子目录，或全局 <code>~/.config/lumina/skills</code>。当输入命中触发词时自动注入提示。</p>
             <div class="set-list" id="skillList"></div>
           </div>
         </div>
         <div class="pane" id="pane-servers">
           <div class="sec">
-            <h4>服务器列表</h4>
-            <p class="hint" style="margin-bottom:12px">连接远程 LuminaCode 服务器。*：当前仅保存配置，尚未实现远程连接。</p>
+            <h4 data-i18n="服务器列表">服务器列表</h4>
+            <p class="hint" style="margin-bottom:12px" data-i18n="连接远程 LuminaCode 服务器。*：当前仅保存配置，尚未实现远程连接。">连接远程 LuminaCode 服务器。*：当前仅保存配置，尚未实现远程连接。</p>
             <div class="set-ctl" style="justify-content:flex-end; margin-bottom:12px">
-              <button onclick="openServerDialog(-1)">添加服务器</button>
+              <button onclick="openServerDialog(-1)" data-i18n="添加服务器">添加服务器</button>
             </div>
             <div class="set-list" id="serverList"></div>
           </div>
         </div>
         <div class="pane" id="pane-models">
           <div class="sec">
-            <h4>模型列表</h4>
-            <p class="hint" style="margin-bottom:12px">默认使用 DeepSeek V4 Flash。可切换到任意 OpenAI 兼容服务（OpenAI / Ollama / vLLM …）。初次使用请点击 ··· 配置 API Key。</p>
+            <h4 data-i18n="模型列表">模型列表</h4>
+            <p class="hint" style="margin-bottom:12px" data-i18n="默认使用 DeepSeek V4 Flash。可切换到任意 OpenAI 兼容服务（OpenAI / Ollama / vLLM …）。初次使用请点击 ··· 配置 API Key。">默认使用 DeepSeek V4 Flash。可切换到任意 OpenAI 兼容服务（OpenAI / Ollama / vLLM …）。初次使用请点击 ··· 配置 API Key。</p>
             <div class="set-list" id="modelList"></div>
           </div>
         </div>
       </div>
     </div>
     <div class="actions">
-      <button class="save" onclick="closeSettings()">关闭</button>
+      <button class="save" onclick="closeSettings()" data-i18n="关闭">关闭</button>
     </div>
     <div id="saveNote" class="save-note"></div>
   </div>
 </div>
 <div id="serverOverlay" class="modal-overlay" onclick="if(event.target===this)closeServerDialog()">
   <div class="modal" style="max-width:460px">
-    <h3 id="serverDialogTitle">添加服务器</h3>
-    <p class="hint">填写要连接的服务器的信息。密码会被保存到本地状态文件。</p>
-    <div class="field"><label>服务器 URL</label><input id="srv_url" type="text" placeholder="http://localhost:1200"/></div>
-    <div class="field"><label>服务器名称（可选）</label><input id="srv_name" type="text" placeholder="Localhost"/></div>
+    <h3 id="serverDialogTitle" data-i18n="添加服务器">添加服务器</h3>
+    <p class="hint" data-i18n="填写要连接的服务器的信息。密码会被保存到本地状态文件。">填写要连接的服务器的信息。密码会被保存到本地状态文件。</p>
+    <div class="field"><label data-i18n="服务器 URL">服务器 URL</label><input id="srv_url" type="text" placeholder="http://localhost:1200"/></div>
+    <div class="field"><label data-i18n="服务器名称（可选）">服务器名称（可选）</label><input id="srv_name" type="text" placeholder="Localhost"/></div>
     <div class="row">
-      <div class="field"><label>用户名（可选）</label><input id="srv_user" type="text" value="lumina-code"/></div>
-      <div class="field"><label>密码（可选）</label><input id="srv_password" type="password" placeholder="密码"/></div>
+      <div class="field"><label data-i18n="用户名（可选）">用户名（可选）</label><input id="srv_user" type="text" value="lumina-code"/></div>
+      <div class="field"><label data-i18n="密码（可选）">密码（可选）</label><input id="srv_password" type="password" placeholder="密码" data-i18n-placeholder="密码"/></div>
     </div>
     <div class="actions">
-      <button onclick="closeServerDialog()">取消</button>
-      <button class="save" onclick="saveServerDialog()">保存</button>
+      <button onclick="closeServerDialog()" data-i18n="取消">取消</button>
+      <button class="save" onclick="saveServerDialog()" data-i18n="保存">保存</button>
     </div>
     <div id="srvNote" class="save-note"></div>
   </div>
 </div>
 <div id="modelOverlay" class="modal-overlay" onclick="if(event.target===this)closeModelDialog()">
   <div class="modal">
-    <h3>配置模型</h3>
-    <p class="hint">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
-    <div class="field"><label>提供商 (LUMINA_LLM_PROVIDER)</label>
+    <h3 data-i18n="配置模型">配置模型</h3>
+    <p class="hint" data-i18n-html="修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。">修改将写入工作区 <code>.env</code> 文件。保存后新会话生效；运行中的任务不受影响。</p>
+    <div class="field"><label data-i18n="提供商 (LUMINA_LLM_PROVIDER)">提供商 (LUMINA_LLM_PROVIDER)</label>
       <select id="cfg_LUMINA_LLM_PROVIDER" style="width:100%">
-        <option value="auto">auto — 有 OPENAI_API_KEY 用 OpenAI，否则 DeepSeek</option>
+        <option value="auto" data-i18n="auto — 有 OPENAI_API_KEY 用 OpenAI，否则 DeepSeek">auto — 有 OPENAI_API_KEY 用 OpenAI，否则 DeepSeek</option>
         <option value="deepseek">deepseek</option>
-        <option value="openai">openai（任意 OpenAI 兼容服务：OpenAI / Ollama / vLLM …）</option>
+        <option value="openai" data-i18n="openai（任意 OpenAI 兼容服务：OpenAI / Ollama / vLLM …）">openai（任意 OpenAI 兼容服务：OpenAI / Ollama / vLLM …）</option>
       </select>
     </div>
-    <div class="field"><label>API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
-    <div id="apiKeyHint" class="config-hint" style="display:none">未配置 API Key — 请在上方填写后保存</div>
+    <div class="field"><label data-i18n="API Key">API Key</label><input id="cfg_DEEPSEEK_API_KEY" type="password" autocomplete="off"/></div>
+    <div id="apiKeyHint" class="config-hint" style="display:none" data-i18n="未配置 API Key — 请在上方填写后保存">未配置 API Key — 请在上方填写后保存</div>
     <details style="margin-bottom:12px;border:1px solid var(--border);border-radius:10px;padding:10px 14px">
-      <summary style="cursor:pointer;font-size:12.5px;color:var(--muted)">高级参数</summary>
+      <summary style="cursor:pointer;font-size:12.5px;color:var(--muted)" data-i18n="高级参数">高级参数</summary>
       <div style="margin-top:12px">
         <div class="field"><label>Base URL (DEEPSEEK_BASE_URL)</label><input id="cfg_DEEPSEEK_BASE_URL" type="text"/></div>
         <div class="row">
-          <div class="field"><label>模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
-          <div class="field"><label>规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
+          <div class="field"><label data-i18n="模型 (DEEPSEEK_MODEL)">模型 (DEEPSEEK_MODEL)</label><input id="cfg_DEEPSEEK_MODEL" type="text"/></div>
+          <div class="field"><label data-i18n="规划模型 (DEEPSEEK_PLANNER_MODEL)">规划模型 (DEEPSEEK_PLANNER_MODEL)</label><input id="cfg_DEEPSEEK_PLANNER_MODEL" type="text"/></div>
         </div>
         <div class="row">
           <div class="field"><label>OpenAI API Key (OPENAI_API_KEY)</label><input id="cfg_OPENAI_API_KEY" type="password" autocomplete="off"/></div>
           <div class="field"><label>OpenAI Base URL (OPENAI_BASE_URL)</label><input id="cfg_OPENAI_BASE_URL" type="text"/></div>
         </div>
         <div class="row">
-          <div class="field"><label>OpenAI 模型 (OPENAI_MODEL)</label><input id="cfg_OPENAI_MODEL" type="text"/></div>
-          <div class="field"><label>OpenAI 规划模型 (OPENAI_PLANNER_MODEL)</label><input id="cfg_OPENAI_PLANNER_MODEL" type="text"/></div>
+          <div class="field"><label data-i18n="OpenAI 模型 (OPENAI_MODEL)">OpenAI 模型 (OPENAI_MODEL)</label><input id="cfg_OPENAI_MODEL" type="text"/></div>
+          <div class="field"><label data-i18n="OpenAI 规划模型 (OPENAI_PLANNER_MODEL)">OpenAI 规划模型 (OPENAI_PLANNER_MODEL)</label><input id="cfg_OPENAI_PLANNER_MODEL" type="text"/></div>
         </div>
         <div class="row">
-          <div class="field"><label>单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
-          <div class="field"><label>任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
+          <div class="field"><label data-i18n="单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)">单次请求输出上限 (LUMINA_MAX_TOKENS ≤8192)</label><input id="cfg_LUMINA_MAX_TOKENS" type="number"/></div>
+          <div class="field"><label data-i18n="任务累计预算 (LUMINA_TOKEN_BUDGET)">任务累计预算 (LUMINA_TOKEN_BUDGET)</label><input id="cfg_LUMINA_TOKEN_BUDGET" type="number"/></div>
         </div>
-        <label class="cb"><input id="cfg_UNLIMITED_MODE" type="checkbox"/>无限模式：不限制迭代轮数与 token 预算 (0)</label>
+        <label class="cb"><input id="cfg_UNLIMITED_MODE" type="checkbox"/><span data-i18n="无限模式：不限制迭代轮数与 token 预算 (0)">无限模式：不限制迭代轮数与 token 预算 (0)</span></label>
         <div class="row">
-          <div class="field"><label>最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
-          <div class="field"><label>温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>
+          <div class="field"><label data-i18n="最大迭代 (LUMINA_MAX_ITERATIONS)">最大迭代 (LUMINA_MAX_ITERATIONS)</label><input id="cfg_LUMINA_MAX_ITERATIONS" type="number"/></div>
+          <div class="field"><label data-i18n="温度 (LUMINA_TEMPERATURE)">温度 (LUMINA_TEMPERATURE)</label><input id="cfg_LUMINA_TEMPERATURE" type="number" step="0.1"/></div>
         </div>
-        <label class="cb"><input id="cfg_LUMINA_ENABLE_PLANNER" type="checkbox"/>启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)</label>
-        <label class="cb"><input id="cfg_LUMINA_COMPRESSION" type="checkbox"/>上下文压缩 (LUMINA_COMPRESSION)</label>
-        <label class="cb"><input id="cfg_LUMINA_SELF_REVIEW" type="checkbox"/>完成时自我审查 (LUMINA_SELF_REVIEW)</label>
-        <label class="cb"><input id="cfg_LUMINA_TDD" type="checkbox"/>TDD 模式：先写测试再实现 (LUMINA_TDD)</label>
-        <label class="cb"><input id="cfg_LUMINA_PROJECT_MEMORY" type="checkbox"/>项目记忆：用 AGENTS.md 记录约定 (LUMINA_PROJECT_MEMORY)</label>
+        <label class="cb"><input id="cfg_LUMINA_ENABLE_PLANNER" type="checkbox"/><span data-i18n="启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)">启用 Reasoner 规划 (LUMINA_ENABLE_PLANNER)</span></label>
+        <label class="cb"><input id="cfg_LUMINA_COMPRESSION" type="checkbox"/><span data-i18n="上下文压缩 (LUMINA_COMPRESSION)">上下文压缩 (LUMINA_COMPRESSION)</span></label>
+        <label class="cb"><input id="cfg_LUMINA_SELF_REVIEW" type="checkbox"/><span data-i18n="完成时自我审查 (LUMINA_SELF_REVIEW)">完成时自我审查 (LUMINA_SELF_REVIEW)</span></label>
+        <label class="cb"><input id="cfg_LUMINA_TDD" type="checkbox"/><span data-i18n="TDD 模式：先写测试再实现 (LUMINA_TDD)">TDD 模式：先写测试再实现 (LUMINA_TDD)</span></label>
+        <label class="cb"><input id="cfg_LUMINA_PROJECT_MEMORY" type="checkbox"/><span data-i18n="项目记忆：用 AGENTS.md 记录约定 (LUMINA_PROJECT_MEMORY)">项目记忆：用 AGENTS.md 记录约定 (LUMINA_PROJECT_MEMORY)</span></label>
       </div>
     </details>
     <div class="actions">
-      <button onclick="closeModelDialog()">取消</button>
-      <button class="save" onclick="saveModelConfig()">保存</button>
+      <button onclick="closeModelDialog()" data-i18n="取消">取消</button>
+      <button class="save" onclick="saveModelConfig()" data-i18n="保存">保存</button>
     </div>
     <div id="modelNote" class="save-note"></div>
   </div>
 </div>
 <div id="wsOverlay" class="modal-overlay" onclick="if(event.target===this)closeWsManager()">
   <div class="modal">
-    <h3>选择工作区</h3>
-    <p class="hint">切换要使用的项目目录。添加的工作区会保存到 <code>LUMINA_WORKSPACES</code>，下次启动仍可选用。</p>
+    <h3 data-i18n="选择工作区">选择工作区</h3>
+    <p class="hint" data-i18n-html="切换要使用的项目目录。添加的工作区会保存到 <code>LUMINA_WORKSPACES</code>，下次启动仍可选用。">切换要使用的项目目录。添加的工作区会保存到 <code>LUMINA_WORKSPACES</code>，下次启动仍可选用。</p>
     <div id="wsList"></div>
     <div class="field">
-      <label>添加工作区</label>
+      <label data-i18n="添加工作区">添加工作区</label>
       <div class="row">
-        <input id="wsPathInput" type="text" placeholder="输入项目目录的绝对路径"/>
-        <button onclick="browseWsFolder()" style="flex:none" title="选择文件夹">浏览…</button>
+        <input id="wsPathInput" type="text" placeholder="输入项目目录的绝对路径" data-i18n-placeholder="输入项目目录的绝对路径"/>
+        <button onclick="browseWsFolder()" style="flex:none" title="选择文件夹" data-i18n-title="选择文件夹" data-i18n="浏览…">浏览…</button>
       </div>
     </div>
     <div class="actions">
-      <button onclick="closeWsManager()">关闭</button>
-      <button class="save" onclick="addWs()">添加</button>
+      <button onclick="closeWsManager()" data-i18n="关闭">关闭</button>
+      <button class="save" onclick="addWs()" data-i18n="添加">添加</button>
     </div>
     <div id="wsNote" class="save-note"></div>
   </div>
 </div>
 <div id="mcpOverlay" class="modal-overlay" onclick="if(event.target===this)closeMcpDialog()">
   <div class="modal" style="max-width:480px">
-    <h3 id="mcpDialogTitle">添加 MCP 服务器</h3>
-    <p class="hint">服务器通过 stdio 启动。命令通常为 <code>python</code> / <code>npx</code>，参数如 <code>server.py</code>。</p>
-    <div class="field"><label>名称</label><input id="mcp_name" type="text" placeholder="filesystem"/></div>
-    <div class="field"><label>命令</label><input id="mcp_command" type="text" placeholder="python"/></div>
-    <div class="field"><label>参数（逗号分隔）</label><input id="mcp_args" type="text" placeholder="/path/to/server.py"/></div>
-    <div class="field"><label>环境变量（可选，K=V 每行一个）</label><textarea id="mcp_env" rows="3" placeholder="KEY=value"></textarea></div>
+    <h3 id="mcpDialogTitle" data-i18n="添加 MCP 服务器">添加 MCP 服务器</h3>
+    <p class="hint" data-i18n-html="服务器通过 stdio 启动。命令通常为 <code>python</code> / <code>npx</code>，参数如 <code>server.py</code>。">服务器通过 stdio 启动。命令通常为 <code>python</code> / <code>npx</code>，参数如 <code>server.py</code>。</p>
+    <div class="field"><label data-i18n="名称">名称</label><input id="mcp_name" type="text" placeholder="filesystem"/></div>
+    <div class="field"><label data-i18n="命令">命令</label><input id="mcp_command" type="text" placeholder="python"/></div>
+    <div class="field"><label data-i18n="参数（逗号分隔）">参数（逗号分隔）</label><input id="mcp_args" type="text" placeholder="/path/to/server.py"/></div>
+    <div class="field"><label data-i18n="环境变量（可选，K=V 每行一个）">环境变量（可选，K=V 每行一个）</label><textarea id="mcp_env" rows="3" placeholder="KEY=value"></textarea></div>
     <div class="actions">
-      <button onclick="closeMcpDialog()">取消</button>
-      <button class="save" onclick="saveMcpDialog()">保存</button>
+      <button onclick="closeMcpDialog()" data-i18n="取消">取消</button>
+      <button class="save" onclick="saveMcpDialog()" data-i18n="保存">保存</button>
     </div>
     <div id="mcpNote" class="save-note"></div>
+  </div>
+</div>
+<div id="cliOverlay" class="modal-overlay" onclick="if(event.target===this)closeCliDialog()">
+  <div class="modal" style="max-width:480px">
+    <h3 data-i18n="启用命令行 lumina">启用命令行 lumina</h3>
+    <p class="hint" data-i18n-html="未检测到命令行 <code>lumina</code>。添加后即可在终端中使用 <code>lumina chat</code>、<code>lumina run &quot;…&quot;</code> 等指令，文件夹右键菜单也能直接使用。">未检测到命令行 <code>lumina</code>。添加后即可在终端中使用 <code>lumina chat</code>、<code>lumina run "…"</code> 等指令，文件夹右键菜单也能直接使用。</p>
+    <div class="actions">
+      <button onclick="closeCliDialog()" data-i18n="暂时不用">暂时不用</button>
+      <button class="save" onclick="installCliFromDialog()" data-i18n="添加命令行功能">添加命令行功能</button>
+    </div>
+    <div id="cliNote" class="save-note"></div>
+  </div>
+</div>
+<div id="releaseOverlay" class="modal-overlay" onclick="if(event.target===this)closeReleaseNotes()">
+  <div class="modal">
+    <h3 data-i18n="新功能">新功能</h3>
+    <div class="release-body" id="releaseBody"></div>
+    <div class="actions">
+      <button class="save" onclick="closeReleaseNotes()" data-i18n="继续使用">继续使用</button>
+    </div>
   </div>
 </div>
 <div id="paletteOverlay" class="palette-overlay" hidden>
   <div class="palette-box">
     <div class="palette-input-wrap">
       <svg class="palette-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input id="paletteInput" type="text" autocomplete="off" spellcheck="false" placeholder="输入命令…"/>
+      <input id="paletteInput" type="text" autocomplete="off" spellcheck="false" placeholder="输入命令…" data-i18n-placeholder="输入命令…"/>
     </div>
     <div id="paletteList"></div>
-    <div class="palette-foot">↑↓ 选择 · Enter 执行 · Esc 关闭</div>
+    <div class="palette-foot" data-i18n="↑↓ 选择 · Enter 执行 · Esc 关闭">↑↓ 选择 · Enter 执行 · Esc 关闭</div>
   </div>
 </div>
+<script src="/static/i18n.js"></script>
 <script src="/static/app.js"></script>
 </body>
 </html>

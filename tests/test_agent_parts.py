@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lumina.agent.budget import TokenBudget
+from lumina.config import workspace_data_dir
 from lumina.context.project import ProjectScanner
 from lumina.factory import build_registry
 from lumina.skills.loader import SkillLoader
@@ -49,7 +50,7 @@ def test_project_scanner_detects_structure(workspace):
 
 
 def test_skill_loader_matches_triggers(tmp_path):
-    skill_dir = tmp_path / ".lumina" / "skills" / "bug-fix"
+    skill_dir = workspace_data_dir(tmp_path) / "skills" / "bug-fix"
     skill_dir.mkdir(parents=True)
     (skill_dir / "skill.md").write_text(
         "---\nname: bug-fix\ndescription: bug fixing workflow\ntrigger: 修复, fix\n---\n"

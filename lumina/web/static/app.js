@@ -19,6 +19,14 @@ let inputHistory = [];
 let histIndex = -1;
 let tokenUsed = 0;
 
+/* ---------- i18n ---------- */
+function t(s){ return LUMINA_I18N.t(s); }
+function tpl(s, args){ return LUMINA_I18N.tpl(s, args); }
+function applyI18n(){
+  LUMINA_I18N.setLang(settings && settings.language ? settings.language : "zh-CN");
+  LUMINA_I18N.apply();
+}
+
 function connectWS(path){
   if (ws) { ws.onclose = null; ws.close(); }
   activeWorkspace = path || "";
@@ -37,11 +45,11 @@ function setBusy(b){
   if (b) {
     sendBtn.dataset.mode = "stop";
     sendBtn.classList.add("stopping");
-    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>停止';
+    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>' + t("停止");
   } else {
     sendBtn.dataset.mode = "send";
     sendBtn.classList.remove("stopping");
-    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>发送';
+    sendBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>' + t("发送");
   }
 }
 function sendBtnClick(){
@@ -111,21 +119,21 @@ function toggleUsageTrend(){
 function renderUsageTrend(){
   const chart = document.getElementById("usageTrend");
   if (!chart) return;
-  chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">加载趋势…</div>';
+  chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">' + t("加载趋势…") + '</div>';
   fetch("/api/usage/trend?workspace=" + encodeURIComponent(activeWorkspace))
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
       const pts = (data.points || []).slice(0, 30);
       chart.innerHTML = "";
       if (!pts.length) {
-        chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">暂无用量数据</div>';
+        chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">' + t("暂无用量数据") + '</div>';
         return;
       }
       const max = Math.max(...pts.map(p => p.total_tokens), 1);
       pts.forEach(p => {
         const col = document.createElement("div");
         col.className = "trend-col";
-        col.title = (p.title || "会话 #" + p.session_id) + " · " + fmtNum(p.total_tokens) + " tokens" + (p.updated_at ? " · " + p.updated_at : "");
+        col.title = (p.title || t("会话 #") + p.session_id) + " · " + fmtNum(p.total_tokens) + " tokens" + (p.updated_at ? " · " + p.updated_at : "");
         col.onclick = () => { toggleUsagePop(); switchSession(p.session_id); };
         const bar = document.createElement("div");
         bar.className = "trend-bar";
@@ -137,7 +145,7 @@ function renderUsageTrend(){
         chart.appendChild(col);
       });
     })
-    .catch(() => { chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">加载失败</div>'; });
+    .catch(() => { chart.innerHTML = '<div class="usage-hint" style="border:none;padding:0">' + t("加载失败") + '</div>'; });
 }
 function usageHeroRing(st){
   const ns = "http://www.w3.org/2000/svg";
@@ -160,7 +168,7 @@ function renderUsagePop(){
   if (!body) return;
   body.innerHTML = "";
   if (!usageStats) {
-    body.innerHTML = '<div class="usage-hint">暂无用量数据。运行一次任务后，这里会显示 token 消耗与费用估算。</div>';
+    body.innerHTML = '<div class="usage-hint">' + t("暂无用量数据。运行一次任务后，这里会显示 token 消耗与费用估算。") + '</div>';
     return;
   }
   const st = usageStats;
@@ -173,9 +181,9 @@ function renderUsagePop(){
   ringWrap.appendChild(usageHeroRing(st).svg);
   const info = document.createElement("div");
   info.className = "usage-hero-info";
-  const t = document.createElement("div");
-  t.className = "usage-hero-title";
-  t.textContent = st.title || ("会话 #" + st.id);
+  const t_ = document.createElement("div");
+  t_.className = "usage-hero-title";
+  t_.textContent = st.title || (t("会话 #") + st.id);
   const sub = document.createElement("div");
   sub.className = "usage-hero-sub";
   sub.textContent = fmtNum(total) + " / " + (limit ? fmtNum(limit) + " tokens" : "∞ tokens") +
@@ -186,7 +194,7 @@ function renderUsagePop(){
   fill.className = "usage-bar-fill";
   fill.style.width = Math.round(frac * 100) + "%";
   bar.appendChild(fill);
-  info.appendChild(t); info.appendChild(sub); info.appendChild(bar);
+  info.appendChild(t_); info.appendChild(sub); info.appendChild(bar);
   hero.appendChild(ringWrap); hero.appendChild(info);
   body.appendChild(hero);
   const rows = document.createElement("div");
@@ -217,27 +225,27 @@ function renderUsagePop(){
     r.appendChild(l); r.appendChild(v);
     rows.appendChild(r);
   };
-  mkSec("令牌");
-  mk("总 tokens", fmtNum(u.total || 0), {
+  mkSec(t("令牌"));
+  mk(t("总 tokens"), fmtNum(u.total || 0), {
     hl: true, value: fmtNum(u.total || 0), dim: limit ? " / " + fmtNum(limit) : "",
   });
-  mk("输入 / 输出", fmtNum(u.prompt || 0) + " / " + fmtNum(u.completion || 0));
-  mk("推理 / 缓存", fmtNum(u.reasoning || 0) + " / " + fmtNum(u.cached || 0));
-  mkSec("活动");
-  mk("消息数", (st.messages || 0) + "（用户 " + (st.counts ? st.counts.user : 0) +
-    " · 助手 " + (st.counts ? st.counts.assistant : 0) + " · 工具 " + (st.counts ? st.counts.tool : 0) + "）");
-  mk("迭代 / 工具调用", (st.iterations || 0) + " / " + (st.tool_calls || 0));
-  mkSec("费用");
-  mk("费用估算", "¥" + (st.cost ? st.cost.value.toFixed(4) : "0.0000") + "（¥" +
-    (st.cost ? st.cost.rate_per_m : 2) + "/1M tokens）");
+  mk(t("输入 / 输出"), fmtNum(u.prompt || 0) + " / " + fmtNum(u.completion || 0));
+  mk(t("推理 / 缓存"), fmtNum(u.reasoning || 0) + " / " + fmtNum(u.cached || 0));
+  mkSec(t("活动"));
+  mk(t("消息数"), (st.messages || 0) + "（" + t("用户") + " " + (st.counts ? st.counts.user : 0) +
+    " · " + t("助手") + " " + (st.counts ? st.counts.assistant : 0) + " · " + t("工具") + " " + (st.counts ? st.counts.tool : 0) + "）");
+  mk(t("迭代 / 工具调用"), (st.iterations || 0) + " / " + (st.tool_calls || 0));
+  mkSec(t("费用"));
+  mk(t("费用估算"), "¥" + (st.cost ? st.cost.value.toFixed(4) : "0.0000") + "（¥" +
+    (st.cost ? st.cost.rate_per_m : 2) + t("/1M tokens") + "）");
   if (st.created_at || st.updated_at) {
-    mkSec("时间");
-    mk("创建 / 更新", (st.created_at || "–") + " / " + (st.updated_at || "–"));
+    mkSec(t("时间"));
+    mk(t("创建 / 更新"), (st.created_at || "–") + " / " + (st.updated_at || "–"));
   }
   body.appendChild(rows);
   const hint = document.createElement("div");
   hint.className = "usage-hint";
-  hint.textContent = "费用为估算值，按总量 ¥2 / 1M tokens 计算，不代表最终账单。";
+  hint.textContent = t("费用为估算值，按总量 ¥2 / 1M tokens 计算，不代表最终账单。");
   body.appendChild(hint);
 }
 
@@ -329,12 +337,12 @@ function actionBtn(label, fn){
 function buildMsgActions(div, cls){
   const box = document.createElement("div");
   box.className = "msg-actions";
-  box.appendChild(actionBtn("复制", () => copyMessage(div)));
+  box.appendChild(actionBtn(t("复制"), () => copyMessage(div)));
   if (cls === "user") {
-    box.appendChild(actionBtn("编辑", () => editMessage(div)));
-    box.appendChild(actionBtn("重新发送", () => resendMessage(div)));
+    box.appendChild(actionBtn(t("编辑"), () => editMessage(div)));
+    box.appendChild(actionBtn(t("重新发送"), () => resendMessage(div)));
   } else {
-    box.appendChild(actionBtn("重新生成", () => regenerateAt(div)));
+    box.appendChild(actionBtn(t("重新生成"), () => regenerateAt(div)));
   }
   return box;
 }
@@ -365,7 +373,7 @@ function legacyCopy(text, done){
 function copyMessage(el){
   const text = el.dataset.text || "";
   if (!text) return;
-  const done = () => flashNote("[copied] 已复制");
+  const done = () => flashNote(t("[copied] 已复制"));
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(done).catch(() => legacyCopy(text, done));
   } else legacyCopy(text, done);
@@ -469,7 +477,7 @@ function showTocTip(dot, el){
   tip.innerHTML = "";
   const t = document.createElement("div");
   t.className = "toc-tip-title";
-  t.textContent = "对话 " + (parseInt(el.dataset.uindex, 10) + 1);
+  t.textContent = t("对话 ") + (parseInt(el.dataset.uindex, 10) + 1);
   const b = document.createElement("div");
   b.className = "toc-tip-body";
   b.textContent = el.dataset.text || "";
@@ -548,16 +556,16 @@ function ensureOpsCard(){
 function renderOpsHead(){
   if (!opsCard) return;
   const parts = [];
-  if (opsReads.size) parts.push("已读取 " + opsReads.size + " 个文件");
-  if (opsSkills) parts.push("调用 " + opsSkills + " 个技能");
+  if (opsReads.size) parts.push(tpl("已读取 {n} 个文件", { n: opsReads.size }));
+  if (opsSkills) parts.push(tpl("调用 {n} 个技能", { n: opsSkills }));
   const paths = Object.keys(opsEdits);
   let text = parts.join(" · ");
   if (paths.length) {
-    const lines = paths.map(p => "已编辑 " + p + " +" + opsEdits[p].added + " -" + opsEdits[p].removed);
+    const lines = paths.map(p => tpl("已编辑 {p} +{a} -{r}", { p: p, a: opsEdits[p].added, r: opsEdits[p].removed }));
     if (text) text += "\n";
     text += lines.join("\n");
   }
-  opsHead.textContent = text || "工具操作";
+  opsHead.textContent = text || t("工具操作");
 }
 function appendOpsDetail(name, args){
   const pre = document.createElement("pre");
@@ -566,6 +574,30 @@ function appendOpsDetail(name, args){
   opsBody.appendChild(pre);
   return pre;
 }
+function renderDiff(diffText, added, removed){
+  const wrap = document.createElement("div");
+  wrap.className = "diff-view";
+  const head = document.createElement("div");
+  head.className = "diff-head";
+  const statAdd = document.createElement("span"); statAdd.className = "diff-stat add"; statAdd.textContent = "+" + added;
+  const statDel = document.createElement("span"); statDel.className = "diff-stat del"; statDel.textContent = "-" + removed;
+  head.appendChild(statAdd); head.appendChild(statDel);
+  wrap.appendChild(head);
+  const pre = document.createElement("pre");
+  const lines = diffText.split("\n");
+  lines.forEach(line => {
+    const div = document.createElement("div");
+    div.className = "diff-line";
+    if (line.startsWith("@@")) { div.classList.add("hunk"); div.textContent = line; }
+    else if (line.startsWith("+")) { div.classList.add("add"); div.textContent = line; }
+    else if (line.startsWith("-")) { div.classList.add("del"); div.textContent = line; }
+    else if (line.startsWith("+++") || line.startsWith("---")) { div.classList.add("hunk"); div.textContent = line; }
+    else { div.classList.add("ctx"); div.textContent = line || " "; }
+    pre.appendChild(div);
+  });
+  wrap.appendChild(pre);
+  return wrap;
+}
 function resetStream(){ streamEl = null; mdBuf = ""; }
 function finalizeStreamText(){
   if (streamEl && streamEl.parentElement) streamEl.parentElement.dataset.text = mdBuf;
@@ -573,7 +605,7 @@ function finalizeStreamText(){
 
 /* ---------- thinking timer ---------- */
 function updateThinkLabel(){
-  if (thinkSpan) thinkSpan.textContent = "已思考 " + Math.max(0, Math.round((Date.now() - thinkStart) / 1000)) + " 秒";
+  if (thinkSpan) thinkSpan.textContent = tpl("已思考 {s} 秒", { s: Math.max(0, Math.round((Date.now() - thinkStart) / 1000)) });
 }
 function startThinkTimer(){
   thinkStart = Date.now();
@@ -592,7 +624,7 @@ function ensureThinking(){
   det.className = "thinking";
   det.open = false;
   const sum = document.createElement("summary");
-  sum.innerHTML = '<svg class="think-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14Z"/></svg><span>已思考 0 秒</span>';
+  sum.innerHTML = '<svg class="think-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3Z"/><path d="M19 14l.7 1.8L21.5 16.5l-1.8.7L19 19l-.7-1.8L16.5 16.5l1.8-.7L19 14Z"/></svg><span>' + tpl("已思考 {s} 秒", { s: 0 }) + '</span>';
   const tb = document.createElement("div");
   tb.className = "think-body";
   det.appendChild(sum); det.appendChild(tb);
@@ -669,19 +701,22 @@ function handleWSMessage(m) {
       const line = document.createElement("pre");
       line.textContent = "\n[" + (m.is_error ? "error" : "ok") + "]\n" + (m.content || "");
       opsPending.appendChild(line);
+      if (m.stats && m.stats.diff) {
+        opsPending.appendChild(renderDiff(m.stats.diff, m.stats.added || 0, m.stats.removed || 0));
+      }
       opsPending = null;
     }
     scrollBottom();
   } else if (m.type === "approval_request") {
     if (document.getElementById("autoApprove").checked) { respond(m.request_id, true); return; }
-    notifyUser("需要批准", m.name + (m.arguments && m.arguments.command ? ": " + m.arguments.command : ""), "permission");
+    notifyUser(t("需要批准"), m.name + (m.arguments && m.arguments.command ? ": " + m.arguments.command : ""), "permission");
     const box = document.createElement("div");
     box.className = "approval";
     const args = m.arguments || {};
     const cmdTxt = String(args.command || args.content || args.path || args.url || "").trim();
     const title = document.createElement("div");
     title.className = "approval-title";
-    title.textContent = "需要批准: " + m.name;
+    title.textContent = t("需要批准") + ": " + m.name;
     box.appendChild(title);
     if (m.reason) {
       const reason = document.createElement("div");
@@ -698,10 +733,10 @@ function handleWSMessage(m) {
     const actions = document.createElement("div");
     actions.className = "approval-actions";
     const yes = document.createElement("button");
-    yes.className = "ok"; yes.textContent = "批准";
+    yes.className = "ok"; yes.textContent = t("批准");
     yes.onclick = () => { box.textContent = "[已批准] " + m.name + (cmdTxt ? " " + cmdTxt : ""); respond(m.request_id, true); };
     const no = document.createElement("button");
-    no.className = "no"; no.textContent = "拒绝";
+    no.className = "no"; no.textContent = t("拒绝");
     no.onclick = () => { box.textContent = "[已拒绝] " + m.name + (cmdTxt ? " " + cmdTxt : ""); box.classList.add("err"); respond(m.request_id, false); };
     actions.appendChild(yes); actions.appendChild(no);
     box.appendChild(actions);
@@ -718,23 +753,23 @@ function handleWSMessage(m) {
     tokenUsed += m.total_tokens || 0;
     updateTok();
     let hint = "";
-    if (m.stopped_reason === "budget_exhausted") hint = " （已达累计 token 预算，可在 .env 调大或移除 LUMINA_TOKEN_BUDGET，0 为不限制）";
-    else if (m.stopped_reason === "iterations_exhausted") hint = " （已达最大迭代次数，可在 .env 调大或移除 LUMINA_MAX_ITERATIONS，0 为不限制）";
+    if (m.stopped_reason === "budget_exhausted") hint = " " + t("（已达累计 token 预算，可在 .env 调大或移除 LUMINA_TOKEN_BUDGET，0 为不限制）");
+    else if (m.stopped_reason === "iterations_exhausted") hint = " " + t("（已达最大迭代次数，可在 .env 调大或移除 LUMINA_MAX_ITERATIONS，0 为不限制）");
     appendStat("[done] iter=" + m.iterations + " tools=" + m.tool_calls + " tokens=" + m.total_tokens + " stop=" + m.stopped_reason + hint);
     if (m.stopped_reason === "budget_exhausted" || m.stopped_reason === "iterations_exhausted" || m.stopped_reason === "auto_fix_exhausted") {
       const row = document.createElement("div");
       row.className = "msg stat";
       const btn = document.createElement("button");
       btn.className = "stat-btn";
-      btn.textContent = "继续执行（断点续跑）";
+      btn.textContent = t("继续执行（断点续跑）");
       btn.onclick = () => {
         if (busy || !currentSession) return;
         btn.disabled = true;
-        btn.textContent = "正在继续…";
+        btn.textContent = t("正在继续…");
         setBusy(true);
         stopThinkTimer();
         thinkingEl = null; resetStream(); resetOps();
-        appendStat("[continue] 断点续跑中…");
+        appendStat(t("[continue] 断点续跑中…"));
         ws.send(JSON.stringify({ type: "continue" }));
       };
       row.appendChild(btn);
@@ -742,18 +777,18 @@ function handleWSMessage(m) {
       scrollBottom();
     }
     fetchSessionStats();
-    notifyUser("任务完成", "迭代 " + m.iterations + " · 工具 " + m.tool_calls + " · tokens " + m.total_tokens, "agent");
+    notifyUser(t("任务完成"), tpl("迭代 {i} · 工具 {t} · tokens {tok}", { i: m.iterations, t: m.tool_calls, tok: m.total_tokens }), "agent");
   } else if (m.type === "cancelled") {
     stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
-    appendStat("[stopped] 任务已手动停止");
-    notifyUser("任务已停止", "已手动停止", "agent");
+    appendStat(t("[stopped] 任务已手动停止"));
+    notifyUser(t("任务已停止"), t("已手动停止"), "agent");
   } else if (m.type === "error") {
     stopThinkTimer(); finalizeStreamText(); resetStream(); setBusy(false); refreshMsgActions();
-    appendMd("error", "错误: " + m.message);
-    notifyUser("发生错误", m.message, "error");
+    appendMd("error", t("错误") + ": " + m.message);
+    notifyUser(t("发生错误"), m.message, "error");
   } else if (m.type === "terminal_output") {
-    if (m.exit_code === 0) termAppend(m.output || "(无输出)", "out");
-    else termAppend(m.output || "(无输出)", "err");
+    if (m.exit_code === 0) termAppend(m.output || t("(无输出)"), "out");
+    else termAppend(m.output || t("(无输出)"), "err");
     termAppend("[exit " + m.exit_code + "]", m.exit_code === 0 ? "ok" : "err");
     termSetStatus("");
   }
@@ -787,7 +822,7 @@ function ensureTodoCard(bar){
   spin.innerHTML = TODO_SPIN;
   const label = document.createElement("span");
   label.className = "todo-label";
-  label.textContent = "当前待办";
+  label.textContent = t("当前待办");
   todoCountEl = document.createElement("span");
   todoCountEl.className = "todo-count";
   label.appendChild(todoCountEl);
@@ -880,10 +915,10 @@ function switchWorkspace(value){
 }
 
 const SESSION_GROUPS = [
-  { key: "today", label: "今天" },
-  { key: "yesterday", label: "昨天" },
-  { key: "week", label: "本周" },
-  { key: "earlier", label: "更早" },
+  { key: "today", label: t("今天") },
+  { key: "yesterday", label: t("昨天") },
+  { key: "week", label: t("本周") },
+  { key: "earlier", label: t("更早") },
 ];
 function sessionGroupOf(updatedAt){
   if (!updatedAt) return "earlier";
@@ -925,6 +960,32 @@ function renderSessions(sessions) {
       const meta = document.createElement("span"); meta.className = "si-meta";
       meta.textContent = "#" + s.id + " · " + s.messages;
       item.appendChild(dot); item.appendChild(title); item.appendChild(meta);
+      let tip = null;
+      let fetchTimer = null;
+      item.addEventListener("mouseenter", () => {
+        clearTimeout(fetchTimer);
+        fetchTimer = setTimeout(() => {
+          fetch("/api/session/" + s.id + "/preview?workspace=" + encodeURIComponent(activeWorkspace))
+            .then(r => r.json()).then(data => {
+              const preview = data.preview || [];
+              if (!preview.length) return;
+              tip = document.createElement("div");
+              tip.className = "session-preview";
+              preview.forEach(p => {
+                const role = document.createElement("div"); role.className = "sp-role";
+                role.textContent = p.role === "user" ? t("用户") : "AI";
+                const text = document.createElement("div"); text.className = "sp-text";
+                text.textContent = p.content.slice(0, 200);
+                tip.appendChild(role); tip.appendChild(text);
+              });
+              item.appendChild(tip);
+            }).catch(() => {});
+        }, 200);
+      });
+      item.addEventListener("mouseleave", () => {
+        clearTimeout(fetchTimer);
+        if (tip) { tip.remove(); tip = null; }
+      });
       list.appendChild(item);
     });
   });
@@ -947,7 +1008,7 @@ function runSessionSearch(q){
       box.style.display = "";
       const results = data.results || [];
       if (!results.length) {
-        box.innerHTML = '<div class="sr-empty">没有匹配的消息</div>';
+        box.innerHTML = '<div class="sr-empty">' + t("没有匹配的消息") + '</div>';
         return;
       }
       results.forEach(m => {
@@ -955,7 +1016,7 @@ function runSessionSearch(q){
         item.className = "sr-item";
         item.onclick = () => { hideSessionSearch(); switchSession(m.session_id); };
         const t = document.createElement("div"); t.className = "sr-title";
-        t.textContent = (m.role === "assistant" ? "AI · " : "") + (m.title || "会话 #" + m.session_id);
+        t.textContent = (m.role === "assistant" ? "AI · " : "") + (m.title || t("会话 #") + m.session_id);
         const s = document.createElement("div"); s.className = "sr-snip";
         s.textContent = m.snippet || "";
         item.appendChild(t); item.appendChild(s);
@@ -963,7 +1024,7 @@ function runSessionSearch(q){
       });
     })
     .catch(() => {
-      box.innerHTML = '<div class="sr-empty">搜索失败</div>';
+      box.innerHTML = '<div class="sr-empty">' + t("搜索失败") + '</div>';
       box.style.display = "";
     });
 }
@@ -985,6 +1046,8 @@ function switchSession(id) {
   tokenUsed = 0; updateTok();
   usageStats = null; updateUsageRing(null);
   const up = document.getElementById("usagePop"); if (up) up.hidden = true; usagePopOpen = false;
+  currentSession = Number(id);
+  restoreAgentForSession();
   ws.send(JSON.stringify({ type: "resume", session_id: Number(id) }));
 }
 function newSession() {
@@ -995,7 +1058,7 @@ function newSession() {
 function renameSession() {
   if (busy || !currentSession) return;
   const cur = (sessionsData.find(s => s.id === currentSession) || {}).title || "";
-  const t = prompt("新的会话标题", cur);
+  const t = prompt(t("新的会话标题"), cur);
   if (t === null) return;
   ws.send(JSON.stringify({ type: "rename_session", session_id: currentSession, title: t }));
 }
@@ -1004,7 +1067,7 @@ function stopRun() {
 }
 function deleteSession() {
   if (busy || !currentSession) return;
-  if (!confirm("确定删除会话 #" + currentSession + " 吗？该操作不可恢复。")) return;
+  if (!confirm(tpl("确定删除会话 #{id} 吗？该操作不可恢复。", { id: currentSession }))) return;
   ws.send(JSON.stringify({ type: "delete_session", session_id: currentSession }));
 }
 function send() {
@@ -1051,7 +1114,7 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 /* ---------- theme ---------- */
 let settings = {};
 let settingsReady = false;
-const APP_VERSION = "1.0.6";
+const APP_VERSION = "1.0.9";
 const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
 (function initThemeFast(){
   document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");
@@ -1109,6 +1172,9 @@ function applySettings(){
   const aa = document.getElementById("autoApprove");
   if (aa) aa.checked = !!settings.auto_approve;
   showFileTreePanel(!!settings.file_tree);
+  updateServerStatusBtn();
+  const aw = document.getElementById("agentSelWrap");
+  if (aw) aw.hidden = !settings.custom_agents;
 }
 function readSettingsFromDom(){
   const map = {
@@ -1134,6 +1200,7 @@ function readSettingsFromDom(){
     command_palette: document.getElementById("set_command_palette").checked,
     server_status: document.getElementById("set_server_status").checked,
     custom_agents: document.getElementById("set_custom_agents").checked,
+    install_cli: document.getElementById("set_install_cli").checked,
   };
   settings = Object.assign({}, settings, map);
 }
@@ -1146,7 +1213,7 @@ function writeSettingsToDom(){
     notif_permission: "set_notif_permission", notif_error: "set_notif_error",
     sound_agent: "set_sound_agent", sound_permission: "set_sound_permission", sound_error: "set_sound_error",
     release_notes: "set_release_notes", file_tree: "set_file_tree", command_palette: "set_command_palette",
-    server_status: "set_server_status", custom_agents: "set_custom_agents",
+    server_status: "set_server_status", custom_agents: "set_custom_agents", install_cli: "set_install_cli",
   };
   Object.keys(ids).forEach(key => {
     const el = document.getElementById(ids[key]);
@@ -1162,13 +1229,14 @@ function persistSettings(){
     body: JSON.stringify(settings),
   }).then(r => r.json()).then(res => {
     const note = document.getElementById("saveNote");
-    if (note) note.textContent = res.ok ? "已保存" : ("保存失败: " + (res.message || ""));
+    if (note) note.textContent = res.ok ? t("已保存") : (t("保存失败") + ": " + (res.message || ""));
   }).catch(() => {});
 }
 function settingsChanged(){
   if (!settingsReady) return;
   readSettingsFromDom();
   applySettings();
+  applyI18n();
   persistSettings();
   if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: "set_auto", value: !!settings.auto_approve }));
 }
@@ -1177,6 +1245,12 @@ function shellMenuChanged(){
   const el = document.getElementById("set_shell_menu");
   if (!el) return;
   const enabled = !!el.checked;
+  if (enabled && !cliReadyForShellMenu()) {
+    el.checked = false;
+    const note = document.getElementById("saveNote");
+    if (note) note.textContent = t("需先开启命令行入口才能使用右键菜单");
+    return;
+  }
   fetch("/api/shell-menu", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -1185,9 +1259,140 @@ function shellMenuChanged(){
     if (!res.ok) {
       el.checked = !enabled; // revert on failure
       const note = document.getElementById("saveNote");
-      if (note) note.textContent = "右键菜单开关失败: " + (res.message || "");
+      if (note) note.textContent = t("右键菜单开关失败: ") + (res.message || "");
     }
   }).catch(() => { el.checked = !enabled; });
+}
+/* ---------- command-line entry (lumina) management ---------- */
+let cliStatus = null;
+function fetchCliStatus(){
+  return fetch("/api/cli").then(r => r.json()).then(res => { cliStatus = res; return res; })
+    .catch(() => { cliStatus = null; return null; });
+}
+function updateCliDot(){
+  const wrap = document.getElementById("settingsBtnWrap");
+  if (wrap) wrap.classList.toggle("has-cli-dot", !!(cliStatus && cliStatus.enabled && !cliStatus.available));
+}
+function cliReadyForShellMenu(){
+  return !!(cliStatus && cliStatus.enabled && cliStatus.available);
+}
+function updateShellMenuAvailability(){
+  const sm = document.getElementById("set_shell_menu");
+  if (!sm) return;
+  const ok = cliReadyForShellMenu();
+  sm.disabled = !ok;
+  const row = sm.closest(".set-row");
+  if (row) row.classList.toggle("disabled", !ok);
+}
+function refreshCliStatus(){
+  return fetchCliStatus().then(res => {
+    const desc = document.getElementById("cliStatusDesc");
+    const btn = document.getElementById("cliInstallBtn");
+    const rmv = document.getElementById("cliRemoveBtn");
+    if (!res) return;
+    if (desc) {
+      if (!res.available) desc.textContent = t("未检测到命令行 lumina，点击「安装命令行」即可在终端使用 lumina 指令");
+      else if (res.managed) desc.textContent = t("命令行入口已安装（lumina.cmd），重启终端后生效");
+      else desc.textContent = t("命令行 lumina 可用");
+    }
+    if (btn) btn.style.display = res.available ? "none" : "";
+    if (rmv) rmv.style.display = res.managed ? "" : "none";
+    updateCliDot();
+    updateShellMenuAvailability();
+  });
+}
+function cliSettingChanged(){
+  if (!settingsReady) return;
+  readSettingsFromDom();
+  applySettings();
+  persistSettings();
+  if (cliStatus) cliStatus.enabled = !!settings.install_cli;
+  if (!cliReadyForShellMenu()) {
+    const sm = document.getElementById("set_shell_menu");
+    if (sm && sm.checked) {
+      sm.checked = false;
+      fetch("/api/shell-menu", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled: false }),
+      }).catch(() => {});
+    }
+  }
+  updateCliDot();
+  updateShellMenuAvailability();
+}
+function installCli(){
+  const btn = document.getElementById("cliInstallBtn");
+  if (btn) btn.disabled = true;
+  fetch("/api/cli", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "install" }),
+  }).then(r => r.json()).then(res => {
+    if (btn) btn.disabled = false;
+    if (!res.ok) {
+      const desc = document.getElementById("cliStatusDesc");
+      if (desc) desc.textContent = t("安装失败: ") + (res.message || t("请重试"));
+    }
+    refreshCliStatus();
+  }).catch(() => { if (btn) btn.disabled = false; });
+}
+function removeCli(){
+  const btn = document.getElementById("cliRemoveBtn");
+  if (btn) btn.disabled = true;
+  fetch("/api/cli", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "remove" }),
+  }).then(r => r.json()).then(res => {
+    if (btn) btn.disabled = false;
+    if (res && res.ok) {
+      const sm = document.getElementById("set_shell_menu");
+      if (sm && sm.checked) {
+        sm.checked = false;
+        fetch("/api/shell-menu", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled: false }),
+        }).catch(() => {});
+      }
+    }
+    refreshCliStatus();
+  }).catch(() => { if (btn) btn.disabled = false; });
+}
+function installCliFromDialog(){
+  const note = document.getElementById("cliNote");
+  if (note) note.textContent = t("正在添加…");
+  fetch("/api/cli", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "install" }),
+  }).then(r => r.json()).then(res => {
+    fetch("/api/cli", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "dismiss_prompt" }),
+    }).catch(() => {});
+    if (note) note.textContent = res.ok ? t("已添加，重启终端后即可使用。") : (t("添加失败: ") + (res.message || ""));
+    if (res.ok) { document.getElementById("cliOverlay").classList.remove("open"); refreshCliStatus(); }
+    else updateCliDot();
+  }).catch(() => { if (note) note.textContent = t("添加失败，请重试。"); });
+}
+function closeCliDialog(){
+  document.getElementById("cliOverlay").classList.remove("open");
+  fetch("/api/cli", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "dismiss_prompt" }),
+  }).catch(() => {});
+  updateCliDot();
+}
+function checkCliFirstRun(){
+  fetchCliStatus().then(res => {
+    if (res && res.enabled && !res.available && !res.prompted) {
+      document.getElementById("cliOverlay").classList.add("open");
+    }
+  });
 }
 function switchSettingsTab(btn){
   document.querySelectorAll(".settings-nav .snav").forEach(b => b.classList.remove("active"));
@@ -1204,27 +1409,148 @@ function loadSettings(){
     settings = data || {};
     writeSettingsToDom();
     applySettings();
+    applyI18n();
     renderModels();
     settingsReady = true;
     const sm = document.getElementById("set_shell_menu");
     if (sm) {
-      fetch("/api/shell-menu").then(r => r.json()).then(res => { if (sm) sm.checked = !!res.enabled; }).catch(() => {});
+      fetch("/api/shell-menu").then(r => r.json()).then(res => { if (sm) sm.checked = !!res.enabled; updateShellMenuAvailability(); }).catch(() => {});
     }
+    updateShellMenuAvailability();
   }).catch(() => { settingsReady = true; });
 }
 function openSettings(){
   document.getElementById("saveNote").textContent = "";
   loadSettings();
+  refreshCliStatus();
   document.getElementById("settingsOverlay").classList.add("open");
 }
 function closeSettings(){ document.getElementById("settingsOverlay").classList.remove("open"); }
 (function bindSettingsControls(){
   document.querySelectorAll("#settingsOverlay .set-ctl input, #settingsOverlay .set-ctl select").forEach(el => {
-    if (el.id === "set_shell_menu") return; // handled separately by shellMenuChanged
+    if (el.id === "set_shell_menu" || el.id === "set_install_cli") return; // handled separately
     el.addEventListener("change", settingsChanged);
   });
   const sm = document.getElementById("set_shell_menu");
   if (sm) sm.addEventListener("change", shellMenuChanged);
+  const ci = document.getElementById("set_install_cli");
+  if (ci) ci.addEventListener("change", cliSettingChanged);
+})();
+
+/* ---------- server status button + popup ---------- */
+function updateServerStatusBtn(){
+  const b = document.getElementById("serverStatusBtn");
+  const pop = document.getElementById("serverStatusPop");
+  if (!b) return;
+  const show = !!settings.server_status;
+  b.hidden = !show;
+  if (!show && pop) pop.hidden = true;
+}
+function toggleServerStatus(){
+  const pop = document.getElementById("serverStatusPop");
+  if (!pop) return;
+  if (pop.hidden) { refreshServerStatus(); pop.hidden = false; }
+  else pop.hidden = true;
+}
+function refreshServerStatus(){
+  const body = document.getElementById("serverStatusBody");
+  const btn = document.getElementById("serverStatusBtn");
+  if (!body) return;
+  body.innerHTML = '<div class="usage-hint">' + t("正在检查服务器状态…") + '</div>';
+  return Promise.all([
+    fetch("/api/health").then(r => r.ok ? r.json() : null).catch(() => null),
+    fetch("/api/servers").then(r => r.json()).catch(() => null),
+  ]).then(([health, srv]) => {
+    body.innerHTML = "";
+    const mkRow = (name, sub, ok) => {
+      const r = document.createElement("div");
+      r.className = "srv-status-row";
+      const m = document.createElement("div"); m.className = "srv-status-main";
+      const n = document.createElement("div"); n.className = "srv-status-name"; n.textContent = name;
+      const s = document.createElement("div"); s.className = "srv-status-sub"; s.textContent = sub || "";
+      m.appendChild(n); m.appendChild(s);
+      const st = document.createElement("div");
+      st.className = "srv-status-state" + (ok === false ? " off" : "");
+      st.textContent = ok === true ? t("运行中") : (ok === false ? t("未运行") : "–");
+      r.appendChild(m); r.appendChild(st);
+      body.appendChild(r);
+    };
+    const localOk = !!(health && health.ok);
+    mkRow(t("本地服务器"), "v" + (health && health.version ? health.version : "–") + " · localhost", localOk);
+    const servers = (srv && srv.servers) || [];
+    if (!servers.length) {
+      const p = document.createElement("p");
+      p.className = "usage-hint";
+      p.textContent = t("尚未配置服务器，请在「设置 → 服务器」中添加。");
+      body.appendChild(p);
+    }
+    servers.forEach(s => mkRow(s.name || s.url, s.url, null));
+    if (btn) btn.classList.toggle("on", localOk);
+  }).catch(() => {
+    body.innerHTML = '<div class="usage-hint">' + t("服务器状态不可用") + '</div>';
+  });
+}
+
+/* ---------- release notes ---------- */
+const RELEASE_LAST_SEEN_KEY = "lumina-release-last-seen";
+function openReleaseNotes(){
+  const body = document.getElementById("releaseBody");
+  if (body) body.innerHTML = tpl(
+    "# v{ver}\n\n## 修复\n- 修复「新功能」弹窗每次启动都弹出的问题，现在只在升级后的首次启动显示\n- 修复桌面窗口无法打开而回退到浏览器的问题，WebView 数据改为持久化存储\n- 完善多语言翻译与文案一致性",
+    { ver: APP_VERSION });
+  document.getElementById("releaseOverlay").classList.add("open");
+}
+function closeReleaseNotes(){
+  document.getElementById("releaseOverlay").classList.remove("open");
+  try { localStorage.setItem(RELEASE_LAST_SEEN_KEY, APP_VERSION); } catch (e) {}
+}
+function maybeShowReleaseNotes(){
+  if (!settings.release_notes) return;
+  let seen = "";
+  try { seen = localStorage.getItem(RELEASE_LAST_SEEN_KEY) || ""; } catch (e) {}
+  if (seen === APP_VERSION) return;
+  openReleaseNotes();
+}
+
+/* ---------- custom agent selector ---------- */
+let agentOptions = [];
+function loadAgents(){
+  const sel = document.getElementById("agentSel");
+  const wrap = document.getElementById("agentSelWrap");
+  if (!sel) return Promise.resolve();
+  if (wrap) wrap.hidden = !settings.custom_agents;
+  return fetch("/api/agents").then(r => r.json()).then(data => {
+    agentOptions = (data && data.agents) || [];
+    const prev = currentAgent();
+    sel.innerHTML = "";
+    agentOptions.forEach(a => {
+      const opt = document.createElement("option");
+      opt.value = a.id;
+      opt.textContent = a.name;
+      sel.appendChild(opt);
+    });
+    if (prev && agentOptions.some(a => a.id === prev)) sel.value = prev;
+    restoreAgentForSession();
+  }).catch(() => {});
+}
+function currentAgent(){
+  const sel = document.getElementById("agentSel");
+  return sel ? sel.value || "" : "";
+}
+function persistAgent(){
+  if (!currentSession) return;
+  try { sessionStorage.setItem("lumina-agent-" + currentSession, currentAgent()); } catch (e) {}
+}
+function restoreAgentForSession(){
+  const sel = document.getElementById("agentSel");
+  if (!sel || !currentSession) return;
+  let saved = "";
+  try { saved = sessionStorage.getItem("lumina-agent-" + currentSession) || ""; } catch (e) {}
+  if (saved && agentOptions.some(a => a.id === saved)) sel.value = saved;
+}
+(function initAgentSel(){
+  const sel = document.getElementById("agentSel");
+  if (sel) sel.addEventListener("change", persistAgent);
 })();
 
 /* ---------- servers ---------- */
@@ -1242,7 +1568,7 @@ function renderServers(){
   if (!servers.length) {
     const p = document.createElement("p");
     p.className = "hint";
-    p.textContent = "尚未添加服务器。点击右上角“添加服务器”进行添加。";
+    p.textContent = t("尚未添加服务器。点击右上角“添加服务器”进行添加。");
     box.appendChild(p);
     return;
   }
@@ -1265,14 +1591,14 @@ function renderServers(){
     const edit = document.createElement("button");
     edit.className = "icon-btn";
     edit.textContent = "···";
-    edit.title = "编辑";
+    edit.title = t("编辑");
     edit.onclick = () => openServerDialog(i);
     const del = document.createElement("button");
     del.className = "icon-btn danger";
-    del.title = "删除";
+    del.title = t("删除");
     del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M6 6l1 14h10l1-14"/></svg>';
     del.onclick = () => {
-      if (confirm("确定删除服务器 " + (s.name || s.url) + " ？")) {
+      if (confirm(tpl("确定删除服务器 {name} ？", { name: s.name || s.url }))) {
         fetch("/api/servers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1287,7 +1613,7 @@ function renderServers(){
 }
 function openServerDialog(idx){
   serverEditing = idx;
-  document.getElementById("serverDialogTitle").textContent = idx >= 0 ? "编辑服务器" : "添加服务器";
+  document.getElementById("serverDialogTitle").textContent = idx >= 0 ? t("编辑服务器") : t("添加服务器");
   const s = idx >= 0 ? servers[idx] : {};
   document.getElementById("srv_url").value = s.url || "";
   document.getElementById("srv_name").value = s.name || "";
@@ -1312,7 +1638,7 @@ function saveServerDialog(){
     body: JSON.stringify(Object.assign({ action }, payload)),
   }).then(r => r.json()).then(res => {
     if (res.ok) { servers = res.servers; renderServers(); closeServerDialog(); }
-    else document.getElementById("srvNote").textContent = res.message || "保存失败";
+    else document.getElementById("srvNote").textContent = res.message || t("保存失败");
   });
 }
 
@@ -1340,17 +1666,17 @@ function renderModels(cfg){
       const provider = (cfg && cfg.LUMINA_LLM_PROVIDER) || "auto";
       return provider === "openai" || (provider === "auto" && cfg && cfg.OPENAI_API_KEY);
     })();
-    name.textContent = useOpenAI ? ((cfg && cfg.OPENAI_MODEL) || "OpenAI 兼容模型") : m.name;
+    name.textContent = useOpenAI ? ((cfg && cfg.OPENAI_MODEL) || t("OpenAI 兼容模型")) : m.name;
     const status = document.createElement("span");
     const hasKey = useOpenAI ? (cfg && cfg.OPENAI_API_KEY) : (cfg && cfg.DEEPSEEK_API_KEY);
     status.className = "m-status" + (hasKey ? "" : " err");
     status.textContent = hasKey
-      ? (useOpenAI ? "已配置 OpenAI 兼容 Key" : "已配置 DeepSeek API Key")
-      : "未配置 API Key，点击 ··· 配置";
+      ? (useOpenAI ? t("已配置 OpenAI 兼容 Key") : t("已配置 DeepSeek API Key"))
+      : t("未配置 API Key，点击 ··· 配置");
     const menu = document.createElement("button");
     menu.className = "icon-btn";
     menu.textContent = "···";
-    menu.title = "配置";
+    menu.title = t("配置");
     menu.onclick = openModelDialog;
     row.appendChild(ic); row.appendChild(name); row.appendChild(status); row.appendChild(menu);
     box.appendChild(row);
@@ -1417,7 +1743,7 @@ function saveModelConfig(){
     body: JSON.stringify(fields),
   }).then(r => r.json()).then(res => {
     const note = document.getElementById("modelNote");
-    note.textContent = res.ok ? "已保存到 .env，新会话将使用新配置。" : ("保存失败: " + (res.message || ""));
+    note.textContent = res.ok ? t("已保存到 .env，新会话将使用新配置。") : (t("保存失败") + ": " + (res.message || ""));
     if (res.ok) renderModels(fields);
   });
 }
@@ -1449,28 +1775,28 @@ function checkUpdate(opts){
   const btn = document.getElementById("checkUpdateBtn");
   const note = document.getElementById("updateNote");
   if (btn) btn.disabled = true;
-  if (note && !silent) note.textContent = "正在检查…";
+  if (note && !silent) note.textContent = t("正在检查…");
   fetch("https://api.github.com/repos/JonathanSssst/Lumina-Code/releases/latest")
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
       const latest = (data.tag_name || "").replace(/^v/i, "");
       const cur = APP_VERSION.replace(/^v/i, "");
       if (!latest) {
-        if (note && !silent) note.textContent = "无法获取最新版本号。";
+        if (note && !silent) note.textContent = t("无法获取最新版本号。");
         return;
       }
       if (cmpVer(latest, cur) <= 0) {
         setUpdateBadge(false);
-        if (note && !silent) note.textContent = "已是最新版本 (v" + APP_VERSION + ")";
+        if (note && !silent) note.textContent = t("已是最新版本 (v") + APP_VERSION + ")";
         return;
       }
       setUpdateBadge(true);
       if (note) {
         note.textContent = "";
         const span = document.createElement("span");
-        span.textContent = "当前 v" + APP_VERSION + "，发现新版本 " + data.tag_name + "：";
+        span.textContent = tpl("当前 v{cur}，发现新版本 {ver}：", { cur: APP_VERSION, ver: data.tag_name });
         const link = document.createElement("a");
-        link.textContent = "前往 GitHub 下载";
+        link.textContent = t("前往 GitHub 下载");
         link.className = "update-link";
         link.href = "#";
         link.onclick = (e) => { e.preventDefault(); openExternalUrl(data.html_url || "https://github.com/JonathanSssst/Lumina-Code/releases/latest"); };
@@ -1478,7 +1804,7 @@ function checkUpdate(opts){
         note.appendChild(link);
       }
     })
-    .catch(e => { if (note && !silent) note.textContent = "检查失败: " + e.message; })
+    .catch(e => { if (note && !silent) note.textContent = t("检查失败: ") + e.message; })
     .finally(() => { if (btn) btn.disabled = false; });
 }
 
@@ -1486,7 +1812,7 @@ function checkUpdate(opts){
 function exportSession() {
   if (!currentSession) return;
   fetch(`/api/session/${currentSession}/export?format=markdown&workspace=${encodeURIComponent(activeWorkspace)}`)
-    .then(r => { if (!r.ok) throw new Error("导出失败"); return r.blob(); })
+    .then(r => { if (!r.ok) throw new Error(t("导出失败")); return r.blob(); })
     .then(blob => {
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
@@ -1494,7 +1820,7 @@ function exportSession() {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     })
-    .catch(e => appendMd("error", "导出失败: " + e.message));
+    .catch(e => appendMd("error", t("导出失败") + ": " + e.message));
 }
 /* ---------- workspaces manager ---------- */
 let wsList = [];
@@ -1528,7 +1854,7 @@ function renderWsList(){
   const box = document.getElementById("wsList");
   box.innerHTML = "";
   if (!wsList.length) {
-    box.innerHTML = '<p class="hint" style="margin:0 0 12px">尚未配置工作区，请在下方添加一个项目目录。</p>';
+    box.innerHTML = '<p class="hint" style="margin:0 0 12px">' + t("尚未配置工作区，请在下方添加一个项目目录。") + '</p>';
     return;
   }
   wsList.forEach(ws_ => {
@@ -1538,7 +1864,7 @@ function renderWsList(){
     info.className = "ws-info";
     const nm = document.createElement("div");
     nm.className = "ws-name";
-    nm.textContent = ws_.name + (ws_.path === activeWorkspacePath ? "（当前）" : "");
+    nm.textContent = ws_.name + (ws_.path === activeWorkspacePath ? t("（当前）") : "");
     const pt = document.createElement("div");
     pt.className = "ws-path";
     pt.textContent = ws_.path;
@@ -1546,11 +1872,11 @@ function renderWsList(){
     const act = document.createElement("div");
     act.className = "ws-actions";
     const go = document.createElement("button");
-    go.textContent = "切换";
+    go.textContent = t("切换");
     go.onclick = () => { switchWorkspace(ws_.path); closeWsManager(); };
     const del = document.createElement("button");
     del.className = "danger";
-    del.textContent = "删除";
+    del.textContent = t("删除");
     del.disabled = ws_.path === activeWorkspace;
     del.onclick = () => removeWs(ws_.path);
     act.appendChild(go); act.appendChild(del);
@@ -1576,21 +1902,21 @@ async function browseWsFolder(){
       if (path) { document.getElementById("wsPathInput").value = path; return; }
     } catch (e) {}
   }
-  setWsNote("当前环境无法弹出文件夹选择器，请手动输入绝对路径。", false);
+  setWsNote(t("当前环境无法弹出文件夹选择器，请手动输入绝对路径。"), false);
 }
 function addWs(){
   const p = document.getElementById("wsPathInput").value.trim();
-  if (!p) { setWsNote("请输入目录路径。", false); return; }
+  if (!p) { setWsNote(t("请输入目录路径。"), false); return; }
   fetch("/api/workspaces", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "add", path: p }),
   }).then(r => r.json()).then(res => {
     if (res.ok) {
-      setWsNote("已添加。", true);
+      setWsNote(t("已添加。"), true);
       document.getElementById("wsPathInput").value = "";
       refreshWorkspaces();
-    } else setWsNote("添加失败: " + (res.message || ""), false);
+    } else setWsNote(t("添加失败: ") + (res.message || ""), false);
   });
 }
 function removeWs(path){
@@ -1599,8 +1925,8 @@ function removeWs(path){
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "remove", path }),
   }).then(r => r.json()).then(res => {
-    if (res.ok) { setWsNote("已删除。", true); refreshWorkspaces(); }
-    else setWsNote("删除失败: " + (res.message || ""), false);
+    if (res.ok) { setWsNote(t("已删除。"), true); refreshWorkspaces(); }
+    else setWsNote(t("删除失败: ") + (res.message || ""), false);
   });
 }
 
@@ -1647,13 +1973,6 @@ function notifyUser(title, body, kind){
 function isTypingTarget(t){
   return t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable);
 }
-function cycleSession(delta){
-  if (busy || !sessionsData.length) return;
-  const idx = sessionsData.findIndex(s => s.id === currentSession);
-  const n = sessionsData.length;
-  const next = sessionsData[(idx < 0 ? -1 : idx) + delta + n] || sessionsData[(idx < 0 ? -1 : idx) + delta];
-  if (next) switchSession(next.id);
-}
 document.addEventListener("keydown", (e) => {
   const t = e.target;
   if (e.key === "Escape") {
@@ -1681,9 +2000,7 @@ document.addEventListener("keydown", (e) => {
   }
   else if (k === "`") { e.preventDefault(); toggleTerminal(); }
   else if (k === "w") { e.preventDefault(); closeTerminal(); }
-  else if (k === "k") { e.preventDefault(); togglePalette(); }
-  else if (k === "[") { e.preventDefault(); cycleSession(-1); }
-  else if (k === "]") { e.preventDefault(); cycleSession(1); }
+  else if (k === "k" && settings.command_palette) { e.preventDefault(); togglePalette(); }
 });
 
 /* ---------- terminal panel ---------- */
@@ -1707,7 +2024,7 @@ function toggleTerminal(){
   if (!bar) return;
   bar.hidden = !bar.hidden;
   if (!bar.hidden) {
-    document.getElementById("termTitle").textContent = "终端 · " + (activeWorkspacePath || activeWorkspace || "");
+    document.getElementById("termTitle").textContent = t("终端") + " · " + (activeWorkspacePath || activeWorkspace || "");
     document.getElementById("termInput").focus();
   }
 }
@@ -1718,7 +2035,7 @@ function closeTerminal(){
 function runTerminalCommand(cmd){
   if (!cmd) return;
   termAppend("❯ " + cmd, "cmd");
-  termSetStatus("运行中…");
+  termSetStatus(t("运行中…"));
   ws.send(JSON.stringify({ type: "terminal", command: cmd }));
 }
 (function initTerminal(){
@@ -1751,7 +2068,7 @@ function showFileTreePanel(show){
 function loadFileTree(){
   const box = document.getElementById("fileTree");
   if (!box) return;
-  box.innerHTML = '<p class="hint" style="margin:4px 0">加载中…</p>';
+  box.innerHTML = '<p class="hint" style="margin:4px 0">' + t("加载中…") + '</p>';
   fetch("/api/files?workspace=" + encodeURIComponent(activeWorkspace))
     .then(r => r.json())
     .then(data => {
@@ -1759,12 +2076,12 @@ function loadFileTree(){
       if (cnt) cnt.textContent = data.count ? "· " + data.count : "";
       box.innerHTML = "";
       if (!data.tree || !data.tree.length) {
-        box.innerHTML = '<p class="hint" style="margin:4px 0">（空目录）</p>';
+        box.innerHTML = '<p class="hint" style="margin:4px 0">' + t("（空目录）") + '</p>';
         return;
       }
       renderFileTree(box, data.tree, 0);
     })
-    .catch(() => { box.innerHTML = '<p class="hint" style="margin:4px 0">加载失败</p>'; });
+    .catch(() => { box.innerHTML = '<p class="hint" style="margin:4px 0">' + t("加载失败") + '</p>'; });
 }
 function renderFileTree(box, nodes, depth){
   nodes.forEach(node => {
@@ -1803,12 +2120,12 @@ function previewFile(path){
     .then(data => {
       const bar = document.getElementById("terminalbar");
       if (bar) bar.hidden = false;
-      document.getElementById("termTitle").textContent = "文件预览 · " + path;
+      document.getElementById("termTitle").textContent = t("文件预览 · ") + path;
       const out = document.getElementById("termOut");
       out.innerHTML = "";
       const head = document.createElement("div");
       head.className = "term-line head";
-      head.textContent = "── " + path + (data.truncated ? "（截断）" : "") + " ──";
+      head.textContent = "── " + path + (data.truncated ? t("（截断）") : "") + " ──";
       out.appendChild(head);
       const body = document.createElement("div");
       body.className = "term-line body";
@@ -1817,7 +2134,7 @@ function previewFile(path){
       out.scrollTop = 0;
       termSetStatus("");
     })
-    .catch(e => termAppend("预览失败: " + e.message, "err"));
+    .catch(e => termAppend(t("预览失败: ") + e.message, "err"));
 }
 
 /* ---------- @file reference popup ---------- */
@@ -1884,7 +2201,7 @@ function hideFileRefPop(){
 /* ---------- MCP + skills management ---------- */
 let mcpServers = [];
 function openMcpDialog(){
-  document.getElementById("mcpDialogTitle").textContent = "添加 MCP 服务器";
+  document.getElementById("mcpDialogTitle").textContent = t("添加 MCP 服务器");
   document.getElementById("mcp_name").value = "";
   document.getElementById("mcp_command").value = "";
   document.getElementById("mcp_args").value = "";
@@ -1902,15 +2219,15 @@ function saveMcpDialog(){
     const i = line.indexOf("=");
     if (i > 0) env[line.slice(0, i).trim()] = line.slice(i + 1).trim();
   });
-  if (!name || !command) { document.getElementById("mcpNote").textContent = "名称和命令不能为空"; return; }
+  if (!name || !command) { document.getElementById("mcpNote").textContent = t("名称和命令不能为空"); return; }
   fetch("/api/mcp", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ action: "add", name, command, args, env }),
   }).then(r => r.json()).then(res => {
     if (res.ok) { closeMcpDialog(); renderMcp(); }
-    else document.getElementById("mcpNote").textContent = "保存失败: " + (res.message || "");
-  }).catch(() => { document.getElementById("mcpNote").textContent = "保存失败"; });
+    else document.getElementById("mcpNote").textContent = t("保存失败") + ": " + (res.message || "");
+  }).catch(() => { document.getElementById("mcpNote").textContent = t("保存失败"); });
 }
 function renderMcp(){
   const list = document.getElementById("mcpList");
@@ -1921,13 +2238,13 @@ function renderMcp(){
     mcpServers = data.servers || {};
     if (status) {
       status.textContent = data.available
-        ? "MCP 可用，配置文件：" + data.config_path
-        : "MCP 依赖未安装（pip install lumina[mcp]）。配置仍可保存，但工具不会连接。";
+        ? t("MCP 可用，配置文件：") + data.config_path
+        : t("MCP 依赖未安装（pip install lumina[mcp]）。配置仍可保存，但工具不会连接。");
       status.style.color = data.available ? "var(--muted)" : "var(--danger)";
     }
     const names = Object.keys(mcpServers);
     if (!names.length) {
-      list.innerHTML = '<p class="hint" style="margin:0">尚未配置任何 MCP 服务器。</p>';
+      list.innerHTML = '<p class="hint" style="margin:0">' + t("尚未配置任何 MCP 服务器。") + '</p>';
       return;
     }
     names.forEach(name => {
@@ -1938,10 +2255,10 @@ function renderMcp(){
       info.className = "mcp-info";
       const nm = document.createElement("div"); nm.className = "mcp-name"; nm.textContent = name;
       const cmd = document.createElement("div"); cmd.className = "mcp-cmd";
-      cmd.textContent = [spec.command, ...(spec.args || [])].filter(Boolean).join(" ") || "(无命令)";
+      cmd.textContent = [spec.command, ...(spec.args || [])].filter(Boolean).join(" ") || t("(无命令)");
       info.appendChild(nm); info.appendChild(cmd);
       const del = document.createElement("button");
-      del.className = "danger"; del.textContent = "删除";
+      del.className = "danger"; del.textContent = t("删除");
       del.onclick = () => {
         fetch("/api/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "remove", name }) })
           .then(r => r.json()).then(() => renderMcp());
@@ -1949,7 +2266,7 @@ function renderMcp(){
       row.appendChild(info); row.appendChild(del);
       list.appendChild(row);
     });
-  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">加载失败</p>'; });
+  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">' + t("加载失败") + '</p>'; });
 }
 function renderSkills(){
   const list = document.getElementById("skillList");
@@ -1958,7 +2275,15 @@ function renderSkills(){
   fetch("/api/skills?workspace=" + encodeURIComponent(activeWorkspace)).then(r => r.json()).then(data => {
     const skills = data.skills || [];
     if (!skills.length) {
-      list.innerHTML = '<p class="hint" style="margin:0">未找到技能。可创建 <code>.lumina/skills/&lt;name&gt;/skill.md</code> 添加。</p>';
+      const hint = document.createElement("p");
+      hint.className = "hint"; hint.style.margin = "0";
+      hint.innerHTML = t("未找到技能。可在以下目录创建 <code>&lt;name&gt;/skill.md</code>：");
+      if (data.project_dir) {
+        const path = document.createElement("code");
+        path.textContent = data.project_dir;
+        hint.appendChild(path);
+      }
+      list.appendChild(hint);
       return;
     }
     skills.forEach(s => {
@@ -1967,7 +2292,7 @@ function renderSkills(){
       const nm = document.createElement("div"); nm.className = "skill-name"; nm.textContent = s.name;
       if (s.triggers && s.triggers.length) {
         const tg = document.createElement("span"); tg.className = "skill-triggers";
-        tg.textContent = "触发: " + s.triggers.join(" / ");
+        tg.textContent = t("触发: ") + s.triggers.join(" / ");
         nm.appendChild(tg);
       }
       const desc = document.createElement("div"); desc.className = "skill-desc";
@@ -1976,12 +2301,12 @@ function renderSkills(){
       body.className = "skill-body"; body.hidden = true;
       body.textContent = s.instructions || "";
       const view = document.createElement("button");
-      view.textContent = "查看指令";
-      view.onclick = () => { body.hidden = !body.hidden; view.textContent = body.hidden ? "查看指令" : "收起"; };
+      view.textContent = t("查看指令");
+      view.onclick = () => { body.hidden = !body.hidden; view.textContent = body.hidden ? t("查看指令") : t("收起"); };
       row.appendChild(nm); row.appendChild(desc); row.appendChild(view); row.appendChild(body);
       list.appendChild(row);
     });
-  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">加载失败</p>'; });
+  }).catch(() => { list.innerHTML = '<p class="hint" style="margin:0">' + t("加载失败") + '</p>'; });
 }
 
 /* ---------- command palette ---------- */
@@ -1989,13 +2314,13 @@ let paletteItems = [];
 let paletteIdx = -1;
 function paletteCommands(){
   return [
-    { title: "新建会话", hint: "Ctrl+T", run: () => newSession() },
-    { title: "切换工作区", hint: "", run: () => openWsManager() },
-    { title: "打开设置", hint: "Ctrl+,", run: () => openSettings() },
-    { title: "切换终端", hint: "Ctrl+`", run: () => toggleTerminal() },
-    { title: "展开 / 收起侧边栏", hint: "", run: () => toggleSidebar() },
-    { title: "刷新文件树", hint: "", run: () => { loadFileTree(); showFileTreePanel(true); } },
-    { title: "检查更新", hint: "", run: () => checkUpdate() },
+    { title: t("新建会话"), hint: "Ctrl+T", run: () => newSession() },
+    { title: t("切换工作区"), hint: "", run: () => openWsManager() },
+    { title: t("打开设置"), hint: "Ctrl+,", run: () => openSettings() },
+    { title: t("切换终端"), hint: "Ctrl+`", run: () => toggleTerminal() },
+    { title: t("展开 / 收起侧边栏"), hint: "", run: () => toggleSidebar() },
+    { title: t("刷新文件树"), hint: "", run: () => { loadFileTree(); showFileTreePanel(true); } },
+    { title: t("检查更新"), hint: "", run: () => checkUpdate() },
   ];
 }
 function togglePalette(){
@@ -2048,5 +2373,11 @@ function renderPalette(q){
   });
 })();
 
-loadSettings().then(() => refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || "")));
+loadSettings().then(() => {
+  refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || ""));
+  loadAgents();
+  refreshServerStatus();
+  setTimeout(maybeShowReleaseNotes, 300);
+});
+checkCliFirstRun();
 setTimeout(() => checkUpdate({ silent: true }), 4000);

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from lumina.config import workspace_data_dir
 from lumina.store import SessionStore
 from lumina.types import Message, ToolCall, Usage
 
 
 def _make_store(tmp_path):
-    return SessionStore(tmp_path / ".lumina" / "sessions.db")
+    return SessionStore(workspace_data_dir(tmp_path) / "sessions.db")
 
 
 def test_create_and_list_session(tmp_path):

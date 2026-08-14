@@ -12,7 +12,7 @@ from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from lumina.agent.authorize import Hooks
-from lumina.config import Settings, get_settings
+from lumina.config import Settings, get_settings, migrate_legacy_workspace_data, workspace_data_dir
 from lumina.config_edit import write_env
 from lumina.factory import build_agent
 from lumina.mcp import MCP_AVAILABLE
@@ -175,6 +175,8 @@ def create_app(
     if str(workspace) not in configured:
         configured.insert(0, str(workspace))
     ws_paths: list[Path] = [Path(p) for p in dict.fromkeys(configured)]
+    for p in ws_paths:
+        migrate_legacy_workspace_data(p)
     app.state.workspaces = ws_paths
     app.state.settings = settings
     app.state.stores: dict[str, SessionStore] = {}
@@ -335,6 +337,7 @@ def create_app(
             "command_palette": False,
             "server_status": False,
             "custom_agents": False,
+            "install_cli": True,
         }
 
     def _load_settings() -> dict:
@@ -378,6 +381,43 @@ def create_app(
         enabled = bool(payload.get("enabled"))
         ok, message = set_context_menu(enabled)
         return {"ok": ok, "message": message, "enabled": enabled if ok else None}
+
+    @app.get("/api/cli")
+    async def get_cli_status() -> dict:
+        from lumina.web import cli_setup
+
+        settings_data = _load_settings()
+        state = _load_state() if app.state.state_file is not None else {}
+        return {
+            "available": cli_setup.cli_available(),
+            "managed": cli_setup.cli_managed(),
+            "enabled": bool(settings_data.get("install_cli", True)),
+            "prompted": bool(state.get("cli_prompted")),
+        }
+
+    @app.post("/api/cli")
+    async def set_cli(payload: dict[str, Any]) -> dict:
+        from lumina.web import cli_setup
+
+        action = str(payload.get("action", ""))
+        if action == "install":
+            ok, message = cli_setup.install_cli()
+        elif action == "remove":
+            ok, message = cli_setup.uninstall_cli()
+        elif action == "dismiss_prompt":
+            if app.state.state_file is not None:
+                state = _load_state()
+                state["cli_prompted"] = True
+                _save_state(state)
+            return {"ok": True}
+        else:
+            return {"ok": False, "message": f"未知操作: {action}"}
+        return {
+            "ok": ok,
+            "message": message,
+            "available": cli_setup.cli_available(),
+            "managed": cli_setup.cli_managed(),
+        }
 
     @app.get("/api/servers")
     async def list_servers() -> dict:
@@ -423,10 +463,33 @@ def create_app(
         _save_state(state)
         return {"ok": True, "servers": servers}
 
+    @app.get("/api/agents")
+    async def list_agents() -> dict:
+        """Built-in agents shown in the input-box selector."""
+        return {
+            "agents": [
+                {
+                    "id": "default",
+                    "name": "默认智能体",
+                    "description": "通用编码助手：阅读、编辑、运行命令、搜索与调试。",
+                }
+            ]
+        }
+
+    @app.get("/api/health")
+    async def health() -> dict:
+        """Lightweight liveness check used by the server-status button."""
+        from lumina import __version__
+
+        return {"ok": True, "version": __version__, "local": True}
+
     MCP_CONFIG_NAME = "lumina.mcp.json"
 
     def _mcp_config_paths() -> list[Path]:
-        return [workspace / ".lumina" / MCP_CONFIG_NAME, Path.home() / ".config" / "lumina" / MCP_CONFIG_NAME]
+        return [
+            workspace_data_dir(workspace) / MCP_CONFIG_NAME,
+            Path.home() / ".config" / "lumina" / MCP_CONFIG_NAME,
+        ]
 
     def _load_mcp_config() -> dict:
         for p in _mcp_config_paths():
@@ -446,12 +509,12 @@ def create_app(
         return {
             "servers": servers,
             "available": bool(MCP_AVAILABLE),
-            "config_path": str(workspace / ".lumina" / MCP_CONFIG_NAME),
+            "config_path": str(workspace_data_dir(workspace) / MCP_CONFIG_NAME),
         }
 
     @app.post("/api/mcp")
     async def mutate_mcp(payload: dict[str, Any]) -> dict:
-        path = workspace / ".lumina" / MCP_CONFIG_NAME
+        path = workspace_data_dir(workspace) / MCP_CONFIG_NAME
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             config = _load_mcp_config()
@@ -485,7 +548,8 @@ def create_app(
     async def list_skills(workspace: str = "") -> dict:
         root = resolve_workspace(workspace)
         try:
-            skills = SkillLoader(root).all()
+            loader = SkillLoader(root)
+            skills = loader.all()
             return {
                 "skills": [
                     {
@@ -495,10 +559,11 @@ def create_app(
                         "instructions": s.instructions,
                     }
                     for s in skills
-                ]
+                ],
+                "project_dir": str(loader.project_dir),
             }
         except Exception as exc:  # noqa: BLE001
-            return {"skills": [], "error": str(exc)}
+            return {"skills": [], "project_dir": "", "error": str(exc)}
 
     @app.get("/api/files")
     async def file_tree(workspace: str = "") -> dict:
@@ -570,6 +635,23 @@ def create_app(
         }
         return stats
 
+    @app.get("/api/session/{sid}/preview")
+    async def session_preview(sid: int, workspace: str = "") -> Any:
+        """Return the last few messages for a hover tooltip."""
+        store = get_store(resolve_workspace(workspace))
+        session = store.get_session(sid)
+        if session is None:
+            return JSONResponse({"error": f"Session {sid} not found"}, status_code=404)
+        msgs = store.get_messages(sid)
+        preview = []
+        for m in reversed(msgs):
+            if m.role in ("user", "assistant") and m.content:
+                preview.append({"role": m.role, "content": m.content[:200]})
+                if len(preview) >= 5:
+                    break
+        preview.reverse()
+        return {"preview": preview}
+
     @app.get("/api/search")
     async def search_sessions(q: str = "", workspace: str = "") -> dict:
         """Search user/assistant message content across sessions."""
@@ -617,7 +699,13 @@ def create_app(
         store = get_store(ws_path)
         approver = WsApprover(ws)
         hooks = WsHooks(ws)
-        agent = build_agent(ws_path, app.state.settings, approver, hooks)
+        agent = build_agent(
+            ws_path,
+            app.state.settings,
+            approver,
+            hooks,
+            shell=str(_load_settings().get("shell", "auto") or "auto"),
+        )
         todo_tools = getattr(getattr(agent, "registry", None), "todo_tools", None)
         current_session: int | None = None
         running: asyncio.Task | None = None
@@ -698,9 +786,12 @@ def create_app(
 
         async def run_terminal(command: str) -> dict:
             """Run a shell command in the workspace and stream its output back."""
+            from lumina.tools.shell import wrap_shell_command
+
+            shell = str(_load_settings().get("shell", "auto") or "auto")
             try:
                 proc = await asyncio.create_subprocess_shell(
-                    command,
+                    wrap_shell_command(command, shell),
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.STDOUT,
                     cwd=ws_path,

@@ -19,6 +19,10 @@ venv/
 # Desktop app runtime state (last workspace, etc.)
 .lumina_state.json
 
+# WebView2 runtime cache (created in source mode under the project root)
+webview/
+
+
 # IDE
 .idea/
 .vscode/

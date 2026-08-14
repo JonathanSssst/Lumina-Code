@@ -8,13 +8,32 @@ from lumina.tools.registry import ToolRegistry
 from lumina.types import ToolResult
 
 
+def wrap_shell_command(command: str, shell: str = "auto") -> str:
+    """Rewrite a command for the requested shell.
+
+    "auto" keeps the system default shell (create_subprocess_shell).
+    Explicit shells wrap the command so it runs under that interpreter.
+    """
+    shell = (shell or "auto").strip().lower()
+    if shell == "powershell":
+        return f'powershell -NoProfile -NonInteractive -Command "{command}"'
+    if shell == "cmd":
+        return f'cmd /d /s /c "{command}"'
+    if shell == "bash":
+        return f'bash -lc "{command}"'
+    return command
+
+
 class ShellTools:
     """Command execution tools with danger/safety classification."""
 
-    def __init__(self, workspace: Path, registry: ToolRegistry, settings: Settings) -> None:
+    def __init__(
+        self, workspace: Path, registry: ToolRegistry, settings: Settings, shell: str = "auto"
+    ) -> None:
         self.workspace = Path(workspace).resolve()
         self.registry = registry
         self.settings = settings
+        self.shell = shell or "auto"
         self._setup()
 
     def _classify(self, command: str) -> tuple[bool, str]:
@@ -34,7 +53,7 @@ class ShellTools:
     async def _run(self, command: str, timeout: int) -> ToolResult:
         try:
             proc = await asyncio.create_subprocess_shell(
-                command,
+                wrap_shell_command(command, self.shell),
                 cwd=str(self.workspace),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.STDOUT,

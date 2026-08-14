@@ -1,6 +1,27 @@
 from __future__ import annotations
 
 from lumina.tools.registry import validate_arguments
+from lumina.tools.shell import wrap_shell_command
+
+
+def test_wrap_shell_auto_passes_through():
+    assert wrap_shell_command("echo hi") == "echo hi"
+    assert wrap_shell_command("echo hi", "auto") == "echo hi"
+
+
+def test_wrap_shell_explicit_wraps_for_each_shell():
+    for shell, prefix in (
+        ("powershell", "powershell -NoProfile -NonInteractive -Command "),
+        ("cmd", "cmd /d /s /c "),
+        ("bash", "bash -lc "),
+    ):
+        wrapped = wrap_shell_command("echo hi", shell)
+        assert wrapped.startswith(prefix)
+        assert "echo hi" in wrapped
+
+
+def test_wrap_shell_unknown_shell_falls_back_to_auto():
+    assert wrap_shell_command("echo hi", "csh") == "echo hi"
 
 
 def test_registry_exposes_core_tools(registry):

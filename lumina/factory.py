@@ -18,11 +18,11 @@ from lumina.tools.todo import TodoTools
 from lumina.tools.web import WebTools
 
 
-def build_registry(workspace: Path, settings: Settings) -> ToolRegistry:
+def build_registry(workspace: Path, settings: Settings, shell: str = "auto") -> ToolRegistry:
     registry = ToolRegistry()
     FileTools(workspace, registry)
     SearchTools(workspace, registry)
-    ShellTools(workspace, registry, settings)
+    ShellTools(workspace, registry, settings, shell)
     GitTools(workspace, registry)
     ProjectMemoryTools(workspace, registry)
     TodoTools(registry)
@@ -39,9 +39,10 @@ def build_agent(
     *,
     enable_mcp: bool = True,
     enable_skills: bool = True,
+    shell: str = "auto",
 ) -> Agent:
     client = DeepSeekClient(settings)
-    registry = build_registry(workspace, settings)
+    registry = build_registry(workspace, settings, shell)
     scanner = ProjectScanner(workspace)
     mcp_bridge = None
     if enable_mcp:

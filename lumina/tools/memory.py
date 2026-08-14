@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from lumina.config import workspace_data_dir
 from lumina.tools.registry import ToolRegistry
 from lumina.types import ToolResult
 
@@ -21,10 +22,11 @@ class ProjectMemoryTools:
     """Persistent project memory: AGENTS.md conventions + a searchable knowledge base.
 
     - AGENTS.md holds project conventions (read/write via read_agents/write_agents).
-    - The knowledge base lives in ``.lumina/memory/<name>.md`` (project) and
-      ``~/.config/lumina/memory/<name>.md`` (global, shared across projects).
-      Entries are written with memory_write and retrieved with memory_read,
-      listed with memory_list, and searched by keyword with memory_search.
+    - The knowledge base lives in the per-workspace user data dir
+      (``memory/<name>.md``, project) and ``~/.config/lumina/memory/<name>.md``
+      (global, shared across projects). Entries are written with memory_write
+      and retrieved with memory_read, listed with memory_list, and searched by
+      keyword with memory_search.
     """
 
     def __init__(self, workspace: Path, registry: ToolRegistry) -> None:
@@ -40,7 +42,7 @@ class ProjectMemoryTools:
         return self.workspace / "AGENTS.md"
 
     def _project_memory_dir(self) -> Path:
-        return self.workspace / ".lumina" / "memory"
+        return workspace_data_dir(self.workspace) / "memory"
 
     def _global_memory_dir(self) -> Path:
         return Path.home() / ".config" / "lumina" / "memory"
@@ -120,11 +122,12 @@ class ProjectMemoryTools:
 
         @self.registry.register(
             description=(
-                "Write or append a knowledge base entry under .lumina/memory/<name>.md "
-                "(project) or, when shared=True, ~/.config/lumina/memory/<name>.md (shared "
-                "across all projects). Use memory_list to see existing entries and "
-                "memory_search to find relevant ones before writing, so you update instead "
-                "of duplicating. Entries persist across sessions."
+                "Write or append a knowledge base entry under memory/<name>.md "
+                "in the per-workspace user data dir (project) or, when shared=True, "
+                "~/.config/lumina/memory/<name>.md (shared across all projects). Use "
+                "memory_list to see existing entries and memory_search to find relevant "
+                "ones before writing, so you update instead of duplicating. Entries "
+                "persist across sessions."
             ),
             parameters={
                 "type": "object",
@@ -163,7 +166,8 @@ class ProjectMemoryTools:
         @self.registry.register(
             description=(
                 "Read a knowledge base entry by name. Searches project memory "
-                "(.lumina/memory) first, then the global shared memory (~/.config/lumina/memory)."
+                "(per-workspace user data dir) first, then the global shared memory "
+                "(~/.config/lumina/memory)."
             ),
             parameters={
                 "type": "object",
