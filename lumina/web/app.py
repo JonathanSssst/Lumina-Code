@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import json
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
@@ -18,7 +20,7 @@ from lumina.factory import build_agent
 from lumina.mcp import MCP_AVAILABLE
 from lumina.skills import SkillLoader
 from lumina.store import SessionStore, default_db_path
-from lumina.types import Message
+from lumina.types import Message, build_user_content, content_images, content_text
 
 _EDITABLE_KEYS = (
     "LUMINA_LLM_PROVIDER",
@@ -50,6 +52,28 @@ def _config_payload(s: Settings) -> dict:
         if alias in _EDITABLE_KEYS:
             payload[alias] = getattr(s, field_name)
     return payload
+
+
+def _web_token(password: str) -> str:
+    """Deterministic access token derived from the web UI password.
+
+    The password is never stored anywhere; the token is recomputed on each
+    login attempt and compared in constant time.
+    """
+    return hashlib.sha256(b"lumina-web::" + password.encode("utf-8")).hexdigest()
+
+
+def _secure_eq(a: str, b: str) -> bool:
+    return hmac.compare_digest(a.encode("utf-8"), b.encode("utf-8"))
+
+
+def _message_view(m: Message) -> dict:
+    """Frontend-friendly view of a message: text plus image data URLs."""
+    return {
+        "role": m.role,
+        "content": content_text(m.content),
+        "images": content_images(m.content),
+    }
 
 
 
@@ -162,6 +186,7 @@ def create_app(
     *,
     config_env: Path | None = None,
     state_file: Path | None = None,
+    auth_password: str | None = None,
 ) -> FastAPI:
     @asynccontextmanager
     async def _lifespan(_app: FastAPI):
@@ -185,6 +210,29 @@ def create_app(
     # Per-session todo lists, keyed by "<workspace>|<session_id>", so that
     # switching sessions (or workspaces) never leaks the previous task's list.
     app.state.session_todos: dict[str, list[dict[str, str]]] = {}
+
+    auth_token = _web_token(auth_password) if auth_password else None
+    app.state.auth_token = auth_token
+
+    if auth_token:
+        @app.middleware("http")
+        async def _auth_middleware(request: Request, call_next):
+            """Guard every route except the login endpoint and static assets.
+
+            All real data (settings, config with API keys, sessions, MCP,
+            skills, ...) lives behind /api/*, so protecting them suffices.
+            """
+            path = request.url.path
+            if path.startswith(("/api/auth", "/static")):
+                return await call_next(request)
+            provided = request.headers.get("Authorization", "")
+            if provided.startswith("Bearer "):
+                provided = provided[len("Bearer "):]
+            elif request.headers.get("X-Auth-Token"):
+                provided = request.headers.get("X-Auth-Token", "")
+            if not provided or not _secure_eq(provided, auth_token):
+                return JSONResponse({"error": "unauthorized"}, status_code=401)
+            return await call_next(request)
 
     def env_target() -> Path:
         return app.state.config_env or (app.state.workspaces[0] / ".env")
@@ -249,6 +297,21 @@ def create_app(
     @app.get("/")
     async def index() -> Response:
         return FileResponse(_static_dir() / "index.html")
+
+    @app.post("/api/auth")
+    async def auth_login(payload: dict[str, Any]) -> Any:
+        """Exchange the web password for an access token.
+
+        Only active when the server was started with a password. Returns the
+        token (a SHA-256 digest of the password) which the client stores and
+        sends back as `Authorization: Bearer <token>`.
+        """
+        if auth_token is None:
+            return {"ok": True, "enabled": False, "token": ""}
+        password = str(payload.get("password", ""))
+        if _secure_eq(_web_token(password), auth_token):
+            return {"ok": True, "enabled": True, "token": auth_token}
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
 
     @app.get("/api/workspaces")
     async def list_workspaces() -> dict:
@@ -601,16 +664,16 @@ def create_app(
                 {
                     "session": {"id": sid, "title": session.title, "messages": session.message_count},
                     "messages": [
-                        {"role": m.role, "content": m.content or "", "tool": m.name or ""} for m in msgs
+                        {"role": m.role, "content": content_text(m.content), "tool": m.name or ""} for m in msgs
                     ],
                 }
             )
         parts: list[str] = []
         for m in msgs:
             if m.role == "user" and m.content:
-                parts.append(f"## User\n\n{m.content}")
+                parts.append(f"## User\n\n{content_text(m.content)}")
             elif m.role == "assistant" and m.content:
-                parts.append(f"## Assistant\n\n{m.content}")
+                parts.append(f"## Assistant\n\n{content_text(m.content)}")
         body = "\n\n---\n\n".join(parts) or "(empty session)"
         filename = f"session-{sid}.md"
         return Response(
@@ -646,7 +709,7 @@ def create_app(
         preview = []
         for m in reversed(msgs):
             if m.role in ("user", "assistant") and m.content:
-                preview.append({"role": m.role, "content": m.content[:200]})
+                preview.append({"role": m.role, "content": content_text(m.content)[:200]})
                 if len(preview) >= 5:
                     break
         preview.reverse()
@@ -694,6 +757,11 @@ def create_app(
 
     @app.websocket("/ws")
     async def ws_endpoint(ws: WebSocket, w: str = "") -> None:
+        if auth_token is not None:
+            token = ws.query_params.get("token", "")
+            if not token or not _secure_eq(token, auth_token):
+                await ws.close(code=4401)
+                return
         await ws.accept()
         ws_path = resolve_workspace(w)
         store = get_store(ws_path)
@@ -729,7 +797,12 @@ def create_app(
                 {"type": "todo", "todos": list(app.state.session_todos.get(key, []))}
             )
 
-        async def run_in_background(content: str, sid: int, history: list[Message]) -> None:
+        async def run_in_background(
+            content: str,
+            sid: int,
+            history: list[Message],
+            user_content: str | list | None = None,
+        ) -> None:
             """Runs the agent in a background task so approvals stay responsive."""
             budget = getattr(agent, "budget", None)
             try:
@@ -737,6 +810,7 @@ def create_app(
                     content,
                     history=history,
                     plan=store.get_plan(sid) or None,
+                    user_content=user_content,
                     persist=lambda m, sid_=sid: store.append_message(sid_, m),
                     persist_plan=lambda p, sid_=sid: store.set_plan(sid_, p),
                 )
@@ -867,9 +941,9 @@ def create_app(
                     await ws.send_json({"type": "session", "session": session_payload(store, sid)})
                     await _push_session_todos(sid)
                     msgs = [
-                        {"role": m.role, "content": m.content or ""}
+                        _message_view(m)
                         for m in store.get_messages(sid)
-                        if m.role in ("user", "assistant") and m.content
+                        if m.role in ("user", "assistant") and (m.content or "")
                     ]
                     await ws.send_json({"type": "history", "messages": msgs})
 
@@ -883,13 +957,15 @@ def create_app(
                         await _push_session_todos(current_session)
                         await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     content = msg.get("content", "")
+                    images = [str(i) for i in (msg.get("images") or []) if isinstance(i, str)]
+                    user_content = build_user_content(content, images)
                     history = store.get_messages(current_session)
-                    store.append_message(current_session, Message(role="user", content=content))
+                    store.append_message(current_session, Message(role="user", content=user_content))
                     s = store.get_session(current_session)
                     if s and s.message_count <= 1:
-                        store.set_title(current_session, content[:40])
+                        store.set_title(current_session, content_text(user_content)[:40])
                     running = asyncio.create_task(
-                        run_in_background(content, current_session, history)
+                        run_in_background(content, current_session, history, user_content)
                     )
 
                 elif mtype == "truncate":
@@ -919,19 +995,21 @@ def create_app(
                             user_index += 1
                             last_user = m
                             last_user_index = user_index
-                    if last_user is None or not (last_user.content or "").strip():
+                    if last_user is None or not content_text(last_user.content).strip():
                         await ws.send_json({"type": "error", "message": "没有可继续的任务"})
                         continue
-                    content = str(last_user.content)
+                    content = content_text(last_user.content)
+                    images = content_images(last_user.content)
+                    user_content = build_user_content(content, images)
                     store.truncate_after_user(current_session, last_user_index)
-                    store.append_message(current_session, Message(role="user", content=content))
+                    store.append_message(current_session, Message(role="user", content=user_content))
                     s = store.get_session(current_session)
                     if s and s.message_count <= 1:
                         store.set_title(current_session, content[:40])
                     agent.reset_budget()
                     history = store.get_messages(current_session)
                     running = asyncio.create_task(
-                        run_in_background(content, current_session, history)
+                        run_in_background(content, current_session, history, user_content)
                     )
 
                 elif mtype == "approval_response":

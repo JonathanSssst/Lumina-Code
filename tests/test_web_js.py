@@ -554,3 +554,73 @@ process.exit(failed ? 1 : 0);
 def test_i18n_round_trip_between_languages():
     r = subprocess.run(["node", "-e", _I18N_HARNESS, str(I18N_JS)], capture_output=True, text=True, check=False)
     assert r.returncode == 0, r.stderr or r.stdout
+
+
+_IMG_HARNESS = r"""
+const fs = require("fs"), vm = require("vm");
+const file = process.argv[1];
+const lines = fs.readFileSync(file, "utf8").split("\n");
+const find = (sub, from) => lines.findIndex((l, i) => i >= from && l.includes(sub));
+const slice = (s, e) => lines.slice(s, e).join("\n");
+let failed = 0;
+function check(name, cond) { if (!cond) { failed++; console.log("FAIL " + name); } else console.log("ok " + name); }
+function mkEl() {
+  const el = { className: "", textContent: "", innerHTML: "", src: "", dataset: {}, children: [],
+    appendChild(c) { el.children.push(c); return c; },
+    classList: { _s: new Set(), contains(c) { return this._s.has(c); } } };
+  return el;
+}
+const logEl = mkEl();
+const ctx = {
+  document: { createElement: () => mkEl() },
+  log: logEl,
+  userCounter: 0,
+  bulkLoading: false,
+  busy: false,
+  t: s => s,
+  renderMarkdown: s => "<md>" + s + "</md>",
+  scrollBottom: () => { ctx.scrolled = true; },
+  rebuildToc: () => { ctx.tocCalled = true; },
+  refreshMsgActions: () => { ctx.refreshCalled = true; },
+  activeWorkspace: "", authToken: "",
+};
+vm.createContext(ctx);
+vm.runInContext(slice(find("function renderMsgImages", 0), find("function actionBtn", 0)), ctx);
+const u1 = "data:image/png;base64,AAA", u2 = "data:image/jpeg;base64,BBB";
+check("renderMsgImages null for empty", ctx.renderMsgImages([]) === null && ctx.renderMsgImages(null) === null);
+const inner = ctx.appendMd("user", "看图", false, [u1, u2]);
+const div = logEl.children[0];
+check("dataset.images stored as json", div.dataset.images === JSON.stringify([u1, u2]));
+check("dataset.text kept", div.dataset.text === "看图");
+const row = div.children[0];
+check("image row first", row && row.className === "msg-images");
+check("one img per url", row.children.length === 2 && row.children[0].src === u1 && row.children[1].src === u2);
+check("markdown bubble second", div.children[1].className === "bubble markdown");
+check("markdown rendered", div.children[1].innerHTML === "<md>看图</md>");
+check("appended to log", logEl.children.length === 1);
+check("user counter advanced", ctx.userCounter === 1);
+check("scrolled", ctx.scrolled === true);
+check("toc rebuilt for user", ctx.tocCalled === true);
+check("actions refreshed", ctx.refreshCalled === true);
+logEl.children.length = 0;
+ctx.tocCalled = false; ctx.refreshCalled = false;
+ctx.appendMd("assistant", "好的", true);
+const aDiv = logEl.children[0];
+check("assistant no images attr", aDiv.dataset.images === undefined && aDiv.children.length === 1);
+check("no toc rebuild for assistant", ctx.tocCalled === false);
+check("actions still refreshed", ctx.refreshCalled === true);
+
+vm.runInContext(slice(find("function wsAuthPath", 0), find("function connectWS", 0)), ctx);
+ctx.activeWorkspace = ""; ctx.authToken = "";
+check("plain ws path", ctx.wsAuthPath() === "/ws");
+ctx.authToken = "t0k";
+check("token query", ctx.wsAuthPath() === "/ws?token=t0k");
+ctx.activeWorkspace = "w s";
+check("workspace + token encoded", ctx.wsAuthPath() === "/ws?w=w%20s&token=t0k");
+process.exit(failed ? 1 : 0);
+"""
+
+
+def test_multimodal_message_render_and_ws_auth_path():
+    r = subprocess.run(["node", "-e", _IMG_HARNESS, str(APP_JS)], capture_output=True, text=True, check=False)
+    assert r.returncode == 0, r.stderr or r.stdout

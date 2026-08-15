@@ -5,6 +5,7 @@ import logging
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 from lumina.agent.authorize import AgentResult, AsyncApprover, Hooks
 from lumina.agent.budget import TokenBudget
@@ -12,7 +13,7 @@ from lumina.config import Settings, workspace_data_dir
 from lumina.context.project import ProjectScanner, summarize_tool_result
 from lumina.llm.client import DeepSeekClient
 from lumina.tools.registry import ToolRegistry, validate_arguments
-from lumina.types import Message, ToolCall, ToolResult
+from lumina.types import Message, ToolCall, ToolResult, content_text
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ class Agent:
         persist: Callable[[Message], None] | None = None,
         plan: str | None = None,
         persist_plan: Callable[[str], None] | None = None,
+        user_content: str | list[Any] | None = None,
     ) -> AgentResult:
         """Run the agent loop.
 
@@ -154,6 +156,9 @@ class Agent:
           the planner step is skipped and this plan is injected instead.
         - `persist_plan`: called with the generated plan so callers can store it for
           later resume.
+        - `user_content`: optional OpenAI content parts (text + image_url) sent to the
+          model as the final user message. `user_input` is still the plain text used for
+          planning / self-review / titles.
         """
         self.persist = persist
         self._tests_run = False
@@ -204,7 +209,9 @@ class Agent:
         if history:
             sanitized = _sanitize_history(list(history))
             messages.extend(sanitized)
-        messages.append(Message(role="user", content=user_input))
+        messages.append(
+            Message(role="user", content=user_content if user_content is not None else user_input)
+        )
         transcript: list[dict] = []
         auto_fix_rounds = self.settings.max_auto_fix_rounds
         last_test_failure: str | None = None
@@ -564,7 +571,7 @@ def _render_compression_source(msgs: Sequence[Message]) -> str:
     lines: list[str] = []
     for m in msgs:
         if m.role == "user":
-            lines.append(f"[user] {m.content}")
+            lines.append(f"[user] {content_text(m.content)}")
         elif m.role == "assistant":
             if m.content:
                 lines.append(f"[assistant] {m.content}")

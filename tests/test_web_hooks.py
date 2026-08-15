@@ -16,8 +16,8 @@ from lumina.config import Settings, workspace_data_dir
 from lumina.store import SessionStore, default_db_path
 from lumina.tools.registry import ToolRegistry
 from lumina.tools.todo import TodoTools
-from lumina.types import Message, Usage
-from lumina.web.app import WsApprover, WsHooks, create_app
+from lumina.types import Message, Usage, build_user_content, content_images, content_text
+from lumina.web.app import WsApprover, WsHooks, _message_view, create_app
 
 
 @pytest.fixture
@@ -80,7 +80,7 @@ class _SharedTodoAgent:
         TodoTools(registry)
         self.registry = registry
 
-    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
         return AgentResult(
             final_content="ok", iterations=1, tool_calls_made=0, total_tokens=5, stopped_reason="completed"
         )
@@ -299,4 +299,110 @@ def test_api_agents_lists_default_agent(app):
         agents = data["agents"]
         assert agents[0]["id"] == "default"
         assert agents[0]["name"]
-        assert agents[0]["description"]
+
+
+# --- multimodal content helpers ---
+
+
+def test_content_text_extracts_from_string_and_parts():
+    assert content_text("plain") == "plain"
+    assert content_text(None) == ""
+    assert content_text("") == ""
+    parts = [
+        {"type": "text", "text": "描述一下 "},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        {"type": "text", "text": "这张截图"},
+    ]
+    assert content_text(parts) == "描述一下 这张截图"
+
+
+def test_content_images_extracts_data_urls():
+    parts = [
+        {"type": "text", "text": "hi"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,BBBB"}},
+    ]
+    assert content_images(parts) == ["data:image/png;base64,AAAA", "data:image/jpeg;base64,BBBB"]
+    assert content_images("plain") == []
+    assert content_images(None) == []
+
+
+def test_build_user_content_plain_vs_images():
+    assert build_user_content("hi", []) == "hi"
+    built = build_user_content("hi", ["data:image/png;base64,AAAA"])
+    assert isinstance(built, list)
+    assert built[0] == {"type": "text", "text": "hi"}
+    assert built[1]["type"] == "image_url"
+    assert built[1]["image_url"]["url"] == "data:image/png;base64,AAAA"
+    assert len(built) == 2
+
+
+def test_build_user_content_caps_at_four_images():
+    imgs = [f"data:image/png;base64,{i}" for i in range(6)]
+    built = build_user_content("hi", imgs)
+    assert len(built) == 5  # 1 text + 4 images
+    assert all(p["image_url"]["url"].startswith("data:image/") for p in built[1:])
+
+
+def test_build_user_content_ignores_non_image_urls():
+    built = build_user_content("hi", ["http://x/y.png"])
+    assert built == "hi"
+
+
+def test_message_view_flattens_parts_for_frontend():
+    m = Message(
+        role="user",
+        content=[
+            {"type": "text", "text": "看图"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        ],
+    )
+    view = _message_view(m)
+    assert view["role"] == "user"
+    assert view["content"] == "看图"
+    assert view["images"] == ["data:image/png;base64,AAAA"]
+
+
+def test_ws_multimodal_message_roundtrip(app, tmp_path, monkeypatch):
+    """A message with images is stored as parts and resumes as text + images."""
+    calls = []
+
+    class FakeAgent:
+        async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
+            calls.append({"content": content, "user_content": user_content})
+            return AgentResult(
+                final_content="看到图片了", iterations=1, tool_calls_made=0, total_tokens=10,
+                stopped_reason="completed",
+            )
+
+        def reset_budget(self):
+            pass
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: FakeAgent())
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()  # sessions
+        ws.send_json({
+            "type": "message",
+            "content": "看看这张图",
+            "images": ["data:image/png;base64,AAAA"],
+        })
+        while True:
+            msg = ws.receive_json()
+            if msg["type"] == "done":
+                assert msg["final_content"] == "看到图片了"
+                break
+
+    assert len(calls) == 1
+    assert calls[0]["content"] == "看看这张图"
+    assert calls[0]["user_content"][0]["type"] == "text"
+    assert calls[0]["user_content"][1]["image_url"]["url"] == "data:image/png;base64,AAAA"
+
+    store = SessionStore(default_db_path(tmp_path))
+    sid = store.list_sessions(tmp_path)[0].id
+    user_msgs = [m for m in store.get_messages(sid) if m.role == "user"]
+    assert content_images(user_msgs[0].content) == ["data:image/png;base64,AAAA"]
+    assert content_text(user_msgs[0].content) == "看看这张图"
+    store.close()

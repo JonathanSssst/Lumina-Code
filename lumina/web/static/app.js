@@ -18,6 +18,12 @@ let opsReads = new Set(), opsSkills = 0, opsEdits = {};
 let inputHistory = [];
 let histIndex = -1;
 let tokenUsed = 0;
+let inputImages = [];
+const MAX_IMAGES = 4;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+let authToken = "";
+try { authToken = localStorage.getItem("lumina-web-token") || ""; } catch(e) {}
+let loginVisible = false;
 
 /* ---------- i18n ---------- */
 function t(s){ return LUMINA_I18N.t(s); }
@@ -27,17 +33,77 @@ function applyI18n(){
   LUMINA_I18N.apply();
 }
 
+function wsAuthPath(){
+  const q = [];
+  if (activeWorkspace) q.push("w=" + encodeURIComponent(activeWorkspace));
+  if (authToken) q.push("token=" + encodeURIComponent(authToken));
+  return "/ws" + (q.length ? "?" + q.join("&") : "");
+}
 function connectWS(path){
   if (ws) { ws.onclose = null; ws.close(); }
   activeWorkspace = path || "";
-  ws = new WebSocket(`ws://${location.host}/ws${activeWorkspace ? "?w=" + encodeURIComponent(activeWorkspace) : ""}`);
+  ws = new WebSocket(`ws://${location.host}${wsAuthPath()}`);
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: "list" }));
     renderTodos([]);
     if (settings && settings.auto_approve) ws.send(JSON.stringify({ type: "set_auto", value: true }));
   };
   ws.onmessage = (e) => handleWSMessage(JSON.parse(e.data));
+  ws.onclose = (e) => {
+    if (e.code === 4401) showLogin();
+  };
 }
+
+/* ---------- http auth: attach token, surface the login overlay on 401 ---------- */
+(function () {
+  const origFetch = window.fetch;
+  window.fetch = function (input, init) {
+    init = init || {};
+    init.headers = new Headers(init.headers || {});
+    if (authToken) init.headers.set("Authorization", "Bearer " + authToken);
+    return origFetch.call(this, input, init).then(resp => {
+      if (resp.status === 401 && !loginVisible) showLogin();
+      return resp;
+    });
+  };
+})();
+
+function showLogin(){
+  if (loginVisible) return;
+  loginVisible = true;
+  const ov = document.getElementById("loginOverlay");
+  if (ov) ov.hidden = false;
+  const pw = document.getElementById("loginPassword");
+  if (pw) { pw.value = ""; setTimeout(() => pw.focus(), 50); }
+}
+function hideLogin(){
+  loginVisible = false;
+  const ov = document.getElementById("loginOverlay");
+  if (ov) ov.hidden = true;
+}
+function submitLogin(){
+  const pw = document.getElementById("loginPassword");
+  const err = document.getElementById("loginError");
+  if (err) err.hidden = true;
+  fetch("/api/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password: pw ? pw.value : "" })
+  })
+    .then(r => r.json().catch(() => ({ ok: false, enabled: false })).then(d => ({ ok: r.ok, d })))
+    .then(({ ok, d }) => {
+      if (ok && d.enabled && d.token) {
+        authToken = d.token;
+        try { localStorage.setItem("lumina-web-token", d.token); } catch(e) {}
+      }
+      location.reload();
+    })
+    .catch(() => { if (err) err.hidden = false; });
+}
+(function () {
+  const pw = document.getElementById("loginPassword");
+  if (pw) pw.addEventListener("keydown", e => { if (e.key === "Enter") submitLogin(); });
+})();
 
 function setBusy(b){
   busy = b;
@@ -312,11 +378,28 @@ function renderMarkdown(src){
 
 /* ---------- DOM helpers ---------- */
 let bulkLoading = false;
-function appendMd(cls, text, smooth){
+function renderMsgImages(images){
+  if (!images || !images.length) return null;
+  const row = document.createElement("div");
+  row.className = "msg-images";
+  images.forEach(url => {
+    const img = document.createElement("img");
+    img.className = "msg-image";
+    img.src = url;
+    row.appendChild(img);
+  });
+  return row;
+}
+function appendMd(cls, text, smooth, images){
   const div = document.createElement("div");
   div.className = "msg " + cls;
   if (cls === "user") { div.dataset.uindex = userCounter++; div.dataset.text = text; }
   else if (cls === "assistant") div.dataset.text = text;
+  if (images && images.length) {
+    div.dataset.images = JSON.stringify(images);
+    const imgs = renderMsgImages(images);
+    if (imgs) div.appendChild(imgs);
+  }
   const inner = document.createElement("div");
   inner.className = "bubble markdown";
   inner.innerHTML = renderMarkdown(text);
@@ -388,16 +471,22 @@ function editMessage(el){
   showEditbar();
 }
 function resendMessage(el){
-  truncateAndSend(parseInt(el.dataset.uindex, 10), el.dataset.text || "");
+  let imgs = [];
+  try { imgs = JSON.parse(el.dataset.images || "[]") || []; } catch(e) {}
+  truncateAndSend(parseInt(el.dataset.uindex, 10), el.dataset.text || "", imgs);
 }
 function regenerateAt(el){
   let prev = el.previousElementSibling;
   while (prev && !(prev.classList.contains("msg") && prev.classList.contains("user"))) {
     prev = prev.previousElementSibling;
   }
-  if (prev) truncateAndSend(parseInt(prev.dataset.uindex, 10), prev.dataset.text || "");
+  if (prev) {
+    let imgs = [];
+    try { imgs = JSON.parse(prev.dataset.images || "[]") || []; } catch(e) {}
+    truncateAndSend(parseInt(prev.dataset.uindex, 10), prev.dataset.text || "", imgs);
+  }
 }
-function truncateAndSend(ui, text){
+function truncateAndSend(ui, text, images){
   if (busy || !currentSession || ui < 0) return;
   const target = document.querySelector('.msg.user[data-uindex="' + ui + '"]');
   while (target && target.nextSibling) log.removeChild(target.nextSibling);
@@ -409,8 +498,8 @@ function truncateAndSend(ui, text){
   setBusy(true);
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
-  appendMd("user", text);
-  ws.send(JSON.stringify({ type: "message", content: text }));
+  appendMd("user", text, false, images || []);
+  ws.send(JSON.stringify({ type: "message", content: text, images: images || [] }));
 }
 /* ---------- right conversation navigation (floating dots) ---------- */
 let tocDots = [];
@@ -646,7 +735,7 @@ function handleWSMessage(m) {
     bulkLoading = true;
     log.classList.add("settle");
     m.messages.forEach(msg => {
-      if (msg.role === "user") appendMd("user", msg.content, false);
+      if (msg.role === "user") appendMd("user", msg.content, false, msg.images || []);
       else if (msg.role === "assistant") appendMd("assistant", msg.content, false);
     });
     log.classList.remove("settle");
@@ -1072,17 +1161,68 @@ function deleteSession() {
 }
 function send() {
   const text = input.value.trim();
-  if (!text || busy) return;
+  const images = inputImages.slice();
+  if ((!text && !images.length) || busy) return;
   requestNotifPermission();
-  if (editingUi != null) { const ui = editingUi; editingUi = null; hideEditbar(); truncateAndSend(ui, text); return; }
+  if (editingUi != null) { const ui = editingUi; editingUi = null; hideEditbar(); truncateAndSend(ui, text, images); return; }
   inputHistory.push(text); if (inputHistory.length > 100) inputHistory.shift();
   histIndex = inputHistory.length;
   setBusy(true);
   stopThinkTimer();
   thinkingEl = null; resetStream(); resetOps();
-  appendMd("user", text);
-  ws.send(JSON.stringify({ type: "message", content: text }));
+  appendMd("user", text, false, images);
+  ws.send(JSON.stringify({ type: "message", content: text, images: images }));
   input.value = "";
+  inputImages = [];
+  renderImagePreviews();
+}
+
+/* ---------- image attachment ---------- */
+function pickImages(){
+  const fi = document.getElementById("imgInput");
+  if (fi) fi.click();
+}
+function handleImagePicked(e){
+  const files = Array.from(e.target.files || []);
+  e.target.value = "";
+  files.forEach(f => {
+    if (inputImages.length >= MAX_IMAGES) { flashNote(t("最多添加 4 张图片")); return; }
+    if (!f.type || !f.type.startsWith("image/")) { flashNote(t("仅支持图片文件")); return; }
+    if (f.size > MAX_IMAGE_BYTES) { flashNote(t("图片超过 4MB")); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result || "");
+      if (url && inputImages.length < MAX_IMAGES) {
+        inputImages.push(url);
+        renderImagePreviews();
+      }
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function removeImageAt(idx){
+  inputImages.splice(idx, 1);
+  renderImagePreviews();
+}
+function renderImagePreviews(){
+  const wrap = document.getElementById("imgPreviews");
+  if (!wrap) return;
+  wrap.hidden = inputImages.length === 0;
+  wrap.innerHTML = "";
+  inputImages.forEach((url, i) => {
+    const item = document.createElement("div");
+    item.className = "img-preview";
+    const img = document.createElement("img");
+    img.src = url;
+    const x = document.createElement("button");
+    x.className = "img-preview-x";
+    x.textContent = "×";
+    x.title = t("移除图片");
+    x.onclick = () => removeImageAt(i);
+    item.appendChild(img);
+    item.appendChild(x);
+    wrap.appendChild(item);
+  });
 }
 input.addEventListener("keydown", (e) => {
   if (fileRefMatches.length) {
@@ -1114,7 +1254,7 @@ document.getElementById("autoApprove").addEventListener("change", (e) => {
 /* ---------- theme ---------- */
 let settings = {};
 let settingsReady = false;
-const APP_VERSION = "1.0.9";
+const APP_VERSION = "1.1.0";
 const THEMES = ["system","tokyonight","everforest","ayu","catppuccin","catppuccin-macchiato","gruvbox","kanagawa","nord","matrix","one-dark"];
 (function initThemeFast(){
   document.documentElement.setAttribute("data-theme", localStorage.getItem("lumina-theme") || "dark");

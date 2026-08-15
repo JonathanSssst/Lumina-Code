@@ -42,6 +42,31 @@ def test_append_and_get_messages_roundtrip(tmp_path):
     store.close()
 
 
+def test_parts_content_roundtrips_through_store(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+    parts = [
+        {"type": "text", "text": "看看这张图"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+    ]
+    store.append_message(sid, Message(role="user", content=parts))
+
+    msgs = store.get_messages(sid)
+    assert msgs[0].content == parts
+    assert msgs[0].content[1]["image_url"]["url"].startswith("data:image/")
+    store.close()
+
+
+def test_string_content_never_misread_as_parts(tmp_path):
+    store = _make_store(tmp_path)
+    sid = store.create_session(tmp_path)
+    plain = "\x00lumina-parts\x00[{'type': 'text', 'text': 'literal'}]"
+    store.append_message(sid, Message(role="user", content=plain))
+    msgs = store.get_messages(sid)
+    assert msgs[0].content == plain
+    store.close()
+
+
 def test_list_sessions_filtered_by_workspace(tmp_path):
     store = _make_store(tmp_path)
     other = tmp_path / "other"

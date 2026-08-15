@@ -99,6 +99,59 @@ class LLMResponse(BaseModel):
     finish_reason: str = "stop"
 
 
+def content_text(content: str | list[Any] | None) -> str:
+    """Extract the plain-text portion of a message content.
+
+    Accepts a plain string or OpenAI-style content parts (``text`` /
+    ``image_url``). Used for titles, search, export and the resume flow where
+    a string is required.
+    """
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        chunks: list[str] = []
+        for part in content:
+            if isinstance(part, str):
+                chunks.append(part)
+            elif isinstance(part, dict) and part.get("type") == "text":
+                chunks.append(str(part.get("text", "")))
+        return "".join(chunks)
+    return ""
+
+
+def content_images(content: str | list[Any] | None) -> list[str]:
+    """Return the image data URLs embedded in OpenAI-style content parts."""
+    if not isinstance(content, list):
+        return []
+    urls: list[str] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") == "image_url":
+            url = (part.get("image_url") or {}).get("url", "")
+            if isinstance(url, str) and url:
+                urls.append(url)
+    return urls
+
+
+def build_user_content(text: str, images: list[str]) -> str | list[Any]:
+    """Build user-message content for the LLM: plain text, or text + images.
+
+    Images are embedded as data URLs in the OpenAI vision ``image_url`` part
+    format so any vision-capable OpenAI-compatible provider can read them.
+    At most 4 images are kept.
+    """
+    if not images:
+        return text
+    parts: list[Any] = [{"type": "text", "text": text}]
+    added = 0
+    for url in images[:4]:
+        if isinstance(url, str) and url.startswith("data:image/"):
+            parts.append({"type": "image_url", "image_url": {"url": url}})
+            added += 1
+    return parts if added else text
+
+
 def _json_dumps(obj: Any) -> str:
     import json
 

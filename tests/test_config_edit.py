@@ -335,7 +335,7 @@ def test_websocket_chat_roundtrip(tmp_path, monkeypatch):
     from lumina.web.app import create_app
 
     class FakeAgent:
-        async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
+        async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
             return AgentResult(
                 final_content="fake answer",
                 iterations=1,

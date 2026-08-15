@@ -15,7 +15,7 @@ class FakeAgent:
     def __init__(self) -> None:
         self.reset_calls = 0
 
-    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
         return AgentResult(
             final_content="fake answer",
             iterations=1,
@@ -35,7 +35,7 @@ class HangAgent:
     def __init__(self) -> None:
         self.started = asyncio.Event()
 
-    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None):
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
         self.started.set()
         await asyncio.Event().wait()
 

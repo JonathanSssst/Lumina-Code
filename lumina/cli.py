@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -464,6 +465,10 @@ def web(
     host: str = typer.Option("127.0.0.1", "--host"),
     port: int = typer.Option(1200, "--port"),
     port_range: int = typer.Option(100, "--port-range", help="Max ports to scan above --port when busy"),
+    password: str = typer.Option(
+        None, "--password",
+        help="Require a password to access the web UI (also read from LUMINA_WEB_PASSWORD)",
+    ),
     use_webview: bool = typer.Option(
         True, "--webview/--no-webview",
         help="Open in a desktop WebView window (default) instead of the browser",
@@ -483,8 +488,14 @@ def web(
     settings = _load_settings()
     workspace = workdir.resolve()
     setup_logging(workspace)
+    auth_password = password or os.environ.get("LUMINA_WEB_PASSWORD") or None
     extra_workspaces = [Path(p.strip()) for p in settings.workspaces.split(",") if p.strip()]
-    app_ = create_app(settings=settings, workspace=workspace, workspaces=extra_workspaces)
+    app_ = create_app(
+        settings=settings,
+        workspace=workspace,
+        workspaces=extra_workspaces,
+        auth_password=auth_password,
+    )
 
     chosen = _find_free_port(host, port, port_range)
     if chosen is None:
@@ -495,6 +506,8 @@ def web(
         raise typer.Exit(code=1)
     if chosen != port:
         console.print(f"[yellow]Port {port} in use, using {chosen} instead.[/]")
+    if auth_password:
+        console.print("[yellow]Web UI is password-protected.[/]")
     console.print(f"[green]Web UI:[/] http://{host}:{chosen}  (workdir: {workspace})")
 
     import time

@@ -8,7 +8,27 @@ from datetime import datetime
 from pathlib import Path
 
 from lumina.config import workspace_data_dir
-from lumina.types import Message, ToolCall, Usage
+from lumina.types import Message, ToolCall, Usage, content_text
+
+# Messages whose content is an OpenAI parts list (text + image_url) are stored
+# as JSON under this marker prefix so a plain string can never be misread.
+_PARTS_PREFIX = "\x00lumina-parts\x00"
+
+
+def _ser_content(content: str | list | None) -> str | None:
+    if isinstance(content, list):
+        return _PARTS_PREFIX + json.dumps(content, ensure_ascii=False)
+    return content
+
+
+def _deser_content(raw: str | None) -> str | list | None:
+    if isinstance(raw, str) and raw.startswith(_PARTS_PREFIX):
+        try:
+            return json.loads(raw[len(_PARTS_PREFIX):])
+        except ValueError:
+            return raw
+    return raw
+
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS sessions (
@@ -191,7 +211,7 @@ class SessionStore:
                 (
                     session_id,
                     message.role,
-                    message.content,
+                    _ser_content(message.content),
                     tool_calls,
                     message.tool_call_id,
                     message.name,
@@ -214,7 +234,7 @@ class SessionStore:
             messages.append(
                 Message(
                     role=r["role"],
-                    content=r["content"],
+                    content=_deser_content(r["content"]),
                     tool_calls=tool_calls,
                     tool_call_id=r["tool_call_id"],
                     name=r["name"],
@@ -358,18 +378,25 @@ class SessionStore:
                 "FROM messages m JOIN sessions s ON s.id = m.session_id "
                 "WHERE m.role IN ('user', 'assistant') AND m.content IS NOT NULL "
                 "  AND m.content LIKE ? AND s.workspace = ? "
-                "ORDER BY m.id DESC LIMIT ?",
-                (like, str(Path(workspace).resolve()), int(limit)),
+                "ORDER BY m.id DESC",
+                (like, str(Path(workspace).resolve())),
             ).fetchall()
-        return [
-            {
-                "session_id": int(r["sid"]),
-                "role": r["role"],
-                "title": r["title"] or "新会话",
-                "snippet": _snippet(r["content"] or "", query),
-            }
-            for r in rows
-        ]
+        results: list[dict] = []
+        for r in rows:
+            text = content_text(_deser_content(r["content"]))
+            if query.lower() not in text.lower():
+                continue
+            results.append(
+                {
+                    "session_id": int(r["sid"]),
+                    "role": r["role"],
+                    "title": r["title"] or "新会话",
+                    "snippet": _snippet(text, query),
+                }
+            )
+            if len(results) >= limit:
+                break
+        return results
 
     def usage_trend(self, workspace: Path, limit: int = 60) -> list[dict]:
         """Recent sessions with non-zero token usage, newest first."""
