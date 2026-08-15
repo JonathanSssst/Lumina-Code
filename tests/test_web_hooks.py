@@ -25,6 +25,21 @@ def app(tmp_path):
     return create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test"), workspace=tmp_path)
 
 
+def test_config_payload_includes_vision_flag(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    app = create_app(
+        settings=Settings(DEEPSEEK_API_KEY="sk-test"),
+        workspace=tmp_path,
+        config_env=tmp_path / ".env",
+    )
+    with TestClient(app) as c:
+        data = c.get("/api/config").json()
+        assert data["LUMINA_VISION"] is False
+        c.post("/api/config", json={"LUMINA_VISION": "true"})
+        data2 = c.get("/api/config").json()
+        assert data2["LUMINA_VISION"] is True
+
+
 def test_ws_hooks_has_all_loop_hook_attributes():
     hooks = WsHooks(ws=None)
     assert hooks.on_thinking_done is None
@@ -80,6 +95,19 @@ class _SharedTodoAgent:
         TodoTools(registry)
         self.registry = registry
 
+    async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
+        return AgentResult(
+            final_content="ok", iterations=1, tool_calls_made=0, total_tokens=5, stopped_reason="completed"
+        )
+
+    def reset_budget(self) -> None:
+        pass
+
+    async def aclose(self) -> None:
+        pass
+
+
+class _FakeAgent:
     async def run(self, content, history=None, persist=None, plan=None, persist_plan=None, user_content=None):
         return AgentResult(
             final_content="ok", iterations=1, tool_calls_made=0, total_tokens=5, stopped_reason="completed"
@@ -363,8 +391,11 @@ def test_message_view_flattens_parts_for_frontend():
     assert view["images"] == ["data:image/png;base64,AAAA"]
 
 
-def test_ws_multimodal_message_roundtrip(app, tmp_path, monkeypatch):
+def test_ws_multimodal_message_roundtrip(tmp_path, monkeypatch):
     """A message with images is stored as parts and resumes as text + images."""
+    from lumina.config import Settings
+
+    app = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test", LUMINA_VISION=True), workspace=tmp_path)
     calls = []
 
     class FakeAgent:
@@ -406,3 +437,61 @@ def test_ws_multimodal_message_roundtrip(app, tmp_path, monkeypatch):
     assert content_images(user_msgs[0].content) == ["data:image/png;base64,AAAA"]
     assert content_text(user_msgs[0].content) == "看看这张图"
     store.close()
+
+
+def test_ws_image_message_rejected_when_vision_disabled(app, tmp_path, monkeypatch):
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: _FakeAgent())
+    with TestClient(app) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()  # sessions
+        ws.send_json({
+            "type": "message",
+            "content": "看看这张图",
+            "images": ["data:image/png;base64,AAAA"],
+        })
+        err = None
+        while True:
+            m = ws.receive_json()
+            if m["type"] == "error":
+                err = m
+                break
+        assert "LUMINA_VISION" in err["message"]
+
+        store = SessionStore(default_db_path(tmp_path))
+        sessions = store.list_sessions(tmp_path)
+        assert len(sessions) == 1 and sessions[0].message_count == 0  # empty session, no image stored
+        store.close()
+
+
+def test_ws_continue_image_session_rejected_when_vision_disabled(tmp_path, monkeypatch):
+    """A session that already holds images must not continue without vision."""
+    from lumina.config import Settings
+
+    monkeypatch.setattr("lumina.web.app.build_agent", lambda *a, **k: _FakeAgent())
+
+    store = SessionStore(default_db_path(tmp_path))
+    sid = store.create_session(tmp_path)
+    store.append_message(sid, Message(role="user", content="看图"))
+    store.append_message(
+        sid,
+        Message(
+            role="user",
+            content=[
+                {"type": "text", "text": "看图"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+            ],
+        ),
+    )
+    store.close()
+
+    app2 = create_app(settings=Settings(DEEPSEEK_API_KEY="sk-test", LUMINA_VISION=False), workspace=tmp_path)
+    with TestClient(app2) as c, c.websocket_connect("/ws") as ws:
+        ws.receive_json()
+        ws.send_json({"type": "resume", "session_id": sid})
+        while True:
+            msg = ws.receive_json()
+            if msg["type"] == "history":
+                break
+        ws.send_json({"type": "continue"})
+        err = ws.receive_json()
+        assert err["type"] == "error"
+        assert "LUMINA_VISION" in err["message"]

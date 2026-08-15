@@ -102,6 +102,7 @@ OPENAI_PLANNER_MODEL=gpt-4o
 | `LUMINA_SAFE_COMMANDS` | `pytest,ruff,...` | 安全命令（自动放行） |
 | `LUMINA_WORKSPACES` | — | 附加工作区（逗号分隔），`lumina web` 中可切换 |
 | `LUMINA_WEB_PASSWORD` | — | Web UI 访问密码（等价于 `lumina web --password`），密码不落盘 |
+| `LUMINA_VISION` | `false` | 多模态图片输入开关；需配合支持视觉的模型（DeepSeek 不支持） |
 
 运行 `lumina doctor` 查看当前生效配置。
 
@@ -169,7 +170,7 @@ Web UI 特性：
 - 工作区选择：顶栏下拉切换，或打开「选择工作区」面板浏览 / 添加 / 删除项目目录（桌面窗口可用原生文件夹选择器）
 - 发送后「发送」按钮变为「停止」，回复结束后自动恢复
 - 会话导出（Markdown / JSON 下载）
-- 多模态输入：点击输入框左侧图片按钮粘贴 / 选择图片（最多 4 张、单张 ≤4MB），随消息发送给视觉模型
+- 多模态输入：点击输入框左侧图片按钮粘贴 / 选择图片（最多 4 张、单张 ≤4MB），随消息发送给视觉模型；需在设置中开启 `LUMINA_VISION` 并配置支持视觉的模型（DeepSeek 不支持图片）
 - 可选密码保护：`lumina web --password` 或 `LUMINA_WEB_PASSWORD`，访问 Web UI 需先登录
 - 深色 / 浅色主题一键切换（默认深色，本地记忆）
 - 任务因预算/迭代耗尽停止后显示「继续执行」按钮，一键断点续跑

@@ -138,6 +138,10 @@ class Settings(BaseSettings):
     # --- Web: extra workspace directories (comma-separated absolute paths) ---
     workspaces: str = Field(default="", alias="LUMINA_WORKSPACES")
 
+    # --- Multimodal: allow image input via the Web UI (requires a vision-capable
+    # model, e.g. an OpenAI-compatible vision endpoint; DeepSeek does not support it).
+    vision: bool = Field(default=False, alias="LUMINA_VISION")
+
     # --- Security ---
     danger_commands: str = Field(
         default="rm -rf,git push,git push --force,git reset --hard,git clean,drop database",

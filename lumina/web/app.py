@@ -42,6 +42,7 @@ _EDITABLE_KEYS = (
     "LUMINA_SELF_REVIEW",
     "LUMINA_TDD",
     "LUMINA_PROJECT_MEMORY",
+    "LUMINA_VISION",
 )
 
 
@@ -958,6 +959,12 @@ def create_app(
                         await ws.send_json({"type": "session", "session": session_payload(store, current_session)})
                     content = msg.get("content", "")
                     images = [str(i) for i in (msg.get("images") or []) if isinstance(i, str)]
+                    if images and not app.state.settings.vision:
+                        await ws.send_json({
+                            "type": "error",
+                            "message": "当前配置的模型不支持图片（LUMINA_VISION 未开启）。请使用支持视觉的模型并在设置中启用 LUMINA_VISION。",
+                        })
+                        continue
                     user_content = build_user_content(content, images)
                     history = store.get_messages(current_session)
                     store.append_message(current_session, Message(role="user", content=user_content))
@@ -1000,6 +1007,12 @@ def create_app(
                         continue
                     content = content_text(last_user.content)
                     images = content_images(last_user.content)
+                    if images and not app.state.settings.vision:
+                        await ws.send_json({
+                            "type": "error",
+                            "message": "该会话包含图片，但当前配置不支持（LUMINA_VISION 未开启）。请使用支持视觉的模型并在设置中启用 LUMINA_VISION。",
+                        })
+                        continue
                     user_content = build_user_content(content, images)
                     store.truncate_after_user(current_session, last_user_index)
                     store.append_message(current_session, Message(role="user", content=user_content))

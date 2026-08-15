@@ -21,6 +21,7 @@ let tokenUsed = 0;
 let inputImages = [];
 const MAX_IMAGES = 4;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+let visionEnabled = false;
 let authToken = "";
 try { authToken = localStorage.getItem("lumina-web-token") || ""; } catch(e) {}
 let loginVisible = false;
@@ -1178,6 +1179,14 @@ function send() {
 }
 
 /* ---------- image attachment ---------- */
+function syncVisionFlag(){
+  return fetch("/api/config").then(r => r.json()).then(cfg => {
+    visionEnabled = !!cfg.LUMINA_VISION;
+    const btn = document.getElementById("attachBtn");
+    if (btn) btn.style.display = visionEnabled ? "" : "none";
+    if (!visionEnabled) { inputImages = []; renderImagePreviews(); }
+  }).catch(() => {});
+}
 function pickImages(){
   const fi = document.getElementById("imgInput");
   if (fi) fi.click();
@@ -1885,6 +1894,7 @@ function saveModelConfig(){
     const note = document.getElementById("modelNote");
     note.textContent = res.ok ? t("已保存到 .env，新会话将使用新配置。") : (t("保存失败") + ": " + (res.message || ""));
     if (res.ok) renderModels(fields);
+    syncVisionFlag();
   });
 }
 function cmpVer(a, b){
@@ -2517,6 +2527,7 @@ loadSettings().then(() => {
   refreshWorkspaces().then(() => connectWS(document.getElementById("wsSel").value || ""));
   loadAgents();
   refreshServerStatus();
+  syncVisionFlag();
   setTimeout(maybeShowReleaseNotes, 300);
 });
 checkCliFirstRun();

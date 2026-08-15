@@ -157,6 +157,7 @@ var LUMINA_I18N = (function () {
     "完成时自我审查 (LUMINA_SELF_REVIEW)": "Self-review on completion (LUMINA_SELF_REVIEW)",
     "TDD 模式：先写测试再实现 (LUMINA_TDD)": "TDD mode: write tests first, then implement (LUMINA_TDD)",
     "项目记忆：用 AGENTS.md 记录约定 (LUMINA_PROJECT_MEMORY)": "Project memory: use AGENTS.md to record conventions (LUMINA_PROJECT_MEMORY)",
+    "多模态图片输入：发送图片给视觉模型 (LUMINA_VISION)": "Multimodal image input: send images to a vision model (LUMINA_VISION)",
 
     "选择工作区": "Select workspace",
     "切换要使用的项目目录。添加的工作区会保存到 <code>LUMINA_WORKSPACES</code>，下次启动仍可选用。": "Switch the project directory in use. Added workspaces are saved to <code>LUMINA_WORKSPACES</code> and remain available next launch.",
